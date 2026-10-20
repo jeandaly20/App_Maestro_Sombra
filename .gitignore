@@ -1,0 +1,14 @@
+venv/
+__pycache__/
+*.pyc
+.env
+media/
+staticfiles/
+logs/
+db.sqlite3
+.vscode/
+.idea/
+
+# Exportación de Stitch: solo de referencia temporal
+_stitch_temp/
+*.zip
