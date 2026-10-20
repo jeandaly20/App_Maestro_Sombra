@@ -47,20 +47,25 @@ with conectar_admin('postgres') as conn:
         ).format(sql.Identifier(APP_USER), sql.Literal(APP_PASSWORD)))
         print(f'Usuario "{APP_USER}" creado.')
 
-    if conn.execute('SELECT 1 FROM pg_database WHERE datname = %s', [DB_NAME]).fetchone():
-        print(f'La base "{DB_NAME}" ya existe.')
-    else:
-        conn.execute(sql.SQL(
-            "CREATE DATABASE {} OWNER {} ENCODING 'UTF8' TEMPLATE template0"
-        ).format(sql.Identifier(DB_NAME), sql.Identifier(APP_USER)))
-        print(f'Base "{DB_NAME}" creada.')
+    # La base de la app y la base de pruebas (los tests la reutilizan con --keepdb,
+    # así el usuario de la app no necesita permiso para crear bases)
+    for nombre in (DB_NAME, f'test_{DB_NAME}'):
+        if conn.execute('SELECT 1 FROM pg_database WHERE datname = %s', [nombre]).fetchone():
+            print(f'La base "{nombre}" ya existe.')
+        else:
+            conn.execute(sql.SQL(
+                "CREATE DATABASE {} OWNER {} ENCODING 'UTF8' TEMPLATE template0"
+            ).format(sql.Identifier(nombre), sql.Identifier(APP_USER)))
+            print(f'Base "{nombre}" creada.')
 
-    # Por defecto cualquier usuario del servidor puede conectarse; lo quitamos
-    conn.execute(sql.SQL('REVOKE ALL ON DATABASE {} FROM PUBLIC')
-                 .format(sql.Identifier(DB_NAME)))
+        # Por defecto cualquier usuario del servidor puede conectarse; lo quitamos
+        conn.execute(sql.SQL('REVOKE ALL ON DATABASE {} FROM PUBLIC')
+                     .format(sql.Identifier(nombre)))
 
-with conectar_admin(DB_NAME) as conn:
-    # Solo el dueño (el usuario de la app) puede usar el esquema public
-    conn.execute('REVOKE ALL ON SCHEMA public FROM PUBLIC')
+for nombre in (DB_NAME, f'test_{DB_NAME}'):
+    with conectar_admin(nombre) as conn:
+        # Solo el dueño (el usuario de la app) puede usar el esquema public
+        conn.execute('REVOKE ALL ON SCHEMA public FROM PUBLIC')
 
 print('Listo. Ahora ejecuta: venv\\Scripts\\python.exe manage.py migrate')
+print('Para las pruebas: venv\\Scripts\\python.exe manage.py test --keepdb')

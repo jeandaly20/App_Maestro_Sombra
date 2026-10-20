@@ -1,0 +1,13 @@
+{% if form.non_field_errors %}
+    <div class="aviso aviso--error" role="alert">
+        <span class="icono" aria-hidden="true">error</span>
+        <div>{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+    </div>
+{% endif %}
+{% for mensaje in messages %}
+    <div class="aviso aviso--{% if mensaje.tags == 'error' %}error{% elif mensaje.tags == 'success' %}exito{% else %}info{% endif %}"
+         role="{% if mensaje.tags == 'error' %}alert{% else %}status{% endif %}">
+        <span class="icono" aria-hidden="true">{% if mensaje.tags == 'error' %}error{% elif mensaje.tags == 'success' %}check_circle{% else %}info{% endif %}</span>
+        <p>{{ mensaje }}</p>
+    </div>
+{% endfor %}

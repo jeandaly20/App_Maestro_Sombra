@@ -126,6 +126,18 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = 'same-origin'
 
 
+# Correo (recuperar contraseña). En desarrollo el correo se muestra en la consola.
+
+EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+EMAIL_HOST = os.getenv('EMAIL_HOST', '')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+EMAIL_USE_TLS = True
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'Maestro Sombra <no-responder@maestrosombra.local>')
+PASSWORD_RESET_TIMEOUT = 60 * 60  # el enlace vence en 1 hora
+
+
 # Archivos subidos: máximo 10 MB por guía
 
 TAMANO_MAXIMO_MB = 10

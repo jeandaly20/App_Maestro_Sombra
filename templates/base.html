@@ -1,0 +1,21 @@
+{% load static %}<!doctype html>
+<html lang="es-EC">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block titulo %}Maestro Sombra{% endblock %} · Maestro Sombra</title>
+    <meta name="description" content="Aplicativo web de apoyo para docentes sombra en la automatización de adaptaciones curriculares inclusivas.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;600&family=Lexend:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=block">
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    {% block estilos %}{% endblock %}
+</head>
+<body>
+    <a class="saltar-contenido" href="#contenido">Saltar al contenido</a>
+    {% block cuerpo %}{% endblock %}
+    <script src="{% static 'js/formularios.js' %}" defer></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

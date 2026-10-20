@@ -1,0 +1,14 @@
+{% extends "app_base.html" %}
+
+{% block titulo %}Inicio{% endblock %}
+
+{% block contenido %}
+<div class="contenido__cabecera">
+    <h1>¡Hola, {{ user.get_short_name }}!</h1>
+    <p>Desde aquí registrarás a tus alumnos, adaptarás materiales y revisarás el banco de adaptaciones.</p>
+</div>
+<div class="tarjeta">
+    <h2>Panel en construcción</h2>
+    <p>Las tarjetas de estudiantes, adaptaciones y métricas se agregan en la parte del panel principal.</p>
+</div>
+{% endblock %}

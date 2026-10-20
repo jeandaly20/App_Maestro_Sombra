@@ -1,0 +1,25 @@
+{% extends "cuentas/_tarjeta_simple.html" %}
+
+{% block titulo %}Términos y protección de datos{% endblock %}
+
+{% block tarjeta %}
+<h1 class="acceso__titulo">Términos de servicio y protección de datos</h1>
+<p class="acceso__intro">Al crear tu cuenta aceptas estas condiciones, basadas en la Ley Orgánica de Protección de Datos Personales del Ecuador (LOPDP, 2021).</p>
+
+<h2>1. Uso del sistema</h2>
+<p>Maestro Sombra es una herramienta de apoyo para docentes. Las adaptaciones que genera la inteligencia artificial deben ser revisadas por el docente antes de usarlas en el aula.</p>
+
+<h2>2. Datos de los estudiantes</h2>
+<p>Cada docente registra como máximo 3 estudiantes. El nombre y las observaciones se guardan cifrados y solo los ve el docente que los registró. El sistema identifica a cada estudiante con un seudónimo.</p>
+
+<h2>3. Uso de la inteligencia artificial</h2>
+<p>A la API de Google Gemini solo se envían el material escolar y la condición a adaptar. Nunca se envían el nombre, la fecha de nacimiento ni las observaciones del estudiante.</p>
+
+<h2>4. Responsabilidad del docente</h2>
+<p>El docente declara que cuenta con la autorización de la institución y de los representantes legales para registrar a los estudiantes, y se compromete a no subir materiales con datos personales.</p>
+
+<h2>5. Derechos</h2>
+<p>El docente puede solicitar al administrador la corrección o eliminación de sus datos y de los de sus estudiantes.</p>
+
+<a class="boton boton--secundario" href="{% url 'registro' %}">Volver al registro</a>
+{% endblock %}

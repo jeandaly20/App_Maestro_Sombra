@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block estilos %}<link rel="stylesheet" href="{% static 'css/app.css' %}">{% endblock %}
+
+{% block cuerpo %}
+<div class="app">
+    <aside class="menu-lateral" id="menu-lateral" aria-label="Menú principal">
+        <a class="marca" href="{% url 'inicio' %}">
+            <span class="marca__logo"><span class="icono" aria-hidden="true">auto_stories</span></span>
+            <span>
+                <span class="marca__nombre">Maestro Sombra</span>
+                <span class="marca__lema">Adaptación curricular inclusiva</span>
+            </span>
+        </a>
+
+        {% with actual=request.resolver_match.url_name %}
+        <nav class="menu-lateral__nav">
+            <ul>
+                <li><a class="menu-lateral__enlace" href="{% url 'inicio' %}" {% if actual == 'inicio' %}aria-current="page"{% endif %}>
+                    <span class="icono" aria-hidden="true">dashboard</span>Inicio</a></li>
+                <li><a class="menu-lateral__enlace" href="{% url 'inicio' %}">
+                    <span class="icono" aria-hidden="true">groups</span>Registro de alumnos</a></li>
+                <li><a class="menu-lateral__enlace" href="{% url 'inicio' %}">
+                    <span class="icono" aria-hidden="true">auto_fix_high</span>Adaptar material</a></li>
+                <li><a class="menu-lateral__enlace" href="{% url 'inicio' %}">
+                    <span class="icono" aria-hidden="true">folder_special</span>Banco de adaptaciones</a></li>
+            </ul>
+        </nav>
+        {% endwith %}
+
+        <div class="menu-lateral__pie">
+            <form method="post" action="{% url 'salir' %}">
+                {% csrf_token %}
+                <button type="submit" class="boton boton--secundario boton--bloque">
+                    <span class="icono" aria-hidden="true">logout</span>Cerrar sesión
+                </button>
+            </form>
+        </div>
+    </aside>
+
+    <div>
+        <header class="encabezado">
+            <button type="button" class="boton boton--secundario encabezado__menu-movil" data-abrir-menu
+                    aria-controls="menu-lateral" aria-expanded="false">
+                <span class="icono" aria-hidden="true">menu</span>Menú
+            </button>
+            <div class="usuario">
+                <div class="usuario__texto">
+                    <p class="usuario__nombre">{{ user.nombre_completo }}</p>
+                    <p class="usuario__rol">{{ user.get_especialidad_display|default:"Docente" }}</p>
+                </div>
+                <span class="usuario__iniciales" aria-hidden="true">{{ user.iniciales }}</span>
+            </div>
+        </header>
+
+        <main class="contenido" id="contenido">
+            {% include "includes/mensajes.html" %}
+            {% block contenido %}{% endblock %}
+        </main>
+    </div>
+</div>
+{% endblock %}

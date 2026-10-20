@@ -86,5 +86,10 @@ class Docente(AbstractUser):
     def get_short_name(self):
         return self.nombre_completo.split(' ')[0] if self.nombre_completo else self.email
 
+    @property
+    def iniciales(self):
+        palabras = self.nombre_completo.split()
+        return ''.join(p[0] for p in palabras[:2]).upper() or self.email[0].upper()
+
     def __str__(self):
         return self.nombre_completo or self.email

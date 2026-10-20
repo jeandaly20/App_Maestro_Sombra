@@ -1,0 +1,161 @@
+/* Estructura de las pantallas internas: menú lateral + encabezado + contenido */
+
+.app {
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+    min-height: 100vh;
+}
+
+/* ---------- Menú lateral ---------- */
+
+.menu-lateral {
+    position: sticky;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--esp-lg);
+    height: 100vh;
+    padding: var(--esp-lg);
+    border-right: 1px solid var(--color-borde);
+    background: var(--color-superficie-baja);
+    overflow-y: auto;
+}
+
+.menu-lateral__nav ul {
+    display: grid;
+    gap: var(--esp-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.menu-lateral__enlace {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 48px;
+    padding: 0.625rem 0.875rem;
+    border-radius: var(--radio-sm);
+    color: var(--color-texto);
+    font-family: var(--fuente-titulos);
+    font-weight: 500;
+    text-decoration: none;
+}
+
+.menu-lateral__enlace:hover {
+    background: var(--color-superficie-media);
+    color: var(--color-texto);
+}
+
+.menu-lateral__enlace[aria-current="page"] {
+    background: var(--color-superficie);
+    color: var(--color-primario);
+    box-shadow: inset 4px 0 0 var(--color-primario);
+}
+
+.menu-lateral__pie {
+    margin-top: auto;
+    color: var(--color-texto-tenue);
+    font-size: 0.8125rem;
+}
+
+/* ---------- Encabezado ---------- */
+
+.encabezado {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--esp-md);
+    padding: 0.75rem var(--esp-xl);
+    border-bottom: 1px solid var(--color-borde);
+    background: rgba(249, 249, 255, 0.95);
+}
+
+.encabezado__menu-movil {
+    display: none;
+    margin-right: auto;
+}
+
+.usuario {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-align: right;
+}
+
+.usuario__nombre {
+    margin: 0;
+    font-family: var(--fuente-titulos);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.usuario__rol {
+    margin: 0;
+    color: var(--color-texto-suave);
+    font-size: 0.8125rem;
+    line-height: 1.3;
+}
+
+.usuario__iniciales {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--color-primario-suave);
+    color: var(--color-primario);
+    font-family: var(--fuente-titulos);
+    font-weight: 600;
+}
+
+/* ---------- Contenido ---------- */
+
+.contenido {
+    padding: var(--esp-xl);
+}
+
+.contenido__cabecera {
+    margin-bottom: var(--esp-xl);
+}
+
+@media (max-width: 960px) {
+    .app {
+        grid-template-columns: 1fr;
+    }
+
+    .menu-lateral {
+        position: fixed;
+        inset: 0 auto 0 0;
+        z-index: 50;
+        width: 280px;
+        transform: translateX(-100%);
+        transition: transform 0.2s;
+    }
+
+    .menu-lateral[data-abierto="true"] {
+        transform: translateX(0);
+        box-shadow: var(--sombra-modal);
+    }
+
+    .encabezado {
+        padding: 0.75rem var(--esp-md);
+    }
+
+    .encabezado__menu-movil {
+        display: inline-flex;
+    }
+
+    .contenido {
+        padding: var(--esp-lg) var(--esp-md);
+    }
+
+    .usuario__texto {
+        display: none;
+    }
+}
