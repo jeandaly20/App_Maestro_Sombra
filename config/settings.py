@@ -1,11 +1,12 @@
 """
-Configuración de Maestro Sombra.
+Maestro Sombra settings.
 
-Las claves y credenciales viven en .env (nunca se suben a Git).
-Los controles de seguridad siguen ISO/IEC 27001:2022, Anexo A
-(ver docs/Normas_ISO.md).
+Keys and credentials live in .env (never committed to Git).
+Security controls follow ISO/IEC 27001:2022, Annex A (see docs/Normas_ISO.md).
+Code and database are in English; everything the user sees is in Spanish.
 """
 import os
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -20,13 +21,13 @@ DEBUG = os.getenv('DJANGO_DEBUG', 'False') == 'True'
 
 ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
-# Clave Fernet para cifrar los datos personales de los estudiantes (apps/nucleo/fields.py)
+# Fernet key used to encrypt students' personal data (apps/core/fields.py)
 FIELD_ENCRYPTION_KEY = os.environ['FIELD_ENCRYPTION_KEY']
 
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
 
 
-# Aplicaciones
+# Applications
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -36,18 +37,17 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.postgres',
-    'apps.nucleo',
-    'apps.cuentas',
-    'apps.estudiantes',
-    'apps.materiales',
-    'apps.adaptaciones',
-    'apps.evaluaciones',
+    'apps.core',
+    'apps.accounts',
+    'apps.students',
+    'apps.materials',
+    'apps.adaptations',
+    'apps.evaluations',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -76,7 +76,7 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 
-# Base de datos: PostgreSQL con un usuario propio sin privilegios de administrador
+# Database: PostgreSQL with a dedicated, non-admin user
 
 DATABASES = {
     'default': {
@@ -91,11 +91,11 @@ DATABASES = {
 }
 
 
-# Autenticación: el docente inicia sesión con su correo (cuentas.Docente)
+# Authentication: teachers sign in with their email (accounts.Teacher)
 
-AUTH_USER_MODEL = 'cuentas.Docente'
+AUTH_USER_MODEL = 'accounts.Teacher'
 LOGIN_URL = 'login'
-LOGIN_REDIRECT_URL = '/'
+LOGIN_REDIRECT_URL = 'home'
 LOGOUT_REDIRECT_URL = 'login'
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -108,25 +108,25 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-# Sesión: máximo 8 horas (una jornada). "Mantener sesión iniciada" la extiende a 14 días.
+# Session: 8 hours max (one school day). "Keep me signed in" extends it to 14 days.
 SESSION_COOKIE_AGE = 60 * 60 * 8
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_HTTPONLY = True
 
-# En el servidor (DEBUG=False) las cookies solo viajan por HTTPS
+# On the server (DEBUG=False) cookies only travel over HTTPS
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
 SECURE_SSL_REDIRECT = not DEBUG
 SECURE_HSTS_SECONDS = 0 if DEBUG else 60 * 60 * 24 * 30
 
-# Cabeceras de seguridad
+# Security headers
 X_FRAME_OPTIONS = 'DENY'
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = 'same-origin'
 
 
-# Correo (recuperar contraseña). En desarrollo el correo se muestra en la consola.
+# Email (password reset). In development emails are printed to the console.
 
 EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
 EMAIL_HOST = os.getenv('EMAIL_HOST', '')
@@ -135,26 +135,28 @@ EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 EMAIL_USE_TLS = True
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'Maestro Sombra <no-responder@maestrosombra.local>')
-PASSWORD_RESET_TIMEOUT = 60 * 60  # el enlace vence en 1 hora
+PASSWORD_RESET_TIMEOUT = 60 * 60  # the reset link expires after 1 hour
 
 
-# Archivos subidos: máximo 10 MB por guía
+# Uploads: 10 MB max per worksheet
 
-TAMANO_MAXIMO_MB = 10
-DATA_UPLOAD_MAX_MEMORY_SIZE = TAMANO_MAXIMO_MB * 1024 * 1024
+MAX_UPLOAD_MB = 10
+DATA_UPLOAD_MAX_MEMORY_SIZE = MAX_UPLOAD_MB * 1024 * 1024
 FILE_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024
 FILE_UPLOAD_PERMISSIONS = 0o640
 
 
-# Idioma y hora de Ecuador. En la base las fechas se guardan en UTC (ISO 8601).
+# Language and time zone. The interface is always in Spanish, whatever the
+# browser language. Dates are stored in UTC (ISO 8601) and shown in Ecuador time.
 
-LANGUAGE_CODE = 'es-ec'
+LANGUAGE_CODE = 'es'
+LANGUAGES = [('es', 'Español')]
 TIME_ZONE = os.getenv('TIME_ZONE', 'America/Guayaquil')
 USE_I18N = True
 USE_TZ = True
 
 
-# Archivos estáticos (CSS, JS, fuentes) y archivos subidos
+# Static files (CSS, JS, fonts) and uploaded files
 
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
@@ -166,7 +168,7 @@ MEDIA_ROOT = BASE_DIR / 'media'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
-# Registro de eventos de seguridad (inicios de sesión, errores de la IA)
+# Security event log (sign-ins, AI errors)
 
 LOGS_DIR = BASE_DIR / 'logs'
 LOGS_DIR.mkdir(exist_ok=True)
@@ -182,8 +184,8 @@ LOGGING = {
         },
     },
     'handlers': {
-        'consola': {'class': 'logging.StreamHandler', 'formatter': 'iso'},
-        'archivo': {
+        'console': {'class': 'logging.StreamHandler', 'formatter': 'iso'},
+        'file': {
             'class': 'logging.handlers.RotatingFileHandler',
             'filename': LOGS_DIR / 'maestro_sombra.log',
             'maxBytes': 5 * 1024 * 1024,
@@ -193,7 +195,13 @@ LOGGING = {
         },
     },
     'loggers': {
-        'django.security': {'handlers': ['consola', 'archivo'], 'level': 'WARNING'},
-        'maestro_sombra': {'handlers': ['consola', 'archivo'], 'level': 'INFO'},
+        'django.security': {'handlers': ['console', 'file'], 'level': 'WARNING'},
+        'maestro_sombra': {'handlers': ['console', 'file'], 'level': 'INFO'},
     },
 }
+
+# Automated tests must not fill the real security log
+if 'test' in sys.argv:
+    for logger in LOGGING['loggers'].values():
+        logger['handlers'] = []
+        logger['propagate'] = False

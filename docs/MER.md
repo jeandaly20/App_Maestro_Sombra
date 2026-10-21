@@ -2,108 +2,123 @@
 
 Pega el bloque en https://mermaid.live y descárgalo como PNG o SVG.
 
+Las tablas y columnas están en inglés, igual que las que crea Django (`auth_group`, `django_session`). Lo que ve el usuario está en español.
+
 ```mermaid
 erDiagram
-    DOCENTE ||--o{ ESTUDIANTE : registra
-    DOCENTE ||--o{ MATERIAL_ORIGINAL : sube
-    MATERIA ||--o{ MATERIAL_ORIGINAL : clasifica
-    MATERIAL_ORIGINAL ||--o{ ADAPTACION_CURRICULAR : origina
-    ESTUDIANTE ||--o{ ADAPTACION_CURRICULAR : recibe
-    ADAPTACION_CURRICULAR |o--o{ ADAPTACION_CURRICULAR : regenera
-    ADAPTACION_CURRICULAR ||--o| EVALUACION : evaluada_en
+    TEACHER ||--o{ STUDENT : registers
+    TEACHER ||--o{ ORIGINAL_MATERIAL : uploads
+    SUBJECT ||--o{ ORIGINAL_MATERIAL : classifies
+    ORIGINAL_MATERIAL ||--o{ CURRICULAR_ADAPTATION : originates
+    STUDENT ||--o{ CURRICULAR_ADAPTATION : receives
+    CURRICULAR_ADAPTATION |o--o{ CURRICULAR_ADAPTATION : regenerates
+    CURRICULAR_ADAPTATION ||--o| EVALUATION : evaluated_in
 
-    DOCENTE {
+    TEACHER {
         uuid id PK
-        varchar nombre_completo
-        varchar email UK "minúsculas"
-        varchar password "hash PBKDF2"
-        varchar especialidad "CHECK"
-        boolean acepta_terminos
-        timestamptz fecha_aceptacion_terminos
+        varchar full_name
+        varchar email UK "lowercase"
+        varchar password "PBKDF2 hash"
+        varchar specialty "CHECK"
+        boolean accepted_terms
+        timestamptz terms_accepted_at
         boolean is_active
-        boolean is_staff "administrador"
+        boolean is_staff "administrator"
         timestamptz last_login
         timestamptz date_joined
     }
-    MATERIA {
+    SUBJECT {
         bigint id PK
-        varchar nombre UK
-        varchar abreviatura UK
+        varchar name UK
+        varchar code UK
     }
-    ESTUDIANTE {
+    STUDENT {
         uuid id PK
-        uuid docente_id FK
-        varchar seudonimo UK "EST-XXXXXX"
-        text nombre "cifrado"
-        date fecha_nacimiento
-        varchar grado "CHECK"
-        varchar_array condiciones "CHECK"
-        text observaciones "cifrado"
-        timestamptz creado
-        timestamptz actualizado
+        uuid teacher_id FK
+        varchar pseudonym UK "EST-XXXXXX"
+        text name "encrypted"
+        date birth_date
+        varchar grade "CHECK"
+        varchar_array conditions "CHECK"
+        text notes "encrypted"
+        timestamptz created_at
+        timestamptz updated_at
     }
-    MATERIAL_ORIGINAL {
+    ORIGINAL_MATERIAL {
         uuid id PK
-        uuid docente_id FK
-        bigint materia_id FK
-        varchar titulo
-        varchar tema
-        varchar tipo_entrada "FOTO PDF WORD TEXTO"
-        varchar archivo "opcional"
-        varchar nombre_archivo
-        integer tamano_kb
-        text texto_ingresado "opcional"
-        varchar estado "PENDIENTE PROCESANDO PROCESADO ERROR"
-        jsonb analisis_ia
-        text error_ia
-        timestamptz creado
-        timestamptz actualizado
+        uuid teacher_id FK
+        bigint subject_id FK
+        varchar title
+        varchar topic
+        varchar input_type "PHOTO PDF WORD TEXT"
+        varchar file "optional"
+        varchar file_name
+        integer size_kb
+        text input_text "optional"
+        varchar status "PENDING PROCESSING PROCESSED ERROR"
+        jsonb ai_analysis
+        text ai_error
+        timestamptz created_at
+        timestamptz updated_at
     }
-    ADAPTACION_CURRICULAR {
+    CURRICULAR_ADAPTATION {
         uuid id PK
-        varchar codigo UK "ADAP-MAT-XXXXXX"
+        varchar code UK "ADAP-MAT-XXXXXX"
         uuid material_id FK
-        uuid estudiante_id FK
-        uuid adaptacion_origen_id FK "opcional"
+        uuid student_id FK
+        uuid source_adaptation_id FK "optional"
         smallint version
-        varchar condicion "CHECK"
-        varchar titulo
-        text descripcion
-        varchar_array ajustes_aplicados "CHECK"
-        varchar filtro_cromatico "CHECK"
-        jsonb contenido
-        varchar estado "EN_REVISION APROBADA EXPORTADA"
+        varchar condition "CHECK"
+        varchar title
+        text description
+        varchar_array applied_adjustments "CHECK"
+        varchar color_filter "CHECK"
+        jsonb content
+        varchar status "IN_REVIEW APPROVED EXPORTED"
         varchar pdf
-        varchar modelo_ia
-        integer tiempo_generacion_seg
-        timestamptz creado
-        timestamptz actualizado
+        varchar ai_model
+        integer generation_time_sec
+        timestamptz created_at
+        timestamptz updated_at
     }
-    EVALUACION {
+    EVALUATION {
         uuid id PK
-        uuid adaptacion_id FK, UK
-        varchar nivel_autonomia "AUTONOMO APOYO_PUNTUAL APOYO_CONSTANTE"
-        varchar comprension "SI DIFICULTAD NO"
-        varchar sobrecarga "NO LEVE EVIDENTE"
-        varchar rango_acierto "MENOS_50 ENTRE_50_75 MAS_75"
-        text observacion "cifrado"
-        boolean solicita_regeneracion
-        varchar estado "BORRADOR FINALIZADA"
-        text recomendacion_ia
-        timestamptz fecha_recomendacion
-        timestamptz creado
-        timestamptz actualizado
+        uuid adaptation_id FK, UK
+        varchar autonomy_level "AUTONOMOUS OCCASIONAL_SUPPORT CONSTANT_SUPPORT"
+        varchar comprehension "YES DIFFICULTY NO"
+        varchar overload "NONE MILD EVIDENT"
+        varchar accuracy_range "BELOW_50 BETWEEN_50_75 ABOVE_75"
+        text observation "encrypted"
+        boolean regeneration_requested
+        varchar status "DRAFT FINAL"
+        text ai_recommendation
+        timestamptz recommended_at
+        timestamptz created_at
+        timestamptz updated_at
     }
 ```
 
+## Nombres de las tablas en PostgreSQL
+
+Django antepone el nombre del módulo a cada tabla:
+
+| Entidad del MER | Tabla en PostgreSQL | Qué guarda |
+|---|---|---|
+| TEACHER | `accounts_teacher` | Docentes y administrador |
+| SUBJECT | `materials_subject` | Catálogo fijo de materias de EGB |
+| STUDENT | `students_student` | Estudiantes con NEE (máx. 3 por docente) |
+| ORIGINAL_MATERIAL | `materials_originalmaterial` | Guía que sube el docente |
+| CURRICULAR_ADAPTATION | `adaptations_curricularadaptation` | Guía adaptada por la IA |
+| EVALUATION | `evaluations_evaluation` | Evaluación del docente en el aula |
+
 ## Reglas de negocio (van debajo del diagrama en el documento)
 
-1. Un docente puede registrar como máximo 3 estudiantes con NEE (trigger en PostgreSQL).
+1. Un docente puede registrar como máximo 3 estudiantes con NEE (trigger `tr_max_students_per_teacher` en PostgreSQL).
 2. Una adaptación solo puede usar una condición que el estudiante tenga registrada.
-3. Cada regeneración crea una versión nueva (`version` + 1) que apunta a la anterior (`adaptacion_origen_id`).
+3. Cada regeneración crea una versión nueva (`version` + 1) que apunta a la anterior (`source_adaptation_id`).
 4. Cada versión tiene como máximo una evaluación.
-5. Una evaluación finalizada debe tener al menos la autonomía y la comprensión.
-6. Un material de tipo TEXTO lleva `texto_ingresado`; los de tipo FOTO, PDF o WORD llevan `archivo`.
+5. Una evaluación finalizada (`FINAL`) debe tener al menos la autonomía y la comprensión.
+6. Un material de tipo TEXT lleva `input_text`; los de tipo PHOTO, PDF o WORD llevan `file`.
 7. A Gemini se envían el material y la condición; nunca el nombre ni las observaciones del niño.
 
 ## Leyenda
@@ -111,6 +126,6 @@ erDiagram
 - **PK**: clave primaria.
 - **FK**: clave foránea.
 - **UK**: valor único.
-- **cifrado**: se guarda cifrado con Fernet.
+- **encrypted**: se guarda cifrado con Fernet.
 - **CHECK**: solo admite los valores del catálogo.
 - **jsonb**: respuesta estructurada de la IA.

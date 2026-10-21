@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block styles %}<link rel="stylesheet" href="{% static 'css/auth.css' %}">{% endblock %}
+
+{% block body %}
+<main class="auth-simple" id="content">
+    <section class="auth__main">
+        <a class="brand" href="{% url 'login' %}">
+            <span class="brand__logo"><span class="icon" aria-hidden="true">auto_stories</span></span>
+            <span class="brand__name">Maestro Sombra</span>
+        </a>
+        {% block card %}{% endblock %}
+    </section>
+</main>
+{% include "accounts/_footer.html" %}
+{% endblock %}

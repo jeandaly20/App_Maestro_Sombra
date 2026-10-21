@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Iniciar sesión{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{% static 'css/auth.css' %}">{% endblock %}
+
+{% block body %}
+<main class="auth" id="content">
+    <section class="auth__main" aria-labelledby="login-title">
+        <div class="auth__form">
+            <div class="brand">
+                <span class="brand__logo"><span class="icon" aria-hidden="true">auto_stories</span></span>
+                <div>
+                    <p class="brand__name">Maestro Sombra</p>
+                    <p class="brand__tagline">Plataforma pedagógica para necesidades educativas especiales</p>
+                </div>
+            </div>
+
+            <h1 class="auth__title" id="login-title">Bienvenido a su aula inclusiva</h1>
+            <p class="auth__intro">Acceda a sus adaptaciones curriculares individualizadas y al seguimiento de sus estudiantes.</p>
+
+            {% include "includes/messages.html" %}
+
+            <form method="post" novalidate>
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ next }}">
+                {% include "includes/field.html" with field=form.username icon="mail" %}
+                {% url 'password_reset' as password_reset_url %}
+                {% include "includes/field.html" with field=form.password icon="lock" password=True link_url=password_reset_url link_text="¿Olvidó su contraseña?" %}
+
+                <div class="field">
+                    <label class="checkbox" for="{{ form.remember_me.id_for_label }}">
+                        {{ form.remember_me }}
+                        <span>{{ form.remember_me.label }}</span>
+                    </label>
+                </div>
+
+                <button type="submit" class="button button--primary button--block button--large">
+                    Iniciar sesión <span class="icon" aria-hidden="true">arrow_forward</span>
+                </button>
+            </form>
+
+            <p class="auth__form-footer">¿No tienes una cuenta aún? <a href="{% url 'register' %}">Regístrate</a></p>
+        </div>
+    </section>
+
+    <aside class="auth__aside" aria-label="Información del sistema">
+        <div class="info-panel info-panel--featured">
+            <p class="chip">Diseño Universal para el Aprendizaje</p>
+            <h2>Adaptar no es recortar contenido</h2>
+            <p class="info-panel__quote">Cada guía se reestructura con múltiples formas de representación, de acción y expresión, y de compromiso, según la necesidad de cada estudiante.</p>
+        </div>
+
+        <div class="info-panel">
+            <h2>Grupos que atiende el sistema</h2>
+            <ul class="group-list">
+                <li>
+                    <span class="chip chip--dea">DEA</span>
+                    <p><strong>Dificultades específicas del aprendizaje:</strong> dislexia y discalculia.</p>
+                </li>
+                <li>
+                    <span class="chip chip--neuro">Neurodesarrollo</span>
+                    <p><strong>TDAH</strong> y <strong>trastorno del espectro autista (TEA)</strong>.</p>
+                </li>
+                <li>
+                    <span class="chip chip--id">Discapacidad intelectual</span>
+                    <p>Niveles <strong>leve</strong> y <strong>moderado</strong>, con apoyo visual y lectura fácil.</p>
+                </li>
+            </ul>
+        </div>
+
+        <div class="info-panel info-panel--soft">
+            <h2><span class="icon" aria-hidden="true">verified_user</span> Datos protegidos</h2>
+            <p>Los nombres y observaciones de los estudiantes se guardan cifrados y nunca se envían a la inteligencia artificial, conforme a la Ley Orgánica de Protección de Datos Personales del Ecuador.</p>
+        </div>
+    </aside>
+</main>
+{% include "accounts/_footer.html" %}
+{% endblock %}

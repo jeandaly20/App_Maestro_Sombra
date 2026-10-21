@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Registro de docente{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{% static 'css/auth.css' %}">{% endblock %}
+
+{% block body %}
+<main class="auth auth--joined" id="content">
+    <section class="auth__main" aria-labelledby="register-title">
+        <div class="auth__form">
+            <div class="brand">
+                <span class="brand__logo"><span class="icon" aria-hidden="true">auto_stories</span></span>
+                <div>
+                    <p class="brand__name">Maestro Sombra <span class="chip chip--secondary">NEE / DUA</span></p>
+                    <h1 class="auth__brand-title" id="register-title">Registro de docente</h1>
+                </div>
+            </div>
+            <p class="auth__intro auth__intro--spaced">Crea tu cuenta para adaptar contenidos y acompañar a tus estudiantes con necesidades educativas especiales de forma personalizada.</p>
+
+            {% include "includes/messages.html" %}
+
+            <form method="post" novalidate>
+                {% csrf_token %}
+                {% include "includes/field.html" with field=form.full_name icon="person" %}
+                {% include "includes/field.html" with field=form.email icon="alternate_email" %}
+
+                <div class="field-row">
+                    {% include "includes/field.html" with field=form.password1 icon="lock" password=True %}
+                    {% include "includes/field.html" with field=form.password2 icon="lock_reset" %}
+                </div>
+
+                <div class="meter" data-strength-meter="id_password1" data-level="0" aria-live="polite">
+                    <div class="meter__header">
+                        <span>Nivel de seguridad de la contraseña:</span>
+                        <span data-meter-status>Por ingresar</span>
+                    </div>
+                    <div class="meter__bars" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+                    <ul class="meter__rules">
+                        <li data-rule="length"><span class="icon" aria-hidden="true">radio_button_unchecked</span>Mínimo 8 caracteres</li>
+                        <li data-rule="number"><span class="icon" aria-hidden="true">radio_button_unchecked</span>Un número</li>
+                        <li data-rule="uppercase"><span class="icon" aria-hidden="true">radio_button_unchecked</span>Una mayúscula</li>
+                        <li data-rule="symbol"><span class="icon" aria-hidden="true">radio_button_unchecked</span>Un símbolo</li>
+                    </ul>
+                </div>
+
+                {% include "includes/field.html" with field=form.specialty icon="school" %}
+
+                <div class="field">
+                    <label class="checkbox" for="{{ form.accepted_terms.id_for_label }}">
+                        {{ form.accepted_terms }}
+                        <span>Acepto los <a href="{% url 'terms' %}" target="_blank" rel="noopener">términos de servicio</a>
+                            y el tratamiento de datos personales de los estudiantes conforme a la <strong>LOPDP</strong>.</span>
+                    </label>
+                    {% for error in form.accepted_terms.errors %}
+                        <p class="field__error" id="{{ form.accepted_terms.auto_id }}_error"><span class="icon" aria-hidden="true">error</span>{{ error }}</p>
+                    {% endfor %}
+                </div>
+
+                <button type="submit" class="button button--primary button--block button--large">
+                    Crear cuenta <span class="icon" aria-hidden="true">arrow_forward</span>
+                </button>
+            </form>
+
+            <p class="auth__form-footer">¿Ya tienes una cuenta? <a href="{% url 'login' %}">Inicia sesión aquí</a></p>
+        </div>
+    </section>
+
+    <aside class="auth__aside" aria-label="Lo que incluye Maestro Sombra">
+        <div>
+            <p class="eyebrow">Todo en un solo lugar</p>
+            <h2>Pedagogía inclusiva simplificada</h2>
+        </div>
+        <ul class="benefit-list">
+            <li>
+                <span class="icon" aria-hidden="true">speed</span>
+                <div>
+                    <h3>Adaptaciones DUA en minutos</h3>
+                    <p>Lectura fácil, enunciados segmentados y secuencias paso a paso generadas con inteligencia artificial.</p>
+                </div>
+            </li>
+            <li>
+                <span class="icon" aria-hidden="true">badge</span>
+                <div>
+                    <h3>Fichas individuales NEE</h3>
+                    <p>Hasta 3 estudiantes por docente, con sus datos personales cifrados.</p>
+                </div>
+            </li>
+            <li>
+                <span class="icon" aria-hidden="true">print</span>
+                <div>
+                    <h3>Materiales listos para el aula</h3>
+                    <p>Exportación en PDF con tipografías de alta legibilidad (Lexend y OpenDyslexic).</p>
+                </div>
+            </li>
+        </ul>
+    </aside>
+</main>
+{% include "accounts/_footer.html" %}
+{% endblock %}

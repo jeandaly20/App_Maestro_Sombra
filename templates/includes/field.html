@@ -1,0 +1,25 @@
+{% comment %}
+Accessible form field: visible label, icon, help text and error linked to the control.
+Usage: {% include "includes/field.html" with field=form.email icon="mail" %}
+Optional: password=True (adds the show-password button), link_url and link_text.
+{% endcomment %}
+<div class="field">
+    <div class="field__header">
+        <label class="field__label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {% if link_url %}<a href="{{ link_url }}">{{ link_text }}</a>{% endif %}
+    </div>
+    <div class="field__wrapper">
+        {% if icon %}<span class="icon field__icon" aria-hidden="true">{{ icon }}</span>{% endif %}
+        {{ field }}
+        {% if password %}
+            <button type="button" class="field__action" data-toggle-password="{{ field.id_for_label }}"
+                    aria-label="Mostrar contraseña" aria-pressed="false">
+                <span class="icon" aria-hidden="true">visibility</span>
+            </button>
+        {% endif %}
+    </div>
+    {% if field.help_text %}<p class="field__help" id="{{ field.auto_id }}_helptext">{{ field.help_text }}</p>{% endif %}
+    {% for error in field.errors %}
+        <p class="field__error" id="{{ field.auto_id }}_error"><span class="icon" aria-hidden="true">error</span>{{ error }}</p>
+    {% endfor %}
+</div>
