@@ -202,6 +202,7 @@ LOGGING = {
 
 # Automated tests must not fill the real security log
 if 'test' in sys.argv:
+    LOGGING['handlers']['null'] = {'class': 'logging.NullHandler'}
     for logger in LOGGING['loggers'].values():
-        logger['handlers'] = []
+        logger['handlers'] = ['null']
         logger['propagate'] = False

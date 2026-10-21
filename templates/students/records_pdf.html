@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="es-EC">
+<head>
+<meta charset="utf-8">
+<title>Expedientes de estudiantes</title>
+<style>
+    @page { size: A4; margin: 2cm 1.8cm; @frame footer { -pdf-frame-content: footer; bottom: 1cm; margin-left: 1.8cm; margin-right: 1.8cm; height: 1cm; } }
+    body { font-family: Helvetica; font-size: 10.5pt; color: #111c2d; }
+    h1 { color: #00685f; font-size: 18pt; margin: 0 0 4pt; }
+    h2 { color: #00685f; font-size: 13pt; margin: 18pt 0 6pt; padding-bottom: 4pt; border-bottom: 1pt solid #99e2d8; }
+    .meta { color: #3d4947; font-size: 9pt; margin: 0; }
+    .confidential { margin: 10pt 0; padding: 6pt 8pt; background-color: #fff7ed; color: #8d4b00; font-size: 9pt; }
+    table { width: 100%; border-collapse: collapse; }
+    th { width: 32%; text-align: left; vertical-align: top; padding: 4pt 6pt; background-color: #f0f3ff; font-weight: bold; }
+    td { vertical-align: top; padding: 4pt 6pt; border-bottom: 0.5pt solid #e2e8f0; }
+    #footer { color: #5b6765; font-size: 8pt; text-align: center; }
+</style>
+</head>
+<body>
+    <h1>Expedientes de estudiantes con NEE</h1>
+    <p class="meta">Docente: {{ teacher.full_name }} · {{ teacher.email }}</p>
+    <p class="meta">Generado: {{ generated_at|date:"d/m/Y H:i" }} · Maestro Sombra</p>
+    <p class="confidential">Documento confidencial. Contiene datos personales de menores de edad protegidos por la Ley Orgánica de Protección de Datos Personales (LOPDP). No compartir fuera de la institución.</p>
+
+    {% for student in students %}
+        <h2>{{ forloop.counter }}. {{ student.name }}</h2>
+        <table>
+            <tr><th>Seudónimo</th><td>{{ student.pseudonym }}</td></tr>
+            <tr><th>Fecha de nacimiento</th><td>{{ student.birth_date|date:"d/m/Y" }} ({{ student.age }} años)</td></tr>
+            <tr><th>Grado</th><td>{{ student.get_grade_display }}</td></tr>
+            <tr><th>Condiciones NEE</th><td>{{ student.condition_labels|join:", " }}</td></tr>
+            <tr><th>Pautas de adaptación DUA</th><td>{{ student.recommended_adjustments|join:", " }}</td></tr>
+            <tr><th>Observaciones</th><td>{{ student.notes|default:"Sin observaciones."|linebreaksbr }}</td></tr>
+            <tr><th>Adaptaciones realizadas</th><td>{{ student.adaptation_count }}</td></tr>
+            <tr><th>Registrado / actualizado</th><td>{{ student.created_at|date:"d/m/Y" }} / {{ student.updated_at|date:"d/m/Y" }}</td></tr>
+        </table>
+    {% empty %}
+        <p>No hay estudiantes registrados.</p>
+    {% endfor %}
+
+    <div id="footer">Maestro Sombra · Expedientes confidenciales · Página <pdf:pagenumber> de <pdf:pagecount></div>
+</body>
+</html>

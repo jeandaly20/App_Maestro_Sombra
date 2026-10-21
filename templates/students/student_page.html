@@ -1,0 +1,159 @@
+{% extends "app_base.html" %}
+{% load static %}
+
+{% block title %}Registro de alumnos{% endblock %}
+{% block styles %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/students.css' %}">{% endblock %}
+{% block scripts %}<script src="{% static 'js/students.js' %}" defer></script>{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <p class="badge-line"><span class="icon" aria-hidden="true">verified_user</span>Expediente pedagógico confidencial · LOPDP</p>
+        <h1>Registro y ficha pedagógica del alumno con NEE</h1>
+        <p class="page-header__intro">Registra las necesidades del estudiante para que el sistema adapte la tipografía, los apoyos visuales y la carga cognitiva de cada ficha de trabajo.</p>
+    </div>
+    {% if students %}
+        <a class="button button--primary" href="{% url 'student_records_pdf' %}">
+            <span class="icon" aria-hidden="true">picture_as_pdf</span>Exportar expedientes (PDF)
+        </a>
+    {% endif %}
+</div>
+
+<div class="students-layout">
+    {# ---------- Form ---------- #}
+    <section class="card student-form" aria-labelledby="form-title">
+        <header class="student-form__header">
+            <span class="student-form__icon"><span class="icon" aria-hidden="true">badge</span></span>
+            <div>
+                <h2 id="form-title">{% if object %}Editar ficha de {{ object.name }}{% else %}Ficha de inclusión y adaptación{% endif %}</h2>
+                <p>{% if object %}Seudónimo {{ object.pseudonym }}{% else %}Educación General Básica{% endif %}</p>
+            </div>
+        </header>
+
+        {% if is_full and not object %}
+            <div class="alert alert--info" role="status">
+                <span class="icon" aria-hidden="true">groups</span>
+                <p>Ya registraste el máximo de {{ max_students }} estudiantes. Puedes editar sus fichas desde el directorio.</p>
+            </div>
+        {% else %}
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            <h3 class="form-section"><span class="icon" aria-hidden="true">id_card</span>1. Identificación del estudiante</h3>
+            {% include "includes/field.html" with field=form.name icon="sentiment_satisfied" %}
+            <div class="field-row">
+                <div>
+                    {% include "includes/field.html" with field=form.birth_date %}
+                    <p class="age-hint" data-age-for="{{ form.birth_date.id_for_label }}" aria-live="polite"></p>
+                </div>
+                {% include "includes/field.html" with field=form.grade icon="school" %}
+            </div>
+
+            <fieldset class="form-section-set" {% if form.conditions.errors %}aria-describedby="{{ form.conditions.auto_id }}_error"{% endif %}>
+                <legend class="form-section"><span class="icon" aria-hidden="true">psychology</span>2. Diagnóstico y condición NEE</legend>
+                <p class="field__help">Selecciona una o varias condiciones (comorbilidad).</p>
+                {% for error in form.conditions.errors %}
+                    <p class="field__error" id="{{ form.conditions.auto_id }}_error"><span class="icon" aria-hidden="true">error</span>{{ error }}</p>
+                {% endfor %}
+
+                {% for item in condition_groups %}
+                    <div class="condition-group condition-group--{{ item.group.key }}">
+                        <p class="condition-group__title"><span class="dot" aria-hidden="true"></span>Grupo {{ forloop.counter }}: {{ item.group.label }}</p>
+                        <div class="condition-options">
+                            {% for checkbox, name, description in item.options %}
+                                <label class="condition-option" for="{{ checkbox.id_for_label }}">
+                                    {{ checkbox.tag }}
+                                    <span>
+                                        <strong>{{ name }}</strong>
+                                        <small>{{ description }}</small>
+                                    </span>
+                                </label>
+                            {% endfor %}
+                        </div>
+                        <p class="condition-group__subtitle">Ajustes DUA recomendados automáticamente:</p>
+                        <ul class="pill-list">
+                            {% for label in item.group.adjustment_labels %}<li>{{ label }}</li>{% endfor %}
+                        </ul>
+                    </div>
+                {% endfor %}
+            </fieldset>
+
+            <h3 class="form-section"><span class="icon" aria-hidden="true">notes</span>3. Observaciones y recomendaciones pedagógicas</h3>
+            {% include "includes/field.html" with field=form.notes %}
+
+            <div class="student-form__footer">
+                <p><span class="icon" aria-hidden="true">lock</span>El nombre y las observaciones se guardan cifrados y nunca se envían a la IA (LOPDP).</p>
+                <div class="student-form__actions">
+                    {% if object %}<a class="button button--secondary" href="{% url 'student_list' %}">Cancelar</a>{% endif %}
+                    <button type="submit" class="button button--primary button--large">
+                        <span class="icon" aria-hidden="true">save</span>{% if object %}Guardar cambios{% else %}Guardar ficha del alumno{% endif %}
+                    </button>
+                </div>
+            </div>
+        </form>
+        {% endif %}
+    </section>
+
+    {# ---------- Directory ---------- #}
+    <section class="directory" aria-labelledby="directory-title">
+        <div class="card directory__header">
+            <div class="directory__title-row">
+                <h2 id="directory-title"><span class="icon" aria-hidden="true">groups</span>Directorio de alumnos</h2>
+                <span class="chip chip--primary">{{ students|length }}/{{ max_students }} (máximo {{ max_students }})</span>
+            </div>
+            {% if students %}
+                <label class="sr-only" for="directory-search">Filtrar por nombre o condición</label>
+                <div class="field__wrapper">
+                    <span class="icon field__icon" aria-hidden="true">search</span>
+                    <input class="field__control" type="search" id="directory-search" placeholder="Filtrar por nombre o condición..." data-directory-search>
+                </div>
+                <div class="filter-chips" role="group" aria-label="Filtrar por grupo">
+                    <button type="button" class="filter-chip" data-filter="all" aria-pressed="true">Todos</button>
+                    <button type="button" class="filter-chip" data-filter="dea" aria-pressed="false">DEA</button>
+                    <button type="button" class="filter-chip" data-filter="neuro" aria-pressed="false">Neurodesarrollo</button>
+                    <button type="button" class="filter-chip" data-filter="id" aria-pressed="false">Discapacidad intelectual</button>
+                </div>
+            {% endif %}
+        </div>
+
+        {% for student in students %}
+            <article class="card student-card{% if object.pk == student.pk %} student-card--editing{% endif %}"
+                     data-student data-groups="{{ student.group_keys }}"
+                     data-search="{{ student.name|lower }} {{ student.condition_labels|join:' '|lower }}">
+                <header class="student-card__header">
+                    <span class="avatar avatar--{{ student.groups.0.key }}" aria-hidden="true">{{ student.initials }}</span>
+                    <div class="student-card__identity">
+                        <h3>{{ student.name }}</h3>
+                        <p>{{ student.get_grade_display }} · {{ student.age }} años · {{ student.pseudonym }}</p>
+                    </div>
+                    <span class="student-card__count"><span class="icon" aria-hidden="true">auto_fix_high</span>{{ student.adaptation_count }} adaptada{{ student.adaptation_count|pluralize }}</span>
+                </header>
+                <ul class="chip-list">
+                    {% for label, group_key in student.condition_badges %}<li><span class="chip chip--{{ group_key }}">{{ label }}</span></li>{% endfor %}
+                </ul>
+                <div class="student-card__guidelines">
+                    <p class="condition-group__subtitle">Pautas de adaptación automáticas:</p>
+                    <p>{{ student.recommended_adjustments|join:", " }}.</p>
+                </div>
+                <footer class="student-card__footer">
+                    {% if object.pk == student.pk %}
+                        <span class="student-card__updated student-card__updated--editing"><span class="icon" aria-hidden="true">edit_note</span>Editando ahora</span>
+                    {% else %}
+                        <span class="student-card__updated"><span class="icon" aria-hidden="true">schedule</span>Actualizado hace {{ student.updated_at|timesince }}</span>
+                    {% endif %}
+                    <a class="button button--secondary" href="{% url 'student_edit' student.pk %}">Editar</a>
+                    <span class="button button--primary" aria-disabled="true" title="Disponible en la parte de Adaptar material">
+                        <span class="icon" aria-hidden="true">add_task</span>Adaptar tarea
+                    </span>
+                </footer>
+            </article>
+        {% empty %}
+            <div class="card directory__empty">
+                <span class="icon" aria-hidden="true">person_add</span>
+                <p>Aún no registras estudiantes. Completa la ficha para agregar al primero.</p>
+            </div>
+        {% endfor %}
+        <p class="directory__no-results" data-no-results hidden>Ningún estudiante coincide con el filtro.</p>
+    </section>
+</div>
+{% endblock %}

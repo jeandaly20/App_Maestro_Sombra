@@ -12,10 +12,23 @@ class Condition(models.TextChoices):
     ID_MODERATE = 'ID_MODERATE', 'Discapacidad intelectual moderada'
 
 
-CONDITION_GROUPS = {
-    'DEA': [Condition.DYSLEXIA, Condition.DYSCALCULIA],
-    'Neurodesarrollo': [Condition.ADHD, Condition.ASD],
-    'Discapacidad intelectual': [Condition.ID_MILD, Condition.ID_MODERATE],
+# Names used inside each group box, where the group already gives the context
+CONDITION_SHORT_NAMES = {
+    Condition.DYSLEXIA: 'Dislexia',
+    Condition.DYSCALCULIA: 'Discalculia',
+    Condition.ADHD: 'TDAH',
+    Condition.ASD: 'TEA (espectro autista)',
+    Condition.ID_MILD: 'Leve',
+    Condition.ID_MODERATE: 'Moderada',
+}
+
+CONDITION_DESCRIPTIONS = {
+    Condition.DYSLEXIA: 'Dificultad en la lectura fluida',
+    Condition.DYSCALCULIA: 'Dificultad lógico-matemática',
+    Condition.ADHD: 'Atención dispersa e hiperactividad',
+    Condition.ASD: 'Procesamiento sensorial y estructura',
+    Condition.ID_MILD: 'Apoyos pedagógicos focalizados',
+    Condition.ID_MODERATE: 'Currículo adaptado significativo',
 }
 
 
@@ -42,6 +55,44 @@ class UdlAdjustment(models.TextChoices):
     EASY_READ = 'EASY_READ', 'Lectura fácil'
     FEWER_DISTRACTIONS = 'FEWER_DISTRACTIONS', 'Reducción de estímulos distractores'
     HIGH_CONTRAST = 'HIGH_CONTRAST', 'Alto contraste'
+
+
+class ConditionGroup:
+    """A group of SEN conditions and the UDL adjustments the system recommends for it."""
+
+    def __init__(self, key, label, conditions, adjustments):
+        self.key = key
+        self.label = label
+        self.conditions = conditions
+        self.adjustments = adjustments
+
+    @property
+    def adjustment_labels(self):
+        return [UdlAdjustment(value).label for value in self.adjustments]
+
+
+CONDITION_GROUPS = [
+    ConditionGroup(
+        'dea', 'DEA (Dificultades específicas del aprendizaje)',
+        [Condition.DYSLEXIA, Condition.DYSCALCULIA],
+        [UdlAdjustment.ACCESSIBLE_FONT, UdlAdjustment.SEGMENTATION, UdlAdjustment.VISUAL_SUPPORT],
+    ),
+    ConditionGroup(
+        'neuro', 'Neurodesarrollo',
+        [Condition.ADHD, Condition.ASD],
+        [UdlAdjustment.STEP_SEQUENCE, UdlAdjustment.FEWER_DISTRACTIONS, UdlAdjustment.VISUAL_SUPPORT],
+    ),
+    ConditionGroup(
+        'id', 'Discapacidad intelectual',
+        [Condition.ID_MILD, Condition.ID_MODERATE],
+        [UdlAdjustment.EASY_READ, UdlAdjustment.SEGMENTATION, UdlAdjustment.STEP_SEQUENCE],
+    ),
+]
+
+
+def group_of(condition):
+    """Returns the ConditionGroup a condition belongs to."""
+    return next(group for group in CONDITION_GROUPS if condition in group.conditions)
 
 
 class ColorFilter(models.TextChoices):

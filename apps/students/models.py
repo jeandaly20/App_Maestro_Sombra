@@ -6,7 +6,7 @@ from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from apps.core.choices import Condition, Grade
+from apps.core.choices import Condition, Grade, group_of
 from apps.core.fields import EncryptedTextField
 
 MAX_STUDENTS_PER_TEACHER = 3
@@ -58,12 +58,52 @@ class Student(models.Model):
         born = self.birth_date
         return today.year - born.year - ((today.month, today.day) < (born.month, born.day))
 
+    @property
+    def initials(self):
+        words = self.name.split()
+        return ''.join(w[0] for w in words[:2]).upper()
+
+    @property
+    def condition_labels(self):
+        return [Condition(value).label for value in self.conditions]
+
+    @property
+    def condition_badges(self):
+        """(label, group key) pairs, so each condition is colored by its own group."""
+        return [(Condition(value).label, group_of(value).key) for value in self.conditions]
+
+    @property
+    def groups(self):
+        """Condition groups of the student, without repeats and in catalog order."""
+        found = []
+        for condition in self.conditions:
+            group = group_of(condition)
+            if group not in found:
+                found.append(group)
+        return found
+
+    @property
+    def group_keys(self):
+        return ' '.join(group.key for group in self.groups)
+
+    @property
+    def recommended_adjustments(self):
+        """UDL adjustments recommended for all of the student's groups (shown as automatic guidelines)."""
+        labels = []
+        for group in self.groups:
+            for label in group.adjustment_labels:
+                if label not in labels:
+                    labels.append(label)
+        return labels
+
     def clean(self):
         if self.birth_date:
             if self.birth_date > date.today():
                 raise ValidationError({'birth_date': 'La fecha no puede ser futura.'})
             if not 3 <= self.age <= 18:
                 raise ValidationError({'birth_date': 'La edad debe estar entre 3 y 18 años.'})
+        if self.conditions and {Condition.ID_MILD, Condition.ID_MODERATE} <= set(self.conditions):
+            raise ValidationError({'conditions': 'Elige un solo nivel de discapacidad intelectual: leve o moderada.'})
         if self.teacher_id and self._state.adding:
             registered = Student.objects.filter(teacher_id=self.teacher_id).count()
             if registered >= MAX_STUDENTS_PER_TEACHER:

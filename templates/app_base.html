@@ -19,7 +19,7 @@
             <ul>
                 <li><a class="sidebar__link" href="{% url 'home' %}" {% if current == 'home' %}aria-current="page"{% endif %}>
                     <span class="icon" aria-hidden="true">dashboard</span>Inicio</a></li>
-                <li><a class="sidebar__link" href="{% url 'home' %}">
+                <li><a class="sidebar__link" href="{% url 'student_list' %}" {% if current == 'student_list' or current == 'student_edit' %}aria-current="page"{% endif %}>
                     <span class="icon" aria-hidden="true">groups</span>Registro de alumnos</a></li>
                 <li><a class="sidebar__link" href="{% url 'home' %}">
                     <span class="icon" aria-hidden="true">auto_fix_high</span>Adaptar material</a></li>
@@ -55,7 +55,7 @@
         </header>
 
         <main class="content" id="content">
-            {% include "includes/messages.html" %}
+            {% block messages %}{% include "includes/messages.html" %}{% endblock %}
             {% block content %}{% endblock %}
         </main>
     </div>

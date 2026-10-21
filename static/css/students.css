@@ -1,0 +1,427 @@
+/* Student registry: SEN record form + student directory */
+
+.page-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--space-lg);
+    margin-bottom: var(--space-xl);
+}
+
+.page-header h1 {
+    max-width: 22ch;
+    font-size: 2rem;
+}
+
+.page-header__intro {
+    max-width: 68ch;
+    margin: 0;
+    color: var(--color-text-soft);
+}
+
+.badge-line {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    margin-bottom: var(--space-sm);
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--radius-pill);
+    background: var(--color-primary-soft);
+    color: var(--color-primary);
+    font-family: var(--font-heading);
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+.badge-line .icon {
+    font-size: 1.125rem;
+}
+
+.students-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    gap: var(--space-lg);
+    align-items: start;
+}
+
+/* ---------- Form ---------- */
+
+.student-form__header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding-bottom: var(--space-lg);
+    margin-bottom: var(--space-lg);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.student-form__header h2 {
+    margin: 0;
+}
+
+.student-form__header p {
+    margin: 0;
+    color: var(--color-text-soft);
+    font-size: 0.875rem;
+}
+
+.student-form__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--color-primary-soft);
+    color: var(--color-primary);
+}
+
+.form-section {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin: var(--space-lg) 0 var(--space-md);
+    padding: 0;
+    color: var(--color-primary);
+    font-family: var(--font-heading);
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.form-section-set {
+    margin: 0 0 var(--space-lg);
+    padding: 0;
+    border: 0;
+}
+
+.age-hint {
+    margin: calc(-1 * var(--space-md)) 0 var(--space-md);
+    color: var(--color-primary);
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.age-hint:empty {
+    display: none;
+}
+
+.condition-group {
+    margin-top: var(--space-md);
+    padding: var(--space-md);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-low);
+}
+
+.condition-group__title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin: 0 0 var(--space-md);
+    font-family: var(--font-heading);
+    font-size: 1.0625rem;
+    font-weight: 600;
+}
+
+.dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.condition-group--dea .dot { color: var(--sen-dea); }
+.condition-group--neuro .dot { color: var(--sen-neuro); }
+.condition-group--id .dot { color: var(--sen-id); }
+
+.condition-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-sm);
+}
+
+.condition-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    min-height: 44px;
+    padding: 0.75rem var(--space-md);
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    cursor: pointer;
+}
+
+.condition-option:has(input:checked) {
+    border-color: var(--color-primary);
+    background: var(--color-primary-soft);
+}
+
+.condition-option input {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    margin: 2px 0 0;
+    accent-color: var(--color-primary);
+}
+
+.condition-option strong {
+    display: block;
+    font-family: var(--font-heading);
+    font-weight: 500;
+}
+
+.condition-option small {
+    color: var(--color-text-soft);
+    font-size: 0.8125rem;
+}
+
+.condition-group__subtitle {
+    margin: var(--space-md) 0 var(--space-sm);
+    color: var(--color-primary);
+    font-family: var(--font-heading);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.pill-list,
+.chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.pill-list li {
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+.student-form textarea.field__control {
+    min-height: 120px;
+    resize: vertical;
+}
+
+.student-form__footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-md);
+    padding-top: var(--space-lg);
+    border-top: 1px solid var(--color-border);
+}
+
+.student-form__footer p {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    max-width: 36ch;
+    margin: 0;
+    color: var(--color-text-soft);
+    font-size: 0.875rem;
+}
+
+.student-form__actions {
+    display: flex;
+    gap: var(--space-sm);
+}
+
+/* ---------- Directory ---------- */
+
+.directory {
+    display: grid;
+    gap: var(--space-md);
+}
+
+.directory__header {
+    display: grid;
+    gap: var(--space-md);
+}
+
+.directory__title-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-sm);
+}
+
+.directory__title-row h2 {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin: 0;
+}
+
+.filter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+}
+
+.filter-chip {
+    min-height: 36px;
+    padding: 0.25rem 0.875rem;
+    border: 1.5px solid var(--color-border-control);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-family: var(--font-heading);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.filter-chip[aria-pressed="true"] {
+    border-color: var(--color-primary);
+    background: var(--color-primary);
+    color: #fff;
+}
+
+.student-card {
+    display: grid;
+    gap: var(--space-md);
+}
+
+.student-card--editing {
+    border: 2px solid var(--color-primary);
+}
+
+.student-card__header {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+.student-card__identity {
+    flex: 1;
+    min-width: 0;
+}
+
+.student-card__identity h3 {
+    margin: 0;
+    font-size: 1.0625rem;
+}
+
+.student-card__identity p {
+    margin: 0;
+    color: var(--color-text-soft);
+    font-size: 0.8125rem;
+}
+
+.student-card__count {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    padding: 0.25rem 0.625rem;
+    border-radius: var(--radius-pill);
+    background: var(--color-surface-low);
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.student-card__count .icon {
+    font-size: 1rem;
+}
+
+.avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    font-family: var(--font-heading);
+    font-weight: 600;
+}
+
+.avatar--dea { background: var(--sen-dea-bg); color: var(--sen-dea); }
+.avatar--neuro { background: var(--sen-neuro-bg); color: var(--sen-neuro); }
+.avatar--id { background: var(--sen-id-bg); color: var(--sen-id); }
+
+.student-card__guidelines {
+    padding: 0.75rem var(--space-md);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface-low);
+    font-size: 0.875rem;
+}
+
+.student-card__guidelines .condition-group__subtitle {
+    margin-top: 0;
+}
+
+.student-card__guidelines p:last-child {
+    margin: 0;
+}
+
+.student-card__footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.student-card__updated {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    margin-right: auto;
+    color: var(--color-text-muted);
+    font-size: 0.8125rem;
+}
+
+.student-card__updated--editing {
+    color: var(--color-secondary);
+    font-weight: 600;
+}
+
+.student-card__updated .icon {
+    font-size: 1rem;
+}
+
+.button[aria-disabled="true"] {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.directory__empty {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    color: var(--color-text-soft);
+}
+
+.directory__empty p {
+    margin: 0;
+}
+
+.directory__no-results {
+    margin: 0;
+    color: var(--color-text-soft);
+    text-align: center;
+}
+
+@media (max-width: 1100px) {
+    .students-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 600px) {
+    .condition-options {
+        grid-template-columns: 1fr;
+    }
+}

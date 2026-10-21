@@ -10,6 +10,7 @@ admin.site.index_title = 'Panel del administrador'
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('cuenta/', include('apps.accounts.urls')),
+    path('alumnos/', include('apps.students.urls')),
     path('', include('apps.core.urls')),
 ]
 
