@@ -23,7 +23,7 @@
                     <span class="icon" aria-hidden="true">groups</span>Registro de alumnos</a></li>
                 <li><a class="sidebar__link" href="{% url 'adapt' %}" {% if current == 'adapt' or current == 'material_detail' or current == 'adaptation_edit' %}aria-current="page"{% endif %}>
                     <span class="icon" aria-hidden="true">auto_fix_high</span>Adaptar material</a></li>
-                <li><a class="sidebar__link" href="{% url 'home' %}">
+                <li><a class="sidebar__link" href="{% url 'bank' %}" {% if current == 'bank' or current == 'evaluation' %}aria-current="page"{% endif %}>
                     <span class="icon" aria-hidden="true">folder_special</span>Banco de adaptaciones</a></li>
             </ul>
         </nav>

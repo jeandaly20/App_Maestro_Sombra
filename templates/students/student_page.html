@@ -91,6 +91,14 @@
                 </div>
             </div>
         </form>
+        {% if object %}
+        <form method="post" action="{% url 'student_deactivate' object.pk %}" class="student-deactivate"
+              data-confirm="¿Dar de baja a {{ object.name }}? Dejará de aparecer en el directorio y se liberará un cupo. Sus adaptaciones y evaluaciones se conservan en el historial.">
+            {% csrf_token %}
+            <p><span class="icon" aria-hidden="true">person_off</span>¿El estudiante ya no está a tu cargo? Al darlo de baja se libera un cupo; su historial no se borra.</p>
+            <button type="submit" class="button button--danger"><span class="icon" aria-hidden="true">person_remove</span>Dar de baja</button>
+        </form>
+        {% endif %}
         {% endif %}
     </section>
 

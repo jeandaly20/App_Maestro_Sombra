@@ -225,7 +225,7 @@
 .meter__bars span {
     height: 6px;
     border-radius: var(--radius-pill);
-    background: var(--color-borderr-control);
+    background: var(--color-border-control);
 }
 
 .meter[data-level="1"] .meter__bars span:nth-child(-n+1) { background: var(--color-error); }

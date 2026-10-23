@@ -1,10 +1,12 @@
 """
-Google Gemini client (REST API) and the two prompts of the system:
+Google Gemini client (REST API) and the three prompts of the system:
 
 1. analyze_material: reads the worksheet ONCE (page images and/or text) with the multimodal
    model and returns its text, a description and location of every figure and the barriers detected.
 2. adapt_worksheet: restructures that content for one SEN condition following the
    UDL rules of udl_rules.py. It only receives text, never the original file again.
+3. recommend_next_steps: reads the teacher's classroom evaluation and advises how to adjust
+   the next adaptation.
 
 Privacy (LOPDP): the model never receives the student's name, notes or birth date;
 only the grade, the condition and the UDL adjustments.
@@ -295,6 +297,40 @@ def adapt_worksheet(*, analysis, subject, topic, grade, condition, adjustments, 
     prompt.append(SPELLING_RULE)
     content, model = generate_json(ADAPTATION_SYSTEM, [{'text': '\n\n'.join(prompt)}], ADAPTATION_SCHEMA)
     return normalize_adaptation(content, figure_count=len(figures)), model
+
+
+RECOMMENDATION_SCHEMA = {
+    'type': 'OBJECT',
+    'properties': {
+        'recommendation': {'type': 'STRING'},
+        'simplify': {'type': 'BOOLEAN'},
+    },
+    'required': ['recommendation', 'simplify'],
+}
+
+RECOMMENDATION_SYSTEM = (
+    'Eres un asesor pedagógico experto en Diseño Universal para el Aprendizaje (DUA) y educación inclusiva en '
+    'Ecuador. Lees cómo le fue a un estudiante con necesidades educativas especiales con una guía adaptada y '
+    'recomiendas al docente sombra, en 2 a 4 frases concretas, cómo ajustar la próxima adaptación (cantidad de '
+    'ejercicios, apoyos visuales, vocabulario, segmentación). Te diriges al docente de "usted", en español del '
+    'Ecuador con ortografía correcta. En "simplify" indicas si conviene regenerar una versión más simple.'
+)
+
+
+def recommend_next_steps(*, subject, topic, grade, condition, adjustments, summary, evaluation):
+    """Pedagogical advice from the teacher's classroom evaluation. Receives no personal data."""
+    prompt = '\n'.join([
+        f'Materia: {subject}. Tema: {topic}. Grado: {Grade(grade).label}. Condición: {condition_label(condition)}.',
+        'Ajustes DUA aplicados: ' + (', '.join(adjustments) or 'ninguno'),
+        f'Resumen de la guía adaptada: {summary or "(sin resumen)"}',
+        'Resultado en el aula:',
+        *[f'- {question}: {answer}' for question, answer in evaluation],
+    ])
+    data, model = generate_json(RECOMMENDATION_SYSTEM, [{'text': prompt}], RECOMMENDATION_SCHEMA)
+    text = (data.get('recommendation') or '').strip()
+    if not text:
+        raise AIError('La IA no devolvió una recomendación. Inténtalo de nuevo.')
+    return text, bool(data.get('simplify')), model
 
 
 SPELLING_RULE = (

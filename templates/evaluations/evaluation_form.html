@@ -1,0 +1,109 @@
+{% extends "app_base.html" %}
+{% load static %}
+
+{% block title %}Evaluación de comprensión{% endblock %}
+{% block styles %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/bank.css' %}">{% endblock %}
+{% block scripts %}<script src="{% static 'js/bank.js' %}" defer></script>{% endblock %}
+
+{% block content %}
+<nav class="breadcrumb" aria-label="Ruta">
+    <a href="{% url 'bank' %}">Banco de adaptaciones</a>
+    <span class="icon" aria-hidden="true">chevron_right</span>
+    <a href="{% url 'material_detail' adaptation.material_id %}?a={{ adaptation.pk }}">{{ adaptation.title }}</a>
+    <span class="icon" aria-hidden="true">chevron_right</span>
+    <span aria-current="page">Evaluación en el aula</span>
+</nav>
+
+<header class="card evaluation-header">
+    <div>
+        <p class="badge-line"><span class="icon" aria-hidden="true">fact_check</span>Ficha post-sesión pedagógica</p>
+        <h1>Evaluación de comprensión del alumno</h1>
+        <p class="evaluation-header__code"><span class="icon" aria-hidden="true">description</span>{{ adaptation.code }}: {{ adaptation.title }}</p>
+        <p class="page-header__intro">Responde estas preguntas después de aplicar la ficha en clase. Tus respuestas ayudan a ajustar la próxima adaptación o a regenerar este material.</p>
+    </div>
+    <div class="evaluation-student">
+        <span class="avatar avatar--{{ student.groups.0.key }}" aria-hidden="true">{{ student.initials }}</span>
+        <div>
+            <p class="evaluation-student__name">{{ student.name }}</p>
+            <p class="evaluation-student__grade">{{ student.get_grade_display }}</p>
+            <p class="evaluation-student__chips">{% for label, group in student.condition_badges %}<span class="chip chip--{{ group }}">{{ label }}</span>{% endfor %}</p>
+        </div>
+    </div>
+</header>
+
+{% if evaluation.status == 'FINAL' %}
+<div class="alert alert--success" role="status">
+    <span class="icon" aria-hidden="true">verified</span>
+    <p>Esta evaluación ya está finalizada. Si la cambias, el asistente actualizará su recomendación.</p>
+</div>
+{% endif %}
+
+<div class="evaluation-layout">
+    <form method="post" class="evaluation-form" novalidate data-busy="Guardando… el asistente está preparando la recomendación">
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+            <div class="alert alert--error" role="alert"><span class="icon" aria-hidden="true">error</span><p>{{ form.non_field_errors|join:" " }}</p></div>
+        {% endif %}
+
+        {% for question in form.questions %}
+            {% include "evaluations/_question.html" %}
+        {% endfor %}
+
+        <section class="card question">
+            <h2 class="question__title"><span class="question__number" aria-hidden="true">5</span>
+                <label for="{{ form.observation.id_for_label }}">{{ form.observation.label }}</label></h2>
+            <p class="question__hint">Detalles que la IA debe considerar. Se guarda cifrada y el nombre del estudiante nunca se envía a la IA.</p>
+            {{ form.observation }}
+            {% for error in form.observation.errors %}<p class="field__error" id="{{ form.observation.auto_id }}_error"><span class="icon" aria-hidden="true">error</span>{{ error }}</p>{% endfor %}
+        </section>
+
+        <section class="card regenerate-toggle">
+            <span class="regenerate-toggle__icon"><span class="icon" aria-hidden="true">auto_fix_high</span></span>
+            <div>
+                <p class="regenerate-toggle__eyebrow">Acción recomendada si hubo dificultad</p>
+                <label class="regenerate-toggle__label" for="{{ form.regeneration_requested.id_for_label }}">¿Deseas regenerar este material con mayor simplificación?</label>
+                <p>Al finalizar, el sistema creará una versión nueva con menos ejercicios, frases más cortas y más apoyos visuales. La versión actual se conserva.</p>
+            </div>
+            <span class="switch">{{ form.regeneration_requested }}</span>
+        </section>
+
+        <div class="evaluation-actions">
+            <button type="submit" name="action" value="draft" class="button button--secondary">
+                <span class="icon" aria-hidden="true">draft</span>Guardar borrador</button>
+            <a class="button button--ghost" href="{% url 'bank' %}">Cancelar</a>
+            <button type="submit" name="action" value="final" class="button button--primary button--large">
+                <span class="icon" aria-hidden="true">task_alt</span>Finalizar evaluación</button>
+        </div>
+    </form>
+
+    <aside class="evaluation-aside" aria-label="Material evaluado">
+        <section class="card aside-card">
+            <h2><span class="icon" aria-hidden="true">description</span>Material evaluado</h2>
+            <p class="code-chip">{{ adaptation.code }}</p>
+            <p class="aside-card__subject">{{ adaptation.material.subject.name }} · {{ student.get_grade_display }} · Versión {{ adaptation.version }}</p>
+            <p class="aside-card__title">{{ adaptation.title }}</p>
+            {% if adaptation.description %}<p>{{ adaptation.description }}</p>{% endif %}
+            <ul class="bank-card__adjustments">{% for label in adaptation.adjustment_labels %}<li>{{ label }}</li>{% endfor %}</ul>
+            <a class="button button--secondary button--block" href="{% url 'material_detail' adaptation.material_id %}?a={{ adaptation.pk }}" target="_blank" rel="noopener">
+                <span class="icon" aria-hidden="true">open_in_new</span>Abrir la adaptación</a>
+        </section>
+
+        {% if evaluation.ai_recommendation %}
+        <section class="card aside-card aside-card--advice">
+            <h2><span class="icon" aria-hidden="true">psychology</span>Sugerencia del asistente</h2>
+            <p>{{ evaluation.ai_recommendation }}</p>
+            <p class="aside-card__date">{{ evaluation.recommended_at|date:"j M Y, H:i" }}</p>
+        </section>
+        {% endif %}
+
+        <section class="card aside-card">
+            <h2><span class="icon" aria-hidden="true">history</span>Historial en {{ adaptation.material.subject.name }}</h2>
+            {% for past in history %}
+                <p class="history-row"><span>{{ past.adaptation.code }} · {{ past.adaptation.material.topic }}</span><strong>{{ past.outcome.label }}</strong></p>
+            {% empty %}
+                <p class="aside-card__empty">Es la primera evaluación de {{ student.name }} en esta materia.</p>
+            {% endfor %}
+        </section>
+    </aside>
+</div>
+{% endblock %}

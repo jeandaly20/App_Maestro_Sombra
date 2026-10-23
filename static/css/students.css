@@ -342,3 +342,37 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* ---------- Give a student leave (logical delete) ---------- */
+
+.student-deactivate {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-md);
+    margin-top: var(--space-lg);
+    padding: var(--space-md);
+    border: 1px solid var(--color-error-soft);
+    border-radius: var(--radius-md);
+}
+
+.student-deactivate p {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    max-width: 48ch;
+    margin: 0;
+    color: var(--color-text-soft);
+    font-size: 0.9375rem;
+}
+
+.button--danger {
+    border: 1.5px solid var(--color-error);
+    background: var(--color-surface);
+    color: var(--color-error);
+}
+
+.button--danger:hover {
+    background: var(--color-error-soft);
+}

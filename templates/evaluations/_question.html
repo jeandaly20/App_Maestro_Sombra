@@ -1,0 +1,23 @@
+{% comment %}
+One evaluation question answered with option cards (radio buttons).
+Receives "question" from EvaluationForm.questions(): number, field, hint, required and options (radio, icon).
+{% endcomment %}
+{% with field=question.field %}
+<fieldset class="card question" {% if field.errors %}aria-describedby="{{ field.auto_id }}_error"{% endif %}>
+    <legend class="question__title">
+        <span class="question__number" aria-hidden="true">{{ question.number }}</span>{{ field.label }}
+        {% if question.required %}<span class="question__required">Requerido para finalizar</span>{% endif %}
+    </legend>
+    <p class="question__hint">{{ question.hint }}</p>
+    <div class="option-cards">
+        {% for option, icon in question.options %}
+            <label class="option-card" for="{{ option.id_for_label }}">
+                {{ option.tag }}
+                <span class="icon option-card__icon" aria-hidden="true">{{ icon }}</span>
+                <span class="option-card__label">{{ option.choice_label }}</span>
+            </label>
+        {% endfor %}
+    </div>
+    {% for error in field.errors %}<p class="field__error" id="{{ field.auto_id }}_error"><span class="icon" aria-hidden="true">error</span>{{ error }}</p>{% endfor %}
+</fieldset>
+{% endwith %}

@@ -22,6 +22,7 @@ from xhtml2pdf import default as pisa_default
 from xhtml2pdf import pisa
 
 from apps.core.choices import ColorFilter, RecordStatus, UdlAdjustment
+from apps.evaluations.models import Evaluation, EvaluationStatus, Outcome
 from apps.materials.models import MaterialStatus, OriginalMaterial
 
 from . import ai, figures, services, visuals
@@ -190,6 +191,68 @@ class MaterialDetailView(LoginRequiredMixin, TemplateView):
             'is_already_adapted': 'Adaptación DUA revisada por el docente' in (material.ai_analysis or {}).get('extracted_text', ''),
         })
         return context
+
+
+class BankView(LoginRequiredMixin, TemplateView):
+    """Banco de adaptaciones: the newest version of every worksheet, its classroom outcome and filters."""
+    template_name = 'adaptations/bank.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        teacher = self.request.user
+        adaptations = (CurricularAdaptation.objects
+                       .filter(material__teacher=teacher, record_status=RecordStatus.ACTIVE,
+                               material__record_status=RecordStatus.ACTIVE, student__record_status=RecordStatus.ACTIVE)
+                       .select_related('material__subject', 'student', 'evaluation')
+                       .order_by('-updated_at'))
+        # One card per worksheet, student and condition: only its newest version
+        newest = {}
+        for adaptation in adaptations:
+            key = (adaptation.material_id, adaptation.student_id, adaptation.condition)
+            if key not in newest or adaptation.version > newest[key].version:
+                newest[key] = adaptation
+        cards = sorted(newest.values(), key=lambda a: a.updated_at, reverse=True)
+        for card in cards:
+            evaluation = evaluation_of(card)
+            card.outcome = evaluation.outcome
+            card.has_draft = evaluation.status == EvaluationStatus.DRAFT and not evaluation._state.adding
+
+        students = list(teacher.students.filter(record_status=RecordStatus.ACTIVE).order_by('created_at'))
+        for student in students:
+            student.card_count = sum(1 for card in cards if card.student_id == student.pk)
+        subjects = sorted({card.material.subject for card in cards}, key=lambda subject: subject.name)
+
+        selected_student = self.request.GET.get('alumno', '')
+        selected_subject = self.request.GET.get('materia', '')
+        selected_outcome = self.request.GET.get('resultado', '')
+        query = self.request.GET.get('q', '').strip()
+        shown = [
+            card for card in cards
+            if (not selected_student or str(card.student_id) == selected_student)
+            and (not selected_subject or card.material.subject.code == selected_subject)
+            and (not selected_outcome or card.outcome == selected_outcome)
+            and (not query or query.lower() in f'{card.title} {card.material.topic} {card.code}'.lower())
+        ]
+        # The latest AI advice for the chosen student (or for any student)
+        advised = [card.evaluation for card in cards
+                   if (not selected_student or str(card.student_id) == selected_student)
+                   and hasattr(card, 'evaluation') and card.evaluation.ai_recommendation]
+        advice = max(advised, key=lambda evaluation: evaluation.recommended_at, default=None)
+        context.update({
+            'cards': shown, 'total': len(cards), 'students': students, 'subjects': subjects,
+            'outcomes': Outcome.choices, 'advice': advice, 'query': query,
+            'selected_student': selected_student, 'selected_subject': selected_subject,
+            'selected_outcome': selected_outcome,
+        })
+        return context
+
+
+def evaluation_of(adaptation):
+    """The saved evaluation, or an empty one (pending) if the teacher has not evaluated yet."""
+    try:
+        return adaptation.evaluation
+    except Evaluation.DoesNotExist:
+        return Evaluation(adaptation=adaptation)
 
 
 class MaterialStatusView(LoginRequiredMixin, View):

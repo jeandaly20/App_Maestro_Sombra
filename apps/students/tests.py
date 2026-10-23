@@ -113,3 +113,15 @@ class StudentRegistryTests(TestCase):
         student.save()
         self.assertNotContains(self.client.get(self.url), 'Sofía Ramos')
         self.assertEqual(self.client.get(reverse('student_edit', args=[student.pk])).status_code, 404)
+
+    def test_give_student_leave(self):
+        student = self.add_student(name='Sofía Ramos')
+        response = self.client.post(reverse('student_deactivate', args=[student.pk]))
+        self.assertRedirects(response, self.url)
+        student.refresh_from_db()
+        self.assertEqual(student.record_status, 'INACTIVE')
+        self.assertNotContains(self.client.get(self.url), 'Sofía Ramos')
+        # Another teacher gets a 404
+        other = Teacher.objects.create_user('luis@correo.com', PASSWORD, full_name='Luis Mora')
+        foreign = self.add_student(teacher=other, name='Daniel Vera')
+        self.assertEqual(self.client.post(reverse('student_deactivate', args=[foreign.pk])).status_code, 404)

@@ -207,6 +207,20 @@
 
 .avatar--id { background: var(--sen-id-bg); color: var(--sen-id); }
 
+/* Shown while the AI works (adaptation, regeneration, evaluation) */
+.spinner {
+    width: 18px;
+    height: 18px;
+    border: 3px solid var(--color-primary-border);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
 .button[aria-disabled="true"] {
     opacity: 0.55;
     cursor: not-allowed;

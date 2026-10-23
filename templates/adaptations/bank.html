@@ -1,0 +1,140 @@
+{% extends "app_base.html" %}
+{% load static %}
+
+{% block title %}Banco de adaptaciones{% endblock %}
+{% block styles %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/bank.css' %}">{% endblock %}
+{% block scripts %}<script src="{% static 'js/bank.js' %}" defer></script>{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <p class="badge-line"><span class="icon" aria-hidden="true">folder_special</span>{{ total }} adaptaci{{ total|pluralize:"ón,ones" }} guardada{{ total|pluralize }}</p>
+        <h1>Banco de adaptaciones y seguimiento</h1>
+        <p class="page-header__intro">Historial de materiales adaptados, verificación del aprendizaje en el aula y regeneración simplificada.</p>
+    </div>
+    <a class="button button--primary" href="{% url 'adapt' %}"><span class="icon" aria-hidden="true">add_circle</span>Nueva adaptación</a>
+</div>
+
+{% if students %}
+<nav class="card bank-students" aria-label="Filtrar por estudiante">
+    <a class="bank-student" href="?{% if selected_subject %}materia={{ selected_subject }}{% endif %}" {% if not selected_student %}aria-current="true"{% endif %}>
+        <span class="avatar avatar--neuro" aria-hidden="true"><span class="icon">groups</span></span>
+        <span class="bank-student__text"><strong>Todos</strong><span>{{ total }} adaptaci{{ total|pluralize:"ón,ones" }}</span></span>
+    </a>
+    {% for student in students %}
+        <a class="bank-student" href="?alumno={{ student.pk }}{% if selected_subject %}&amp;materia={{ selected_subject }}{% endif %}"
+           {% if selected_student == student.pk|stringformat:"s" %}aria-current="true"{% endif %}>
+            <span class="avatar avatar--{{ student.groups.0.key }}" aria-hidden="true">{{ student.initials }}</span>
+            <span class="bank-student__text">
+                <strong>{{ student.name }}</strong>
+                <span>{{ student.get_grade_display }} · {{ student.card_count }} adaptaci{{ student.card_count|pluralize:"ón,ones" }}</span>
+            </span>
+        </a>
+    {% endfor %}
+</nav>
+{% endif %}
+
+<form class="bank-filters" method="get" role="search" aria-label="Filtrar adaptaciones">
+    {% if selected_student %}<input type="hidden" name="alumno" value="{{ selected_student }}">{% endif %}
+    <div class="filter-chips" role="group" aria-label="Materia">
+        <span class="bank-filters__label">Materia:</span>
+        <button type="submit" name="materia" value="" class="filter-chip" aria-pressed="{% if not selected_subject %}true{% else %}false{% endif %}">Todas</button>
+        {% for subject in subjects %}
+            <button type="submit" name="materia" value="{{ subject.code }}" class="filter-chip"
+                    aria-pressed="{% if selected_subject == subject.code %}true{% else %}false{% endif %}">{{ subject.name }}</button>
+        {% endfor %}
+    </div>
+    <div class="bank-filters__row">
+        <label class="sr-only" for="bank-outcome">Resultado en el aula</label>
+        <select class="field__control" id="bank-outcome" name="resultado" data-autosubmit>
+            <option value="">Todos los resultados</option>
+            {% for value, label in outcomes %}
+                <option value="{{ value }}" {% if selected_outcome == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        {% if selected_subject %}<input type="hidden" name="materia" value="{{ selected_subject }}">{% endif %}
+        <label class="sr-only" for="bank-search">Buscar por título, tema o código</label>
+        <div class="field__wrapper bank-filters__search">
+            <span class="icon field__icon" aria-hidden="true">search</span>
+            <input class="field__control" type="search" id="bank-search" name="q" value="{{ query }}" placeholder="Buscar por título, tema o código...">
+        </div>
+        <button type="submit" class="button button--secondary">Buscar</button>
+    </div>
+</form>
+
+{% if cards %}
+<div class="bank-grid">
+    {% for card in cards %}
+    <article class="card bank-card" aria-labelledby="card-{{ card.pk }}">
+        <div class="bank-card__body">
+            <p class="bank-card__tags">
+                <span class="code-chip">{{ card.code }}</span>
+                <span class="chip chip--secondary">{{ card.material.subject.name }}</span>
+                {% if card.version > 1 %}<span class="chip chip--primary">Versión {{ card.version }}</span>{% endif %}
+            </p>
+            <p class="outcome outcome--{{ card.outcome|lower }}">{{ card.outcome.label }}</p>
+            <h2 class="bank-card__title" id="card-{{ card.pk }}">{{ card.title }}</h2>
+            {% if card.description %}<p class="bank-card__summary">{{ card.description }}</p>{% endif %}
+            <p class="bank-card__student">
+                <span class="icon" aria-hidden="true">person</span>{{ card.student.name }} · {{ card.get_condition_display }}
+            </p>
+            {% if card.adjustment_labels %}
+            <ul class="bank-card__adjustments" aria-label="Ajustes DUA aplicados">
+                {% for label in card.adjustment_labels|slice:":3" %}<li>{{ label }}</li>{% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+        <footer class="bank-card__footer">
+            <p class="bank-card__meta">
+                <span>
+                    {% if card.outcome == 'PENDING' %}<span class="icon" aria-hidden="true">pending_actions</span>{% if card.has_draft %}Evaluación en borrador{% else %}Pendiente de registro en el aula{% endif %}
+                    {% else %}<span class="icon" aria-hidden="true">verified</span>Verificado en el aula · {{ card.evaluation.get_comprehension_display }}{% endif %}
+                </span>
+                <span>Última revisión: {{ card.updated_at|date:"j M" }}</span>
+            </p>
+            <div class="bank-card__actions">
+                <a class="button button--secondary" href="{% url 'material_detail' card.material_id %}?a={{ card.pk }}">
+                    <span class="icon" aria-hidden="true">visibility</span>Ver material</a>
+                {% if card.status != 'IN_REVIEW' %}
+                <a class="button button--secondary" href="{% url 'adaptation_pdf' card.pk %}">
+                    <span class="icon" aria-hidden="true">picture_as_pdf</span>PDF</a>
+                {% endif %}
+                <form method="post" action="{% url 'adaptation_action' card.pk %}" data-busy="Generando una versión más simple…">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="regenerate">
+                    {% if card.evaluation.observation %}<input type="hidden" name="feedback" value="{{ card.evaluation.observation }}">{% endif %}
+                    <button type="submit" class="button button--secondary{% if card.outcome == 'NEEDS_SIMPLER' %} button--warning{% endif %}">
+                        <span class="icon" aria-hidden="true">autorenew</span>Regenerar simplificado</button>
+                </form>
+                <a class="button button--primary" href="{% url 'evaluation' card.pk %}">
+                    <span class="icon" aria-hidden="true">fact_check</span>{% if card.outcome == 'PENDING' %}Evaluar en aula{% else %}Editar evaluación{% endif %}</a>
+            </div>
+        </footer>
+    </article>
+    {% endfor %}
+</div>
+{% elif total %}
+<div class="card bank-empty">
+    <span class="icon" aria-hidden="true">filter_alt_off</span>
+    <p>Ninguna adaptación coincide con los filtros.</p>
+    <a class="button button--secondary" href="{% url 'bank' %}">Quitar filtros</a>
+</div>
+{% else %}
+<div class="card bank-empty">
+    <span class="icon" aria-hidden="true">folder_open</span>
+    <p>Todavía no tienes adaptaciones guardadas.</p>
+    <a class="button button--primary" href="{% url 'adapt' %}">Adaptar mi primera guía</a>
+</div>
+{% endif %}
+
+{% if advice %}
+<section class="card advice" aria-labelledby="advice-title">
+    <span class="advice__icon"><span class="icon" aria-hidden="true">psychology</span></span>
+    <div>
+        <h2 id="advice-title">Recomendación pedagógica del asistente</h2>
+        <p class="advice__context">{{ advice.adaptation.student.name }} · {{ advice.adaptation.code }} · {{ advice.recommended_at|date:"j M Y" }}</p>
+        <p>{{ advice.ai_recommendation }}</p>
+    </div>
+</section>
+{% endif %}
+{% endblock %}

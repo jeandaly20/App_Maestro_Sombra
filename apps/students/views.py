@@ -7,6 +7,7 @@ from django.db import IntegrityError, InternalError, transaction
 from django.db.models import Count
 from django.http import HttpResponse
 from django.template.loader import render_to_string
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.views import View
@@ -92,6 +93,18 @@ class StudentUpdateView(StudentPageMixin, UpdateView):
             logger.info('Student updated: %s by teacher=%s', self.object.pseudonym, self.request.user.pk)
             messages.success(self.request, f'Ficha de {self.object.name} actualizada.')
         return response
+
+
+class StudentDeactivateView(LoginRequiredMixin, View):
+    """Gives a student leave: logical delete, so the history (adaptations, evaluations) is kept."""
+
+    def post(self, request, pk):
+        student = get_object_or_404(Student, pk=pk, teacher=request.user, record_status=RecordStatus.ACTIVE)
+        student.record_status = RecordStatus.INACTIVE
+        student.save(update_fields=['record_status', 'updated_at'])
+        logger.info('Student deactivated: %s by teacher=%s', student.pseudonym, request.user.pk)
+        messages.success(request, f'{student.name} fue dado de baja. Su historial se conserva y se liberó un cupo.')
+        return redirect('student_list')
 
 
 class StudentRecordsPdfView(LoginRequiredMixin, View):

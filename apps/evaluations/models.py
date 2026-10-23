@@ -36,6 +36,14 @@ class EvaluationStatus(models.TextChoices):
     FINAL = 'FINAL', 'Finalizada'
 
 
+class Outcome(models.TextChoices):
+    """How the worksheet worked in class, derived from a final evaluation (bank badges and filters)."""
+    PENDING = 'PENDING', 'Pendiente de evaluación'
+    NEEDS_SIMPLER = 'NEEDS_SIMPLER', 'Requiere mayor simplificación'
+    VERIFIED = 'VERIFIED', 'Verificado en aula'
+    SUCCESS = 'SUCCESS', 'Comprendido con éxito'
+
+
 class Evaluation(models.Model):
     """
     What the teacher observes after using the worksheet in class. Backs the
@@ -104,6 +112,28 @@ class Evaluation(models.Model):
                 check=models.Q(record_status__in=RecordStatus.values), name='evaluation_record_status_valid'
             ),
         ]
+
+    @property
+    def outcome(self):
+        if self.status != EvaluationStatus.FINAL:
+            return Outcome.PENDING
+        if (self.comprehension == Comprehension.NO or self.overload == Overload.EVIDENT
+                or self.accuracy_range == AccuracyRange.BELOW_50
+                or self.autonomy_level == AutonomyLevel.CONSTANT_SUPPORT):
+            return Outcome.NEEDS_SIMPLER
+        if self.comprehension == Comprehension.YES and self.autonomy_level == AutonomyLevel.AUTONOMOUS:
+            return Outcome.SUCCESS
+        return Outcome.VERIFIED
+
+    def answers(self):
+        """(question, answer) pairs in Spanish, as the teacher filled them in."""
+        rows = [
+            ('Autonomía', self.get_autonomy_level_display()),
+            ('Comprensión de la instrucción', self.get_comprehension_display()),
+            ('Sobrecarga o fatiga', self.get_overload_display()),
+            ('Ejercicios correctos', self.get_accuracy_range_display()),
+        ]
+        return [(question, answer) for question, answer in rows if answer]
 
     def __str__(self):
         return f'Evaluación de {self.adaptation.code}'

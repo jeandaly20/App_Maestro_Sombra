@@ -4,6 +4,7 @@ from . import views
 
 urlpatterns = [
     path('', views.AdaptView.as_view(), name='adapt'),
+    path('banco/', views.BankView.as_view(), name='bank'),
     path('material/<uuid:pk>/', views.MaterialDetailView.as_view(), name='material_detail'),
     path('material/<uuid:pk>/estado/', views.MaterialStatusView.as_view(), name='material_status'),
     path('material/<uuid:pk>/archivo/', views.MaterialFileView.as_view(), name='material_file'),

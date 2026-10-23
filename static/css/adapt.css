@@ -249,19 +249,6 @@
     color: var(--color-primary-hover);
 }
 
-.spinner {
-    width: 18px;
-    height: 18px;
-    border: 3px solid var(--color-primary-border);
-    border-top-color: var(--color-primary);
-    border-radius: 50%;
-    animation: spin 0.9s linear infinite;
-}
-
-@keyframes spin {
-    to { transform: rotate(360deg); }
-}
-
 /* ---------- Comparison ---------- */
 
 .adaptation-tabs {

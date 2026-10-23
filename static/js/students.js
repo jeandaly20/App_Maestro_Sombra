@@ -1,4 +1,4 @@
-// Student registry: live age and directory filters.
+// Student registry: live age, directory filters and leave confirmation.
 // Names are encrypted in the database, so filtering happens here, in the teacher's browser.
 'use strict';
 
@@ -22,6 +22,13 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         input.addEventListener('input', update);
         update();
+    });
+
+    // Giving a student leave asks for confirmation first
+    document.querySelectorAll('form[data-confirm]').forEach((form) => {
+        form.addEventListener('submit', (event) => {
+            if (!window.confirm(form.dataset.confirm)) event.preventDefault();
+        });
     });
 
     // Directory: search box + group chips
