@@ -124,6 +124,94 @@
     margin-bottom: var(--space-xl);
 }
 
+/* ---------- Shared page elements ---------- */
+
+.page-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--space-lg);
+    margin-bottom: var(--space-xl);
+}
+
+.page-header h1 {
+    max-width: 22ch;
+    font-size: 2rem;
+}
+
+.page-header__intro {
+    max-width: 68ch;
+    margin: 0;
+    color: var(--color-text-soft);
+}
+
+.badge-line {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    margin-bottom: var(--space-sm);
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--radius-pill);
+    background: var(--color-primary-soft);
+    color: var(--color-primary);
+    font-family: var(--font-heading);
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+.badge-line .icon {
+    font-size: 1.125rem;
+}
+
+.filter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+}
+
+.filter-chip {
+    min-height: 36px;
+    padding: 0.25rem 0.875rem;
+    border: 1.5px solid var(--color-border-control);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-family: var(--font-heading);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.filter-chip[aria-pressed="true"] {
+    border-color: var(--color-primary);
+    background: var(--color-primary);
+    color: #fff;
+}
+
+.avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    font-family: var(--font-heading);
+    font-weight: 600;
+}
+
+.avatar--dea { background: var(--sen-dea-bg); color: var(--sen-dea); }
+
+.avatar--neuro { background: var(--sen-neuro-bg); color: var(--sen-neuro); }
+
+.avatar--id { background: var(--sen-id-bg); color: var(--sen-id); }
+
+.button[aria-disabled="true"] {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
 @media (max-width: 960px) {
     .app {
         grid-template-columns: 1fr;

@@ -4,7 +4,7 @@ from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from apps.core.choices import ColorFilter, Condition, UdlAdjustment
+from apps.core.choices import ColorFilter, Condition, RecordStatus, UdlAdjustment
 from apps.materials.models import OriginalMaterial
 from apps.students.models import Student
 
@@ -56,10 +56,13 @@ class CurricularAdaptation(models.Model):
     pdf = models.FileField('PDF', upload_to=pdf_path, blank=True)
     ai_model = models.CharField('modelo de IA', max_length=50, blank=True)
     generation_time_sec = models.PositiveIntegerField('tiempo de generación (s)', null=True, blank=True)
+    record_status = models.CharField('estado del registro', max_length=8, choices=RecordStatus.choices,
+                                     default=RecordStatus.ACTIVE)
     created_at = models.DateTimeField('creado', auto_now_add=True)
     updated_at = models.DateTimeField('actualizado', auto_now=True)
 
     class Meta:
+        db_table = 'trx_curricular_adaptation'
         ordering = ['-created_at']
         verbose_name = 'adaptación curricular'
         verbose_name_plural = 'adaptaciones curriculares'
@@ -82,11 +85,18 @@ class CurricularAdaptation(models.Model):
             models.CheckConstraint(
                 check=~models.Q(source_adaptation=models.F('id')), name='adaptation_source_not_self'
             ),
+            models.CheckConstraint(
+                check=models.Q(record_status__in=RecordStatus.values), name='adaptation_record_status_valid'
+            ),
             models.UniqueConstraint(
                 fields=['material', 'student', 'condition', 'version'],
                 name='adaptation_version_unique',
             ),
         ]
+
+    @property
+    def adjustment_labels(self):
+        return [UdlAdjustment(value).label for value in self.applied_adjustments]
 
     def clean(self):
         if not (self.student_id and self.material_id):

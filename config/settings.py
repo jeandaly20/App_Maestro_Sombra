@@ -13,7 +13,8 @@ from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-load_dotenv(BASE_DIR / '.env')
+# override=True: the dev server's auto-reload re-reads .env, so a new key takes effect without restarting
+load_dotenv(BASE_DIR / '.env', override=True)
 
 SECRET_KEY = os.environ['DJANGO_SECRET_KEY']
 
@@ -25,6 +26,16 @@ ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split('
 FIELD_ENCRYPTION_KEY = os.environ['FIELD_ENCRYPTION_KEY']
 
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
+# The proposal named gemini-1.5-flash, which Google retired. The "latest" alias always
+# points to the current Flash model; the lite model is the fallback when it is overloaded.
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-flash-latest')
+GEMINI_FALLBACK_MODEL = os.getenv('GEMINI_FALLBACK_MODEL', 'gemini-flash-lite-latest')
+GEMINI_TIMEOUT_SECONDS = 60
+# The main model gets less time: if it is slow (overloaded) the fallback answers sooner
+GEMINI_PRIMARY_TIMEOUT_SECONDS = 25
+# Materials are processed in a background thread so the page can show the status;
+# tests set this to True to run the processing inline.
+AI_PROCESS_INLINE = False
 
 
 # Applications
@@ -200,8 +211,10 @@ LOGGING = {
     },
 }
 
-# Automated tests must not fill the real security log
+# Automated tests must not fill the real security log nor the real uploads folder
 if 'test' in sys.argv:
+    import tempfile
+    MEDIA_ROOT = Path(tempfile.mkdtemp(prefix='maestro_sombra_test_media_'))
     LOGGING['handlers']['null'] = {'class': 'logging.NullHandler'}
     for logger in LOGGING['loggers'].values():
         logger['handlers'] = ['null']

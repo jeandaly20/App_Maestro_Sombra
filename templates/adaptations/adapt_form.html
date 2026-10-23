@@ -1,0 +1,111 @@
+{% extends "app_base.html" %}
+{% load static %}
+
+{% block title %}Adaptar material{% endblock %}
+{% block styles %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/adapt.css' %}">{% endblock %}
+{% block scripts %}
+    {{ recommended_by_student|json_script:"recommended-adjustments" }}
+    <script src="{% static 'js/adapt.js' %}" defer></script>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <p class="badge-line"><span class="icon" aria-hidden="true">auto_fix_high</span>Paso 1 de 2 · Carga del material</p>
+        <h1>Adaptar material curricular</h1>
+        <p class="page-header__intro">Sube la guía en foto, PDF, Word o texto. La inteligencia artificial la leerá con sus dibujos y propondrá una versión adaptada para cada estudiante, que podrás revisar antes de imprimir.</p>
+    </div>
+</div>
+
+{% if not student_options %}
+    <div class="card empty-state">
+        <span class="icon" aria-hidden="true">person_add</span>
+        <div>
+            <h2>Primero registra a tus estudiantes</h2>
+            <p>Para adaptar un material necesitas al menos un estudiante con su condición NEE.</p>
+            <a class="button button--primary" href="{% url 'student_list' %}">Ir al registro de alumnos</a>
+        </div>
+    </div>
+{% else %}
+<form method="post" enctype="multipart/form-data" novalidate class="adapt-form" data-adapt-form>
+    {% csrf_token %}
+
+    {# ---------- Students ---------- #}
+    <section class="card adapt-section" aria-labelledby="students-title">
+        <h2 id="students-title" class="adapt-section__title"><span class="icon" aria-hidden="true">groups</span>1. ¿Para quién es la adaptación?</h2>
+        {% for error in form.students.errors %}<p class="field__error" id="{{ form.students.auto_id }}_error"><span class="icon" aria-hidden="true">error</span>{{ error }}</p>{% endfor %}
+        <div class="student-picker">
+            {% for item in student_options %}
+                <div class="student-pick">
+                    <label class="student-pick__label" for="{{ item.option.id_for_label }}">
+                        {{ item.option.tag }}
+                        <span class="avatar avatar--{{ item.student.groups.0.key }}" aria-hidden="true">{{ item.student.initials }}</span>
+                        <span>
+                            <strong>{{ item.student.name }}</strong>
+                            <small>{{ item.student.get_grade_display }} · {{ item.student.condition_labels|join:", " }}</small>
+                        </span>
+                    </label>
+                    {% if item.condition_field %}
+                        <div class="student-pick__condition">
+                            <label class="field__label" for="{{ item.condition_field.id_for_label }}">Condición a adaptar</label>
+                            {{ item.condition_field }}
+                        </div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+        <div class="field-row">
+            {% include "includes/field.html" with field=form.subject icon="menu_book" %}
+            {% include "includes/field.html" with field=form.topic icon="topic" %}
+        </div>
+        {% include "includes/field.html" with field=form.title icon="title" %}
+    </section>
+
+    {# ---------- Material ---------- #}
+    <section class="card adapt-section" aria-labelledby="material-title">
+        <h2 id="material-title" class="adapt-section__title"><span class="icon" aria-hidden="true">upload_file</span>2. Material curricular</h2>
+        <fieldset class="input-tabs">
+            <legend class="sr-only">Tipo de entrada</legend>
+            {% for option in form.input_type %}
+                <label class="input-tab" for="{{ option.id_for_label }}">
+                    {{ option.tag }}
+                    <span class="icon" aria-hidden="true">{% if option.data.value == 'PHOTO' %}photo_camera{% elif option.data.value == 'PDF' %}picture_as_pdf{% elif option.data.value == 'WORD' %}description{% else %}edit_note{% endif %}</span>
+                    {{ option.choice_label }}
+                </label>
+            {% endfor %}
+        </fieldset>
+
+        <div class="upload-zone" data-file-zone>
+            <label class="field__label" for="{{ form.file.id_for_label }}">{{ form.file.label }}</label>
+            <input type="file" name="file" id="{{ form.file.id_for_label }}" class="field__control"
+                   data-accept-photo="{{ accept_by_type.PHOTO }}" data-accept-pdf="{{ accept_by_type.PDF }}"
+                   data-accept-word="{{ accept_by_type.WORD }}" accept="{{ accept_by_type.PHOTO }}" capture="environment"
+                   {% if form.file.errors %}aria-invalid="true" aria-describedby="{{ form.file.auto_id }}_error"{% endif %}>
+            <p class="field__help" data-file-help>En el celular se abre la cámara. Toma la foto de frente, con buena luz y sin sombras. Máximo 10 MB.</p>
+            {% for error in form.file.errors %}<p class="field__error" id="{{ form.file.auto_id }}_error"><span class="icon" aria-hidden="true">error</span>{{ error }}</p>{% endfor %}
+        </div>
+        <div data-text-zone hidden>
+            {% include "includes/field.html" with field=form.input_text %}
+        </div>
+
+        <p class="adapt-section__subtitle"><span class="icon" aria-hidden="true">tune</span>Reglas de adaptación aplicadas</p>
+        <p class="field__help">Se marcan las recomendadas según la condición de los estudiantes elegidos. Puedes cambiarlas.</p>
+        <div class="rule-grid">
+            {% for checkbox in form.adjustments %}
+                <label class="rule-option" for="{{ checkbox.id_for_label }}">
+                    {{ checkbox.tag }}
+                    <span>{{ checkbox.choice_label }}</span>
+                </label>
+            {% endfor %}
+        </div>
+    </section>
+
+    <div class="adapt-actions">
+        <p><span class="icon" aria-hidden="true">lock</span>A la IA solo se envían el material, el grado y la condición. Nunca el nombre del estudiante.</p>
+        <button type="submit" class="button button--primary button--large" data-submit>
+            <span class="icon" aria-hidden="true">bolt</span>Adaptar con IA
+        </button>
+    </div>
+</form>
+{% endif %}
+{% endblock %}

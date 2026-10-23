@@ -1,0 +1,229 @@
+{% extends "app_base.html" %}
+{% load static %}
+
+{% block title %}{{ material.title }}{% endblock %}
+{% block styles %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/adapt.css' %}">{% endblock %}
+{% block scripts %}<script src="{% static 'js/adapt.js' %}" defer></script>{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <p class="badge-line"><span class="icon" aria-hidden="true">auto_fix_high</span>{{ material.subject.name }} · {{ material.topic }}</p>
+        <h1>{{ material.title }}</h1>
+    </div>
+    <a class="button button--secondary" href="{% url 'adapt' %}"><span class="icon" aria-hidden="true">add</span>Nueva adaptación</a>
+</div>
+
+{# ---------- Material status ---------- #}
+<section class="card material-status" aria-live="polite"
+         {% if is_working %}data-poll-url="{% url 'material_status' material.pk %}"{% endif %}>
+    <span class="material-status__icon"><span class="icon" aria-hidden="true">{% if material.input_type == 'PHOTO' %}photo_camera{% elif material.input_type == 'PDF' %}picture_as_pdf{% elif material.input_type == 'WORD' %}description{% else %}edit_note{% endif %}</span></span>
+    <div class="material-status__body">
+        <p class="material-status__name">{{ material.file_name|default:"Texto escrito o pegado" }}{% if material.size_kb %} · {{ material.size_kb }} KB{% endif %}</p>
+        <ol class="status-steps" aria-label="Estado del material">
+            {% for value, label in material.Status.choices %}
+                <li class="status-step{% if material.status == value %} status-step--current status-step--{{ value|lower }}{% endif %}">{{ label }}</li>
+            {% endfor %}
+        </ol>
+        {% if is_working %}
+            <p class="material-status__message"><span class="spinner" aria-hidden="true"></span>La IA está leyendo la guía y preparando las adaptaciones. Esto puede tardar hasta un minuto.</p>
+        {% elif material.status == 'ERROR' %}
+            <div class="alert alert--error" role="alert">
+                <span class="icon" aria-hidden="true">error</span>
+                <div>
+                    <p><strong>No se pudo procesar el material.</strong> {{ material.ai_error }}</p>
+                    <p>Si es una foto, tómala de nuevo con buena luz, o elige "Escribir o pegar texto".</p>
+                    <a class="button button--primary" href="{% url 'adapt' %}">Volver a cargar</a>
+                </div>
+            </div>
+        {% elif analysis %}
+            {% if is_already_adapted %}
+                <div class="alert alert--info" role="status">
+                    <span class="icon" aria-hidden="true">info</span>
+                    <p><strong>Este archivo es una guía ya adaptada por Maestro Sombra.</strong> Para recuperar los dibujos, sube la guía original que entregas en clase.</p>
+                </div>
+            {% endif %}
+            <p class="material-status__message material-status__message--ok"><span class="icon" aria-hidden="true">check_circle</span>{{ analysis.summary }} · {{ analysis.exercise_count|default:"—" }} ejercicio{{ analysis.exercise_count|pluralize }} detectado{{ analysis.exercise_count|pluralize }}.</p>
+        {% endif %}
+    </div>
+</section>
+
+{% if selected %}
+{# ---------- Student / version tabs ---------- #}
+<nav class="adaptation-tabs" aria-label="Adaptaciones de este material">
+    {% for adaptation in adaptations %}
+        <a class="adaptation-tab" href="?a={{ adaptation.pk }}" {% if adaptation.pk == selected.pk %}aria-current="page"{% endif %}>
+            <span class="avatar avatar--sm" aria-hidden="true">{{ adaptation.student.initials }}</span>
+            {{ adaptation.student.name }} · v{{ adaptation.version }}
+            <span class="chip chip--{% if adaptation.status == 'IN_REVIEW' %}secondary{% else %}primary{% endif %}">{{ adaptation.get_status_display }}</span>
+        </a>
+    {% endfor %}
+</nav>
+
+<div class="comparison-header">
+    <div>
+        <h2>Comparativa en tiempo real</h2>
+        <p>Contrasta la guía original con la propuesta para {{ selected.student.name }}.</p>
+    </div>
+    <div class="scale-control" role="group" aria-label="Escala tipográfica">
+        <span>Escala tipográfica:</span>
+        <button type="button" class="filter-chip" data-scale="1" aria-pressed="true">100%</button>
+        <button type="button" class="filter-chip" data-scale="1.25" aria-pressed="false">125%</button>
+        <button type="button" class="filter-chip" data-scale="1.5" aria-pressed="false">150%</button>
+    </div>
+</div>
+
+<div class="comparison">
+    {# ---------- Original ---------- #}
+    <section class="card original" aria-labelledby="original-title">
+        <header class="panel-header">
+            <span class="icon" aria-hidden="true">article</span>
+            <div><h3 id="original-title">Material original</h3><p>Estándar de aula común</p></div>
+        </header>
+        {% if analysis.detected_barriers %}
+            <div class="barrier-box">
+                <p class="barrier-box__title"><span class="icon" aria-hidden="true">warning</span>Barreras de aprendizaje detectadas</p>
+                <ul>{% for barrier in analysis.detected_barriers %}<li>{{ barrier }}</li>{% endfor %}</ul>
+                <p class="barrier-box__load">Carga cognitiva: <strong>{{ analysis.cognitive_load|capfirst }}</strong></p>
+            </div>
+        {% endif %}
+        {% if material.input_type == 'PHOTO' %}
+            <img class="original__image" src="{% url 'material_file' material.pk %}" alt="Foto de la guía original: {{ material.title }}">
+        {% elif material.file %}
+            <a class="button button--secondary" href="{% url 'material_file' material.pk %}" target="_blank" rel="noopener">
+                <span class="icon" aria-hidden="true">open_in_new</span>Abrir archivo original</a>
+        {% endif %}
+        {% if analysis.extracted_text %}
+            <details class="original__text" {% if material.input_type != 'PHOTO' %}open{% endif %}>
+                <summary>Texto de la guía</summary>
+                <p>{{ analysis.extracted_text|linebreaksbr }}</p>
+            </details>
+        {% endif %}
+        {% if original_figures %}
+            <p class="adapt-section__subtitle">Figuras detectadas por la IA</p>
+            <ul class="figure-list">
+                {% for figure in original_figures %}
+                    <li>
+                        {% if figure.src %}<img class="figure-list__thumb" src="{{ figure.src }}" alt="Figura {{ figure.number }} recortada de la guía">{% endif %}
+                        <span><strong>Figura {{ figure.number }}.</strong> {{ figure.description }}</span>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </section>
+
+    {# ---------- Adapted ---------- #}
+    {% with content=selected.content %}
+    <section class="card adapted adapted--{{ selected.color_filter|lower }}" aria-labelledby="adapted-title" data-adapted data-scale-target>
+        <header class="adapted__header">
+            <span class="icon" aria-hidden="true">auto_fix_high</span>
+            <div>
+                <h3 id="adapted-title">Adaptación Maestro Sombra</h3>
+                <p>Personalizada para {{ selected.student.name }} · {{ selected.get_condition_display }} · {{ selected.code }} v{{ selected.version }}</p>
+                {% if content.udl_principle %}<span class="chip">DUA: {{ content.udl_principle }}</span>{% endif %}
+            </div>
+        </header>
+        <div class="worksheet" data-worksheet>
+            <h4 class="worksheet__title">{{ content.title }}</h4>
+            {% if content.subtitle %}<p class="worksheet__subtitle">{{ content.subtitle }}</p>{% endif %}
+            {% if content.intro %}<p class="worksheet__intro" data-reading-line>{{ content.intro }}</p>{% endif %}
+            {% if content.learning_goal %}
+                <p class="learning-goal" data-reading-line><span class="icon" aria-hidden="true">flag</span>{{ content.learning_goal }}</p>
+            {% endif %}
+
+            {% if concepts %}
+                <h5 class="worksheet__section"><span class="icon" aria-hidden="true">lightbulb</span>Aprende</h5>
+                <div class="concepts">
+                    {% for concept in concepts %}
+                        <article class="concept" data-reading-line>
+                            <p class="concept__title">{{ concept.title }}</p>
+                            <p>{{ concept.explanation }}</p>
+                            {% if concept.example %}<p class="concept__example"><span class="icon" aria-hidden="true">home</span><span><strong>Ejemplo:</strong> {{ concept.example }}</span></p>{% endif %}
+                            {% include "adaptations/_item_image.html" with item=concept %}
+                        </article>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <h5 class="worksheet__section"><span class="icon" aria-hidden="true">edit_note</span>Ahora practica</h5>
+            <ol class="worksheet__steps">
+                {% for step in steps %}
+                    <li class="step" data-reading-line>
+                        <p class="step__title"><span class="step__number" aria-hidden="true">{{ forloop.counter }}</span>{{ step.title }}</p>
+                        <p class="step__instruction">{{ step.instruction }}</p>
+                        {% if step.keyword %}<p class="step__keyword">Palabra clave: <mark>{{ step.keyword }}</mark></p>{% endif %}
+                        {% include "adaptations/_item_image.html" with item=step %}
+                        {% if step.hint %}<p class="step__hint"><span class="icon" aria-hidden="true">tips_and_updates</span><span><strong>Pista:</strong> {{ step.hint }}</span></p>{% endif %}
+                        {% if step.visual_support %}<p class="step__support"><span class="icon" aria-hidden="true">image</span><span><strong>Apoyo visual:</strong> {{ step.visual_support }}</span></p>{% endif %}
+                        {% if step.options %}<ul class="step__options">{% for option in step.options %}<li><span class="box" aria-hidden="true"></span>{{ option }}</li>{% endfor %}</ul>{% endif %}
+                        {% if step.answer_type == 'ESPACIO' %}<div class="step__answer" aria-hidden="true"></div>{% endif %}
+                    </li>
+                {% endfor %}
+            </ol>
+
+            {% if content.check_questions %}
+                <h5 class="worksheet__section"><span class="icon" aria-hidden="true">fact_check</span>Comprueba lo que aprendiste</h5>
+                <ol class="check-questions">
+                    {% for question in content.check_questions %}
+                        <li data-reading-line>
+                            <p>{{ question.question }}</p>
+                            <ul class="step__options">{% for option in question.options %}<li><span class="box" aria-hidden="true"></span>{{ option }}</li>{% endfor %}</ul>
+                            <p class="check-questions__answer">Respuesta (para el docente): {{ question.answer }}</p>
+                        </li>
+                    {% endfor %}
+                </ol>
+            {% endif %}
+
+            {% if content.glossary %}
+                <div class="glossary" data-reading-line>
+                    <p class="adapt-section__subtitle">Glosario</p>
+                    <dl>{% for item in content.glossary %}<dt>{{ item.term }}</dt><dd>{{ item.meaning }}</dd>{% endfor %}</dl>
+                </div>
+            {% endif %}
+            {% if content.closing_message %}<p class="worksheet__closing" data-reading-line><span class="icon" aria-hidden="true">thumb_up</span>{{ content.closing_message }}</p>{% endif %}
+        </div>
+        {% if content.udl_justification %}
+            <div class="udl-box"><span class="icon" aria-hidden="true">psychology</span><p><strong>Justificación DUA:</strong> {{ content.udl_justification }}</p></div>
+        {% endif %}
+        <p class="adapted__meta">Ajustes DUA: {{ selected.adjustment_labels|join:", "|default:"ninguno" }} · Modelo: {{ selected.ai_model }} · Generada en {{ selected.generation_time_sec }} s</p>
+
+        {# ---------- Actions ---------- #}
+        <div class="adapted__actions">
+            {% if selected.status == 'IN_REVIEW' %}
+                <form method="post" action="{% url 'adaptation_action' selected.pk %}">{% csrf_token %}
+                    <button type="submit" name="action" value="approve" class="button button--primary"><span class="icon" aria-hidden="true">check_circle</span>Aprobar adaptación</button>
+                </form>
+                <span class="button button--secondary" aria-disabled="true" title="Aprueba la adaptación para descargarla"><span class="icon" aria-hidden="true">download</span>Descargar PDF</span>
+            {% else %}
+                <a class="button button--primary" href="{% url 'adaptation_pdf' selected.pk %}"><span class="icon" aria-hidden="true">download</span>Descargar PDF</a>
+            {% endif %}
+            <a class="button button--secondary" href="{% url 'adaptation_edit' selected.pk %}"><span class="icon" aria-hidden="true">edit</span>Ajustar manualmente</a>
+            <form method="post" action="{% url 'adaptation_action' selected.pk %}" data-regenerate>{% csrf_token %}
+                <button type="submit" name="action" value="regenerate" class="button button--secondary"><span class="icon" aria-hidden="true">restart_alt</span>Regenerar más simple</button>
+            </form>
+        </div>
+    </section>
+    {% endwith %}
+</div>
+
+{# ---------- Classroom tools ---------- #}
+<section class="card classroom-tools" aria-labelledby="tools-title">
+    <div>
+        <h2 id="tools-title"><span class="icon" aria-hidden="true">accessibility_new</span>Panel rápido de inclusión en aula</h2>
+        <p>Herramientas de apoyo para la lectura en clase.</p>
+    </div>
+    <form method="post" action="{% url 'adaptation_action' selected.pk %}" class="color-filters" data-color-filter-form>
+        {% csrf_token %}
+        <input type="hidden" name="action" value="color_filter">
+        <span>Filtro cromático DEA:</span>
+        {% for value, label in color_filters %}
+            <button type="submit" name="color_filter" value="{{ value }}" class="filter-chip swatch swatch--{{ value|lower }}"
+                    aria-pressed="{% if selected.color_filter == value %}true{% else %}false{% endif %}">{{ label }}</button>
+        {% endfor %}
+    </form>
+    <button type="button" class="button button--secondary" data-guided-reading aria-pressed="false">
+        <span class="icon" aria-hidden="true">play_circle</span>Modo lectura guiada
+    </button>
+</section>
+{% endif %}
+{% endblock %}

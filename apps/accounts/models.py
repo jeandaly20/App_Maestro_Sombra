@@ -4,6 +4,8 @@ from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 from django.db.models.functions import Lower
 
+from apps.core.choices import RecordStatus
+
 
 class Specialty(models.TextChoices):
     SPECIAL_EDUCATION = 'SPECIAL_EDUCATION', 'Educación especial / inclusiva'
@@ -58,6 +60,8 @@ class Teacher(AbstractUser):
     specialty = models.CharField('especialidad', max_length=20, choices=Specialty.choices, blank=True)
     accepted_terms = models.BooleanField('aceptó los términos', default=False)
     terms_accepted_at = models.DateTimeField('fecha de aceptación de términos', null=True, blank=True)
+    record_status = models.CharField('estado del registro', max_length=8, choices=RecordStatus.choices,
+                                     default=RecordStatus.ACTIVE)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['full_name']
@@ -65,6 +69,7 @@ class Teacher(AbstractUser):
     objects = TeacherManager()
 
     class Meta:
+        db_table = 'mst_teacher'
         ordering = ['full_name']
         verbose_name = 'docente'
         verbose_name_plural = 'docentes'
@@ -80,7 +85,15 @@ class Teacher(AbstractUser):
                 check=models.Q(accepted_terms=False) | models.Q(terms_accepted_at__isnull=False),
                 name='teacher_terms_have_date',
             ),
+            models.CheckConstraint(
+                check=models.Q(record_status__in=RecordStatus.values), name='teacher_record_status_valid'
+            ),
         ]
+
+    def save(self, *args, **kwargs):
+        # Django blocks the sign-in of inactive users through is_active, so both stay in step
+        self.is_active = self.record_status == RecordStatus.ACTIVE
+        super().save(*args, **kwargs)
 
     def get_full_name(self):
         return self.full_name

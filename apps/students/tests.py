@@ -106,3 +106,10 @@ class StudentRegistryTests(TestCase):
         self.assertEqual([g.key for g in student.groups], ['dea', 'neuro'])
         self.assertIn('Fuente accesible y silabeo', student.recommended_adjustments)
         self.assertIn('Secuencia paso a paso', student.recommended_adjustments)
+
+    def test_inactive_student_is_hidden(self):
+        student = self.add_student(name='Sofía Ramos')
+        student.record_status = 'INACTIVE'
+        student.save()
+        self.assertNotContains(self.client.get(self.url), 'Sofía Ramos')
+        self.assertEqual(self.client.get(reverse('student_edit', args=[student.pk])).status_code, 404)

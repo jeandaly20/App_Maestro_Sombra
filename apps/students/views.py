@@ -13,7 +13,7 @@ from django.views import View
 from django.views.generic import CreateView, UpdateView
 from xhtml2pdf import pisa
 
-from apps.core.choices import CONDITION_DESCRIPTIONS, CONDITION_GROUPS, CONDITION_SHORT_NAMES
+from apps.core.choices import CONDITION_DESCRIPTIONS, CONDITION_GROUPS, CONDITION_SHORT_NAMES, RecordStatus
 
 from .forms import StudentForm
 from .models import MAX_STUDENTS_PER_TEACHER, Student
@@ -22,7 +22,7 @@ logger = logging.getLogger('maestro_sombra')
 
 
 def students_of(teacher):
-    return (Student.objects.filter(teacher=teacher)
+    return (Student.objects.filter(teacher=teacher, record_status=RecordStatus.ACTIVE)
             .annotate(adaptation_count=Count('adaptations'))
             .order_by('created_at'))
 
@@ -36,7 +36,7 @@ class StudentPageMixin(LoginRequiredMixin):
 
     def get_queryset(self):
         # A teacher can only open their own students; anyone else gets a 404
-        return Student.objects.filter(teacher=self.request.user)
+        return Student.objects.filter(teacher=self.request.user, record_status=RecordStatus.ACTIVE)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

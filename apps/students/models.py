@@ -6,7 +6,7 @@ from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from apps.core.choices import Condition, Grade, group_of
+from apps.core.choices import Condition, Grade, RecordStatus, group_of
 from apps.core.fields import EncryptedTextField
 
 MAX_STUDENTS_PER_TEACHER = 3
@@ -32,10 +32,13 @@ class Student(models.Model):
         help_text='Una o varias condiciones (p. ej. dislexia y discalculia).',
     )
     notes = EncryptedTextField('observaciones', blank=True, help_text='Se guardan cifradas.')
+    record_status = models.CharField('estado del registro', max_length=8, choices=RecordStatus.choices,
+                                     default=RecordStatus.ACTIVE)
     created_at = models.DateTimeField('creado', auto_now_add=True)
     updated_at = models.DateTimeField('actualizado', auto_now=True)
 
     class Meta:
+        db_table = 'mst_student'
         ordering = ['grade', 'pseudonym']
         verbose_name = 'estudiante'
         verbose_name_plural = 'estudiantes'
@@ -49,8 +52,11 @@ class Student(models.Model):
                 check=models.Q(conditions__len__gte=1), name='student_has_condition'
             ),
             models.CheckConstraint(check=models.Q(grade__in=Grade.values), name='student_grade_valid'),
+            models.CheckConstraint(
+                check=models.Q(record_status__in=RecordStatus.values), name='student_record_status_valid'
+            ),
         ]
-        # The 3-students-per-teacher limit is also enforced by a PostgreSQL trigger
+        # The 3-active-students-per-teacher limit is also enforced by a PostgreSQL trigger
 
     @property
     def age(self):
@@ -105,7 +111,8 @@ class Student(models.Model):
         if self.conditions and {Condition.ID_MILD, Condition.ID_MODERATE} <= set(self.conditions):
             raise ValidationError({'conditions': 'Elige un solo nivel de discapacidad intelectual: leve o moderada.'})
         if self.teacher_id and self._state.adding:
-            registered = Student.objects.filter(teacher_id=self.teacher_id).count()
+            registered = Student.objects.filter(teacher_id=self.teacher_id,
+                                                record_status=RecordStatus.ACTIVE).count()
             if registered >= MAX_STUDENTS_PER_TEACHER:
                 raise ValidationError(
                     f'Un docente puede registrar como máximo {MAX_STUDENTS_PER_TEACHER} estudiantes.'

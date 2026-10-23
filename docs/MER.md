@@ -2,19 +2,19 @@
 
 Pega el bloque en https://mermaid.live y descárgalo como PNG o SVG.
 
-Las tablas y columnas están en inglés, igual que las que crea Django (`auth_group`, `django_session`). Lo que ve el usuario está en español.
+Las tablas y columnas están en inglés; lo que ve el usuario está en español. Cada tabla lleva un prefijo que indica su tipo (ver "Tipos de tablas") y un campo `record_status` con el estado del registro.
 
 ```mermaid
 erDiagram
-    TEACHER ||--o{ STUDENT : registers
-    TEACHER ||--o{ ORIGINAL_MATERIAL : uploads
-    SUBJECT ||--o{ ORIGINAL_MATERIAL : classifies
-    ORIGINAL_MATERIAL ||--o{ CURRICULAR_ADAPTATION : originates
-    STUDENT ||--o{ CURRICULAR_ADAPTATION : receives
-    CURRICULAR_ADAPTATION |o--o{ CURRICULAR_ADAPTATION : regenerates
-    CURRICULAR_ADAPTATION ||--o| EVALUATION : evaluated_in
+    MST_TEACHER ||--o{ MST_STUDENT : registers
+    MST_TEACHER ||--o{ TRX_ORIGINAL_MATERIAL : uploads
+    CAT_SUBJECT ||--o{ TRX_ORIGINAL_MATERIAL : classifies
+    TRX_ORIGINAL_MATERIAL ||--o{ TRX_CURRICULAR_ADAPTATION : originates
+    MST_STUDENT ||--o{ TRX_CURRICULAR_ADAPTATION : receives
+    TRX_CURRICULAR_ADAPTATION |o--o{ TRX_CURRICULAR_ADAPTATION : regenerates
+    TRX_CURRICULAR_ADAPTATION ||--o| TRX_EVALUATION : evaluated_in
 
-    TEACHER {
+    MST_TEACHER {
         uuid id PK
         varchar full_name
         varchar email UK "lowercase"
@@ -22,17 +22,19 @@ erDiagram
         varchar specialty "CHECK"
         boolean accepted_terms
         timestamptz terms_accepted_at
-        boolean is_active
+        varchar record_status "ACTIVE INACTIVE"
+        boolean is_active "login, follows record_status"
         boolean is_staff "administrator"
         timestamptz last_login
         timestamptz date_joined
     }
-    SUBJECT {
+    CAT_SUBJECT {
         bigint id PK
         varchar name UK
         varchar code UK
+        varchar record_status "ACTIVE INACTIVE"
     }
-    STUDENT {
+    MST_STUDENT {
         uuid id PK
         uuid teacher_id FK
         varchar pseudonym UK "EST-XXXXXX"
@@ -41,10 +43,11 @@ erDiagram
         varchar grade "CHECK"
         varchar_array conditions "CHECK"
         text notes "encrypted"
+        varchar record_status "ACTIVE INACTIVE"
         timestamptz created_at
         timestamptz updated_at
     }
-    ORIGINAL_MATERIAL {
+    TRX_ORIGINAL_MATERIAL {
         uuid id PK
         uuid teacher_id FK
         bigint subject_id FK
@@ -58,10 +61,11 @@ erDiagram
         varchar status "PENDING PROCESSING PROCESSED ERROR"
         jsonb ai_analysis
         text ai_error
+        varchar record_status "ACTIVE INACTIVE"
         timestamptz created_at
         timestamptz updated_at
     }
-    CURRICULAR_ADAPTATION {
+    TRX_CURRICULAR_ADAPTATION {
         uuid id PK
         varchar code UK "ADAP-MAT-XXXXXX"
         uuid material_id FK
@@ -78,10 +82,11 @@ erDiagram
         varchar pdf
         varchar ai_model
         integer generation_time_sec
+        varchar record_status "ACTIVE INACTIVE"
         timestamptz created_at
         timestamptz updated_at
     }
-    EVALUATION {
+    TRX_EVALUATION {
         uuid id PK
         uuid adaptation_id FK, UK
         varchar autonomy_level "AUTONOMOUS OCCASIONAL_SUPPORT CONSTANT_SUPPORT"
@@ -93,33 +98,62 @@ erDiagram
         varchar status "DRAFT FINAL"
         text ai_recommendation
         timestamptz recommended_at
+        varchar record_status "ACTIVE INACTIVE"
         timestamptz created_at
         timestamptz updated_at
     }
 ```
 
-## Nombres de las tablas en PostgreSQL
+## Tipos de tablas
 
-Django antepone el nombre del módulo a cada tabla:
+| Prefijo | Tipo | Qué guarda | Tablas |
+|---|---|---|---|
+| `cat_` | Catálogo (paramétrica) | Valores fijos que se eligen de una lista; casi no cambian | `cat_subject` |
+| `mst_` | Maestra | Entidades principales que existen por sí mismas y se usan en muchos procesos | `mst_teacher`, `mst_student` |
+| `trx_` | Transaccional | Registros que nacen del trabajo diario; dependen de las maestras y crecen con el uso | `trx_original_material`, `trx_curricular_adaptation`, `trx_evaluation` |
+| `auth_`, `django_` | Sistema | Tablas del framework: permisos, sesiones, historial de migraciones | `auth_group`, `auth_permission`, `django_session`, `django_migrations`, `django_admin_log`, `django_content_type`, `mst_teacher_groups`, `mst_teacher_user_permissions` |
 
-| Entidad del MER | Tabla en PostgreSQL | Qué guarda |
+`trx_curricular_adaptation` además resuelve la relación muchos a muchos entre material y estudiante (tabla intermedia con datos propios).
+
+Las listas cortas y cerradas (condiciones, grados, especialidades, estados) no son tablas: son catálogos de valores controlados con restricciones `CHECK`.
+
+## Estado del registro (`record_status`)
+
+Todas las tablas del negocio tienen `record_status` con dos valores: `ACTIVE` (activo) e `INACTIVE` (inactivo).
+
+- Es un **borrado lógico**: un registro inactivo deja de mostrarse en la aplicación, pero no se borra, para conservar el historial (trazabilidad).
+- Es distinto de `status`, que indica en qué paso del proceso está un material, una adaptación o una evaluación.
+- Un `CHECK` (`<tabla>_record_status_valid`) solo admite esos dos valores.
+- En el docente, `record_status = INACTIVE` desactiva también `is_active`, así no puede iniciar sesión.
+- El trigger del máximo de 3 estudiantes solo cuenta a los estudiantes activos.
+
+## Nomenclatura
+
+| Elemento | Regla | Ejemplo |
 |---|---|---|
-| TEACHER | `accounts_teacher` | Docentes y administrador |
-| SUBJECT | `materials_subject` | Catálogo fijo de materias de EGB |
-| STUDENT | `students_student` | Estudiantes con NEE (máx. 3 por docente) |
-| ORIGINAL_MATERIAL | `materials_originalmaterial` | Guía que sube el docente |
-| CURRICULAR_ADAPTATION | `adaptations_curricularadaptation` | Guía adaptada por la IA |
-| EVALUATION | `evaluations_evaluation` | Evaluación del docente en el aula |
+| Tablas | Prefijo de tipo + sustantivo en singular, inglés, `snake_case` | `mst_student`, `trx_curricular_adaptation` |
+| Clave primaria | `id` | `id` |
+| Clave foránea | Nombre de la entidad + `_id` | `teacher_id`, `material_id` |
+| Booleanos | Afirmación (`is_`, verbo en participio) | `is_active`, `accepted_terms`, `regeneration_requested` |
+| Fecha | Sufijo `_date` | `birth_date` |
+| Fecha y hora | Sufijo `_at` | `created_at`, `terms_accepted_at` |
+| Medidas | Sufijo con la unidad | `size_kb`, `generation_time_sec` |
+| Estado del proceso | `status` | `status` |
+| Estado del registro | `record_status` | `record_status` |
+| Datos de la IA | Prefijo `ai_` | `ai_analysis`, `ai_model` |
+| Restricciones | Entidad + regla | `student_grade_valid`, `teacher_email_lowercase` |
+| Trigger y función | `tr_` y `fn_` + regla | `tr_max_students_per_teacher`, `fn_max_students_per_teacher` |
 
 ## Reglas de negocio (van debajo del diagrama en el documento)
 
-1. Un docente puede registrar como máximo 3 estudiantes con NEE (trigger `tr_max_students_per_teacher` en PostgreSQL).
+1. Un docente puede tener como máximo 3 estudiantes activos (trigger `tr_max_students_per_teacher` en PostgreSQL).
 2. Una adaptación solo puede usar una condición que el estudiante tenga registrada.
 3. Cada regeneración crea una versión nueva (`version` + 1) que apunta a la anterior (`source_adaptation_id`).
 4. Cada versión tiene como máximo una evaluación.
 5. Una evaluación finalizada (`FINAL`) debe tener al menos la autonomía y la comprensión.
 6. Un material de tipo TEXT lleva `input_text`; los de tipo PHOTO, PDF o WORD llevan `file`.
 7. A Gemini se envían el material y la condición; nunca el nombre ni las observaciones del niño.
+8. Los registros no se borran desde la aplicación: se marcan como `INACTIVE`.
 
 ## Leyenda
 

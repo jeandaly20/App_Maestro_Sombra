@@ -142,9 +142,9 @@
                         <span class="student-card__updated"><span class="icon" aria-hidden="true">schedule</span>Actualizado hace {{ student.updated_at|timesince }}</span>
                     {% endif %}
                     <a class="button button--secondary" href="{% url 'student_edit' student.pk %}">Editar</a>
-                    <span class="button button--primary" aria-disabled="true" title="Disponible en la parte de Adaptar material">
+                    <a class="button button--primary" href="{% url 'adapt' %}?alumno={{ student.pk }}">
                         <span class="icon" aria-hidden="true">add_task</span>Adaptar tarea
-                    </span>
+                    </a>
                 </footer>
             </article>
         {% empty %}

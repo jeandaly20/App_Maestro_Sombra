@@ -6,17 +6,27 @@ from django.core.exceptions import ValidationError
 from django.core.validators import FileExtensionValidator
 from django.db import models
 
+from apps.core.choices import RecordStatus
+
 
 class Subject(models.Model):
     """Fixed catalog of EGB subjects. Teachers only pick one."""
     name = models.CharField('nombre', max_length=60, unique=True)
     code = models.CharField('abreviatura', max_length=3, unique=True,
                             help_text='Se usa en el código ADAP-MAT-…')
+    record_status = models.CharField('estado del registro', max_length=8, choices=RecordStatus.choices,
+                                     default=RecordStatus.ACTIVE)
 
     class Meta:
+        db_table = 'cat_subject'
         ordering = ['name']
         verbose_name = 'materia'
         verbose_name_plural = 'materias'
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(record_status__in=RecordStatus.values), name='subject_record_status_valid'
+            ),
+        ]
 
     def __str__(self):
         return self.name
@@ -84,10 +94,13 @@ class OriginalMaterial(models.Model):
     status = models.CharField('estado', max_length=10, choices=Status.choices, default=Status.PENDING)
     ai_analysis = models.JSONField('análisis de la IA', null=True, blank=True)  # jsonb in PostgreSQL
     ai_error = models.TextField('error de la IA', blank=True)
+    record_status = models.CharField('estado del registro', max_length=8, choices=RecordStatus.choices,
+                                     default=RecordStatus.ACTIVE)
     created_at = models.DateTimeField('creado', auto_now_add=True)
     updated_at = models.DateTimeField('actualizado', auto_now=True)
 
     class Meta:
+        db_table = 'trx_original_material'
         ordering = ['-created_at']
         verbose_name = 'material original'
         verbose_name_plural = 'materiales originales'
@@ -106,6 +119,9 @@ class OriginalMaterial(models.Model):
                     ~models.Q(input_type=InputType.TEXT) & ~models.Q(file='')
                 ),
                 name='material_content_matches_type',
+            ),
+            models.CheckConstraint(
+                check=models.Q(record_status__in=RecordStatus.values), name='material_record_status_valid'
             ),
         ]
 

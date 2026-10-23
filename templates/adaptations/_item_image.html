@@ -1,0 +1,13 @@
+{% comment %}Image of a concept or step: an original figure of the worksheet or a support drawn by the system.{% endcomment %}
+{% if item.figure_src %}
+    <figure class="step__image">
+        <img src="{{ item.figure_src }}" alt="{{ item.figure_description }}">
+        <figcaption><span class="icon" aria-hidden="true">photo</span>Figura de la guía original</figcaption>
+    </figure>
+{% elif item.visual_src %}
+    <figure class="step__image">
+        <img src="{{ item.visual_src }}" alt="{{ item.visual_label }}">
+        <figcaption><span class="icon" aria-hidden="true">draw</span>{{ item.visual_label }} dibujado por el sistema con los datos de la guía</figcaption>
+    </figure>
+{% endif %}
+{% if item.figure_description %}<p class="step__figure">[Descripción para accesibilidad: {{ item.figure_description }}]</p>{% endif %}

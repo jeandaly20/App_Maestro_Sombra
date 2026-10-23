@@ -3,6 +3,7 @@ import uuid
 from django.db import models
 
 from apps.adaptations.models import CurricularAdaptation
+from apps.core.choices import RecordStatus
 from apps.core.fields import EncryptedTextField
 
 
@@ -59,10 +60,13 @@ class Evaluation(models.Model):
     status = models.CharField('estado', max_length=5, choices=Status.choices, default=Status.DRAFT)
     ai_recommendation = models.TextField('recomendación de la IA', blank=True)
     recommended_at = models.DateTimeField('fecha de la recomendación', null=True, blank=True)
+    record_status = models.CharField('estado del registro', max_length=8, choices=RecordStatus.choices,
+                                     default=RecordStatus.ACTIVE)
     created_at = models.DateTimeField('creado', auto_now_add=True)
     updated_at = models.DateTimeField('actualizado', auto_now=True)
 
     class Meta:
+        db_table = 'trx_evaluation'
         ordering = ['-updated_at']
         verbose_name = 'evaluación'
         verbose_name_plural = 'evaluaciones'
@@ -95,6 +99,9 @@ class Evaluation(models.Model):
             models.CheckConstraint(
                 check=models.Q(ai_recommendation='') | models.Q(recommended_at__isnull=False),
                 name='evaluation_recommendation_has_date',
+            ),
+            models.CheckConstraint(
+                check=models.Q(record_status__in=RecordStatus.values), name='evaluation_record_status_valid'
             ),
         ]
 

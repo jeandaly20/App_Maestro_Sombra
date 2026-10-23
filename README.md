@@ -11,8 +11,9 @@ Caso práctico de titulación · Ingeniería de Software · Universidad Estatal 
 | Base de datos | PostgreSQL 17 · campos JSONB, arreglos, CHECK, UNIQUE y trigger |
 | Frontend | HTML5 semántico · CSS3 · JavaScript nativo (ES6+) |
 | Seguridad | Cifrado Fernet de datos personales · usuario de BD con mínimo privilegio · claves en `.env` |
-| PDF | xhtml2pdf (expedientes y, más adelante, guías adaptadas) |
-| IA (próximas partes) | API de Google Gemini |
+| PDF | xhtml2pdf con tipografía Atkinson Hyperlegible (expedientes y guías adaptadas) |
+| IA | API REST de Google Gemini (`gemini-flash-latest`, con respaldo `gemini-flash-lite-latest`) |
+| Word | python-docx (lectura de guías .docx) |
 
 El código y la base de datos están en inglés; todo lo que ve el usuario está en español.
 
@@ -43,7 +44,7 @@ APP maestro sombra/
 | 0. Proyecto, base de datos (6 tablas del MER) y seguridad | ✅ Terminada |
 | 1. Estilos, iniciar sesión, registro de docente, recuperar contraseña | ✅ Terminada |
 | 2. Registro de alumnos NEE, directorio y expedientes en PDF | ✅ Terminada |
-| 3. Adaptar material con IA (Gemini) | Pendiente |
+| 3. Adaptar material con IA (Gemini): carga, comparativa, ajustes, regenerar y PDF | ✅ Terminada |
 | 4. Banco de adaptaciones y evaluación | Pendiente |
 | 5. Panel principal con métricas | Pendiente |
 
@@ -76,7 +77,7 @@ Antes de `create_db.py`, completa el `.env` (clave secreta, clave de cifrado y c
 venv\Scripts\python.exe manage.py test --keepdb
 ```
 
-34 pruebas: registro de alumnos (máximo 3, validaciones, privacidad entre docentes, PDF), registro, inicio de sesión, bloqueo tras 5 intentos, recuperación de contraseña, idioma español y reglas de la base de datos (cifrado, trigger, CHECK y UNIQUE).
+50 pruebas: adaptación con IA simulada (foto, PDF, Word y texto; el nombre del alumno nunca llega a la IA; PDF solo tras aprobar; versiones), registro de alumnos (máximo 3, validaciones, privacidad entre docentes, PDF), registro, inicio de sesión, bloqueo tras 5 intentos, recuperación de contraseña, idioma español y reglas de la base de datos (cifrado, trigger, CHECK y UNIQUE).
 
 ## Direcciones
 
@@ -88,5 +89,6 @@ venv\Scripts\python.exe manage.py test --keepdb
 | Términos (LOPDP) | `/cuenta/terminos/` |
 | Registro de alumnos | `/alumnos/` |
 | Expedientes en PDF | `/alumnos/expedientes.pdf` |
+| Adaptar material | `/adaptar/` |
 | Panel principal | `/` |
 | Administrador | `/admin/` |

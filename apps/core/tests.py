@@ -45,7 +45,7 @@ class DatabaseRulesTests(TestCase):
     def test_student_name_is_encrypted_in_database(self):
         student = self.new_student()
         with connection.cursor() as cursor:
-            cursor.execute('SELECT name FROM students_student WHERE id = %s', [student.id])
+            cursor.execute('SELECT name FROM mst_student WHERE id = %s', [student.id])
             stored = cursor.fetchone()[0]
         self.assertNotIn('Mateo', stored)
         self.assertEqual(Student.objects.get(pk=student.pk).name, 'Mateo Benítez')
@@ -87,3 +87,29 @@ class DatabaseRulesTests(TestCase):
         Evaluation.objects.create(adaptation=adaptation, status='FINAL', autonomy_level='AUTONOMOUS',
                                   comprehension='YES', observation='Comprendió bien')
         self.assertBlocked(lambda: Evaluation.objects.create(adaptation=adaptation))
+
+    def test_tables_use_type_prefixes(self):
+        tables = set(connection.introspection.table_names())
+        for table in ('cat_subject', 'mst_teacher', 'mst_student', 'trx_original_material',
+                      'trx_curricular_adaptation', 'trx_evaluation'):
+            self.assertIn(table, tables)
+
+    def test_record_status_is_validated(self):
+        self.assertBlocked(lambda: self.new_student(record_status='DELETED'))
+
+    def test_inactive_student_frees_a_slot(self):
+        first = self.new_student()
+        for _ in range(2):
+            self.new_student()
+        first.record_status = 'INACTIVE'
+        first.save()
+        self.new_student()  # the trigger only counts active students
+        self.assertBlocked(lambda: self.new_student())
+        # Reactivating would exceed the limit, so the trigger also blocks it
+        first.record_status = 'ACTIVE'
+        self.assertBlocked(lambda: first.save())
+
+    def test_inactive_teacher_cannot_sign_in(self):
+        self.teacher.record_status = 'INACTIVE'
+        self.teacher.save()
+        self.assertFalse(Teacher.objects.get(pk=self.teacher.pk).is_active)

@@ -1,0 +1,104 @@
+{% extends "app_base.html" %}
+{% load static %}
+
+{% block title %}Ajustar adaptación{% endblock %}
+{% block styles %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/adapt.css' %}">{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <p class="badge-line"><span class="icon" aria-hidden="true">edit</span>{{ adaptation.code }} v{{ adaptation.version }} · {{ adaptation.student.name }}</p>
+        <h1>Ajustar manualmente</h1>
+        <p class="page-header__intro">Corrige o completa lo que propuso la IA. Al guardar, la guía vuelve a "En revisión" hasta que la apruebes.</p>
+    </div>
+</div>
+
+<form method="post" class="card edit-form">
+    {% csrf_token %}
+    <div class="field">
+        <label class="field__label" for="id_title">Título</label>
+        <input class="field__control" id="id_title" name="title" value="{{ content.title }}" maxlength="150" required>
+    </div>
+    <div class="field">
+        <label class="field__label" for="id_subtitle">Subtítulo</label>
+        <input class="field__control" id="id_subtitle" name="subtitle" value="{{ content.subtitle|default:'' }}">
+    </div>
+    <div class="field">
+        <label class="field__label" for="id_intro">Introducción para el estudiante</label>
+        <textarea class="field__control" id="id_intro" name="intro" rows="3">{{ content.intro }}</textarea>
+    </div>
+
+    <div class="field">
+        <label class="field__label" for="id_learning_goal">Lo que vas a aprender</label>
+        <input class="field__control" id="id_learning_goal" name="learning_goal" value="{{ content.learning_goal|default:'' }}">
+    </div>
+
+    {% for concept in content.concepts %}
+        <fieldset class="edit-step">
+            <legend>Concepto {{ forloop.counter }} (Aprende)</legend>
+            {% with i=forloop.counter0 %}
+            <div class="field">
+                <label class="field__label" for="concept_{{ i }}_title">Concepto</label>
+                <input class="field__control" id="concept_{{ i }}_title" name="concept_{{ i }}_title" value="{{ concept.title }}">
+            </div>
+            <div class="field">
+                <label class="field__label" for="concept_{{ i }}_explanation">Explicación</label>
+                <textarea class="field__control" id="concept_{{ i }}_explanation" name="concept_{{ i }}_explanation" rows="3">{{ concept.explanation }}</textarea>
+            </div>
+            <div class="field">
+                <label class="field__label" for="concept_{{ i }}_example">Ejemplo de la vida diaria</label>
+                <textarea class="field__control" id="concept_{{ i }}_example" name="concept_{{ i }}_example" rows="2">{{ concept.example|default:'' }}</textarea>
+            </div>
+            <label class="checkbox" for="concept_{{ i }}_delete">
+                <input type="checkbox" id="concept_{{ i }}_delete" name="concept_{{ i }}_delete">
+                <span>Quitar este concepto</span>
+            </label>
+            {% endwith %}
+        </fieldset>
+    {% endfor %}
+
+    {% for step in content.steps %}
+        <fieldset class="edit-step">
+            <legend>Paso {{ forloop.counter }} (Ahora practica)</legend>
+            {% with i=forloop.counter0 %}
+            <div class="field">
+                <label class="field__label" for="step_{{ i }}_title">Título del paso</label>
+                <input class="field__control" id="step_{{ i }}_title" name="step_{{ i }}_title" value="{{ step.title }}">
+            </div>
+            <div class="field">
+                <label class="field__label" for="step_{{ i }}_instruction">Instrucción</label>
+                <textarea class="field__control" id="step_{{ i }}_instruction" name="step_{{ i }}_instruction" rows="3">{{ step.instruction }}</textarea>
+            </div>
+            <div class="field">
+                <label class="field__label" for="step_{{ i }}_hint">Pista</label>
+                <textarea class="field__control" id="step_{{ i }}_hint" name="step_{{ i }}_hint" rows="2">{{ step.hint|default:'' }}</textarea>
+            </div>
+            <div class="field-row">
+                <div class="field">
+                    <label class="field__label" for="step_{{ i }}_visual_support">Apoyo visual</label>
+                    <textarea class="field__control" id="step_{{ i }}_visual_support" name="step_{{ i }}_visual_support" rows="2">{{ step.visual_support|default:'' }}</textarea>
+                </div>
+                <div class="field">
+                    <label class="field__label" for="step_{{ i }}_figure_description">Descripción de la figura</label>
+                    <textarea class="field__control" id="step_{{ i }}_figure_description" name="step_{{ i }}_figure_description" rows="2">{{ step.figure_description|default:'' }}</textarea>
+                </div>
+            </div>
+            <label class="checkbox" for="step_{{ i }}_delete">
+                <input type="checkbox" id="step_{{ i }}_delete" name="step_{{ i }}_delete">
+                <span>Quitar este paso</span>
+            </label>
+            {% endwith %}
+        </fieldset>
+    {% endfor %}
+
+    <div class="field">
+        <label class="field__label" for="id_closing_message">Mensaje final</label>
+        <textarea class="field__control" id="id_closing_message" name="closing_message" rows="2">{{ content.closing_message|default:'' }}</textarea>
+    </div>
+
+    <div class="adapt-actions">
+        <a class="button button--secondary" href="{% url 'material_detail' adaptation.material_id %}?a={{ adaptation.pk }}">Cancelar</a>
+        <button type="submit" class="button button--primary"><span class="icon" aria-hidden="true">save</span>Guardar cambios</button>
+    </div>
+</form>
+{% endblock %}

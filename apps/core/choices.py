@@ -95,6 +95,12 @@ def group_of(condition):
     return next(group for group in CONDITION_GROUPS if condition in group.conditions)
 
 
+class RecordStatus(models.TextChoices):
+    """Record status present in every table: INACTIVE is a logical delete (the row is kept for traceability)."""
+    ACTIVE = 'ACTIVE', 'Activo'
+    INACTIVE = 'INACTIVE', 'Inactivo'
+
+
 class ColorFilter(models.TextChoices):
     """Background tint for readers with dyslexia ("Filtro cromático DEA" button)."""
     NONE = 'NONE', 'Sin filtro'

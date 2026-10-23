@@ -37,7 +37,9 @@ Cada norma indica qué se hizo en el proyecto y en qué archivo está, para pode
 Las reglas se validan en Django y también en PostgreSQL, para que se cumplan aunque el dato no llegue por un formulario:
 - restricciones `CHECK`: condiciones, grados, estados y tipos de entrada válidos;
 - restricciones `UNIQUE`: correo, seudónimo y código de adaptación;
-- trigger que impide más de 3 estudiantes por docente.
+- trigger que impide más de 3 estudiantes por docente;
+- campo `record_status` en todas las tablas: los registros se desactivan en lugar de borrarse (trazabilidad);
+- nomenclatura uniforme con prefijo por tipo de tabla (`cat_`, `mst_`, `trx_`), siguiendo los principios de nombres de ISO/IEC 11179-5.
 
 ## 5. ISO/IEC 40500 (WCAG 2) e ISO 9241-110 / 9241-210 – Accesibilidad y diseño centrado en el usuario
 
