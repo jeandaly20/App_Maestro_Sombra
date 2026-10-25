@@ -156,6 +156,10 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = MAX_UPLOAD_MB * 1024 * 1024
 FILE_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024
 FILE_UPLOAD_PERMISSIONS = 0o640
 
+# Dashboard: minutes a teacher needs to adapt one worksheet by hand. It is the reference for
+# the "time saved" estimate and must be replaced by the value measured in the validation sprint.
+MANUAL_ADAPTATION_MINUTES = int(os.getenv('MANUAL_ADAPTATION_MINUTES', '60'))
+
 
 # Language and time zone. The interface is always in Spanish, whatever the
 # browser language. Dates are stored in UTC (ISO 8601) and shown in Ecuador time.

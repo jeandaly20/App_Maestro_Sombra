@@ -45,8 +45,9 @@ APP maestro sombra/
 | 1. Estilos, iniciar sesión, registro de docente, recuperar contraseña | ✅ Terminada |
 | 2. Registro de alumnos NEE, directorio y expedientes en PDF | ✅ Terminada |
 | 3. Adaptar material con IA (Gemini): carga, comparativa, ajustes, regenerar y PDF | ✅ Terminada |
-| 4. Banco de adaptaciones y evaluación | Pendiente |
-| 5. Panel principal con métricas | Pendiente |
+| 4. Banco de adaptaciones, evaluación en aula, recomendación de la IA y baja de estudiantes | ✅ Terminada |
+| 5. Panel principal con métricas y actividad reciente | ✅ Terminada |
+| 6. Validación con guías reales y medición del tiempo frente al proceso manual | Pendiente |
 
 ## Cómo ejecutarlo
 

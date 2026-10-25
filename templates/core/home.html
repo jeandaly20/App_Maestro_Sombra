@@ -1,14 +1,135 @@
 {% extends "app_base.html" %}
+{% load static %}
 
 {% block title %}Inicio{% endblock %}
+{% block styles %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/home.css' %}">{% endblock %}
 
 {% block content %}
-<div class="content__header">
-    <h1>¡Hola, {{ user.get_short_name }}!</h1>
-    <p>Desde aquí registrarás a tus alumnos, adaptarás materiales y revisarás el banco de adaptaciones.</p>
-</div>
-<div class="card">
-    <h2>Panel en construcción</h2>
-    <p>Las tarjetas de estudiantes, adaptaciones y métricas se agregan en la parte del panel principal.</p>
-</div>
+{# ---------- Welcome ---------- #}
+<section class="hero" aria-labelledby="hero-title">
+    <div>
+        <p class="badge-line"><span class="icon" aria-hidden="true">school</span>Enfoque DUA integrado</p>
+        <h1 id="hero-title">¡{{ greeting }}, {{ user.get_short_name }}!</h1>
+        <p class="hero__text">
+            {% if student_count %}
+                Tienes <strong>{{ student_count }} estudiante{{ student_count|pluralize }} registrado{{ student_count|pluralize }}</strong>
+                {% if student_count >= max_students %}(cupo máximo completado){% else %}de un máximo de {{ max_students }}{% endif %}.
+                {% if pending_count %}Hay <strong>{{ pending_count }} adaptaci{{ pending_count|pluralize:"ón,ones" }} por revisar o evaluar</strong> en el aula.{% else %}Todas tus adaptaciones están revisadas y evaluadas.{% endif %}
+            {% else %}
+                Empieza registrando a tus estudiantes con NEE; después podrás adaptar sus guías con apoyo de la IA.
+            {% endif %}
+        </p>
+    </div>
+    <a class="button button--primary button--large" href="{% if student_count %}{% url 'adapt' %}{% else %}{% url 'student_list' %}{% endif %}">
+        <span class="icon" aria-hidden="true">add_circle</span>{% if student_count %}Nueva adaptación{% else %}Registrar estudiante{% endif %}</a>
+</section>
+
+{# ---------- Metrics ---------- #}
+<section class="metrics" aria-label="Resumen de tu trabajo">
+    <article class="card metric">
+        <span class="metric__icon metric__icon--primary"><span class="icon" aria-hidden="true">groups</span></span>
+        <p class="metric__value">{{ student_count }} / {{ max_students }}</p>
+        <h2 class="metric__label">Estudiantes registrados</h2>
+        <p class="metric__note">{% if student_count >= max_students %}Cupo completo{% else %}Puedes registrar hasta {{ max_students }}{% endif %}.</p>
+        <div class="meter-bar" role="img" aria-label="{{ student_percent }} % del cupo"><span style="width: {{ student_percent }}%"></span></div>
+    </article>
+    <article class="card metric">
+        <span class="metric__icon metric__icon--secondary"><span class="icon" aria-hidden="true">menu_book</span></span>
+        <p class="metric__value">{{ adaptation_count }} <small>guía{{ adaptation_count|pluralize }}</small></p>
+        <h2 class="metric__label">Adaptaciones realizadas</h2>
+        <p class="metric__note">{{ approved_count }} aprobada{{ approved_count|pluralize }} · {{ in_review_count }} en revisión.</p>
+    </article>
+    <article class="card metric">
+        <span class="metric__icon metric__icon--tertiary"><span class="icon" aria-hidden="true">hourglass_bottom</span></span>
+        <p class="metric__value">~{{ saved_hours }} <small>h</small></p>
+        <h2 class="metric__label">Tiempo ahorrado (estimado)</h2>
+        <p class="metric__note">{% if average_seconds is not None %}La IA tarda {{ average_seconds }} s por guía frente a {{ manual_minutes }} min de adaptación manual.{% else %}Se calcula cuando adaptes tu primera guía.{% endif %}</p>
+    </article>
+    <article class="card metric">
+        <span class="metric__icon metric__icon--success"><span class="icon" aria-hidden="true">psychology</span></span>
+        <p class="metric__value">{% if comprehension is not None %}{{ comprehension }} <small>%</small>{% else %}—{% endif %}</p>
+        <h2 class="metric__label">Comprensión promedio</h2>
+        <p class="metric__note">{% if evaluation_count %}Según {{ evaluation_count }} evaluaci{{ evaluation_count|pluralize:"ón,ones" }} en el aula.{% else %}Aún no hay evaluaciones en el aula.{% endif %}</p>
+        {% if comprehension is not None %}<div class="meter-bar meter-bar--success" role="img" aria-label="{{ comprehension }} % de comprensión"><span style="width: {{ comprehension }}%"></span></div>{% endif %}
+    </article>
+</section>
+
+{# ---------- Modules ---------- #}
+<section aria-labelledby="modules-title">
+    <p class="eyebrow">Flujo docente</p>
+    <h2 class="section-title" id="modules-title">Módulos pedagógicos</h2>
+    <div class="modules">
+        <article class="card module">
+            <span class="module__icon"><span class="icon" aria-hidden="true">badge</span></span>
+            <h3>Registro y expediente de estudiantes NEE</h3>
+            <p>Registra condiciones, fortalezas y estilo de aprendizaje para DEA, neurodesarrollo y discapacidad intelectual.</p>
+            {% if students %}
+                <p class="module__detail"><span class="icon" aria-hidden="true">history</span>Último registro: <strong>{{ students.0.name }}</strong> ({{ students.0.condition_labels|join:", " }})</p>
+            {% endif %}
+            <a class="button button--secondary button--block module__action" href="{% url 'student_list' %}">Gestionar estudiantes<span class="icon" aria-hidden="true">arrow_forward</span></a>
+        </article>
+        <article class="card module">
+            <span class="module__icon"><span class="icon" aria-hidden="true">auto_fix_high</span></span>
+            <h3>Adaptador de material curricular</h3>
+            <p>Sube una tarea en foto, PDF, Word o texto y la IA la transforma según la condición de cada estudiante.</p>
+            <ul class="module__formats" aria-label="Formatos aceptados">
+                <li><span class="icon" aria-hidden="true">photo_camera</span>Foto</li>
+                <li><span class="icon" aria-hidden="true">picture_as_pdf</span>PDF</li>
+                <li><span class="icon" aria-hidden="true">description</span>Word</li>
+                <li><span class="icon" aria-hidden="true">edit_note</span>Texto</li>
+            </ul>
+            <a class="button button--secondary button--block module__action" href="{% url 'adapt' %}">Cargar nueva tarea<span class="icon" aria-hidden="true">arrow_forward</span></a>
+        </article>
+        <article class="card module">
+            <span class="module__icon"><span class="icon" aria-hidden="true">folder_special</span></span>
+            <h3>Banco de adaptaciones</h3>
+            <p>Consulta, descarga y evalúa las guías ya generadas, y regenera una versión más simple cuando haga falta.</p>
+            <p class="module__detail"><span class="icon" aria-hidden="true">print</span><strong>{{ approved_count }} guía{{ approved_count|pluralize }}</strong> lista{{ approved_count|pluralize }} para imprimir en PDF</p>
+            <a class="button button--secondary button--block module__action" href="{% url 'bank' %}">Ver el banco<span class="icon" aria-hidden="true">arrow_forward</span></a>
+        </article>
+    </div>
+</section>
+
+{# ---------- Recent activity ---------- #}
+<section class="card activity" aria-labelledby="activity-title">
+    <header class="activity__header">
+        <h2 id="activity-title"><span class="icon" aria-hidden="true">pending_actions</span>Actividad reciente</h2>
+        <nav class="filter-chips" aria-label="Filtrar la actividad">
+            <a class="filter-chip" href="{% url 'home' %}" aria-pressed="{% if show_pending %}false{% else %}true{% endif %}">Todas ({{ adaptation_count }})</a>
+            <a class="filter-chip" href="?ver=pendientes" aria-pressed="{% if show_pending %}true{% else %}false{% endif %}">Pendientes ({{ pending_count }})</a>
+        </nav>
+    </header>
+    {% if recent %}
+    <div class="table-wrap">
+        <table class="activity__table">
+            <thead>
+                <tr>
+                    <th scope="col">Material</th>
+                    <th scope="col">Estudiante y condición</th>
+                    <th scope="col">Ajustes DUA</th>
+                    <th scope="col">Estado</th>
+                    <th scope="col"><span class="sr-only">Acciones</span></th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for adaptation in recent %}
+                <tr>
+                    <td><strong>{{ adaptation.title }}</strong><span class="activity__sub">{{ adaptation.material.subject.name }} · {{ adaptation.student.get_grade_display }}</span></td>
+                    <td>{{ adaptation.student.name }}<span class="activity__sub">{{ adaptation.get_condition_display }}</span></td>
+                    <td class="activity__adjustments">{{ adaptation.adjustment_labels|slice:":2"|join:", " }}</td>
+                    <td><span class="chip chip--{% if adaptation.status == 'IN_REVIEW' %}secondary{% else %}primary{% endif %}">{{ adaptation.get_status_display }}</span></td>
+                    <td class="activity__actions">
+                        <a href="{% url 'material_detail' adaptation.material_id %}?a={{ adaptation.pk }}">{% if adaptation.status == 'IN_REVIEW' %}Revisar{% else %}Ver{% endif %}</a>
+                        {% if adaptation.status != 'IN_REVIEW' %}<a href="{% url 'evaluation' adaptation.pk %}">Evaluar</a>{% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <p class="activity__footer"><a href="{% url 'bank' %}">Ver todo en el banco de adaptaciones <span class="icon" aria-hidden="true">arrow_forward</span></a></p>
+    {% else %}
+    <p class="activity__empty">{% if show_pending %}No tienes adaptaciones pendientes.{% else %}Todavía no hay adaptaciones. Cuando adaptes tu primera guía aparecerá aquí.{% endif %}</p>
+    {% endif %}
+</section>
 {% endblock %}

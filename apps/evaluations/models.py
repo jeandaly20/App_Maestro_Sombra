@@ -31,6 +31,10 @@ class AccuracyRange(models.TextChoices):
     ABOVE_75 = 'ABOVE_75', 'Más del 75 %'
 
 
+# Comprehension as a percentage, to average it on the dashboard
+COMPREHENSION_SCORE = {'YES': 100, 'DIFFICULTY': 50, 'NO': 0}
+
+
 class EvaluationStatus(models.TextChoices):
     DRAFT = 'DRAFT', 'Borrador'
     FINAL = 'FINAL', 'Finalizada'
