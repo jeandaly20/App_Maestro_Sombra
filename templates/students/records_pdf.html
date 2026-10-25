@@ -29,6 +29,7 @@
             <tr><th>Fecha de nacimiento</th><td>{{ student.birth_date|date:"d/m/Y" }} ({{ student.age }} años)</td></tr>
             <tr><th>Grado</th><td>{{ student.get_grade_display }}</td></tr>
             <tr><th>Condiciones NEE</th><td>{{ student.condition_labels|join:", " }}</td></tr>
+            <tr><th>Respaldo del diagnóstico</th><td>{{ student.get_diagnosis_source_display }}{% if student.diagnosis_date %} ({{ student.diagnosis_date|date:"d/m/Y" }}){% endif %}</td></tr>
             <tr><th>Pautas de adaptación DUA</th><td>{{ student.recommended_adjustments|join:", " }}</td></tr>
             <tr><th>Observaciones</th><td>{{ student.notes|default:"Sin observaciones."|linebreaksbr }}</td></tr>
             <tr><th>Adaptaciones realizadas</th><td>{{ student.adaptation_count }}</td></tr>

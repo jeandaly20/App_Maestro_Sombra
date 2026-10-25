@@ -32,6 +32,25 @@ CONDITION_DESCRIPTIONS = {
 }
 
 
+# DSM-5, specific learning disorder, criterion D: the difficulties must not be better explained by an
+# intellectual disability, so DEA and intellectual disability are not registered together.
+LEARNING_DISORDERS = [Condition.DYSLEXIA, Condition.DYSCALCULIA]
+INTELLECTUAL_DISABILITY = [Condition.ID_MILD, Condition.ID_MODERATE]
+
+
+class DiagnosisSource(models.TextChoices):
+    """Document that backs the student's SEN (the file itself is not uploaded: LOPDP, data minimization)."""
+    UDAI_REPORT = 'UDAI_REPORT', 'Informe psicopedagógico de la UDAI'
+    MSP_CERTIFICATE = 'MSP_CERTIFICATE', 'Certificado o carné de discapacidad del MSP'
+    DECE_REPORT = 'DECE_REPORT', 'Informe del DECE de la institución'
+    CLINICAL_REPORT = 'CLINICAL_REPORT', 'Diagnóstico clínico (neurólogo, psicólogo o psiquiatra)'
+    IN_EVALUATION = 'IN_EVALUATION', 'En proceso de evaluación (sin informe aún)'
+
+
+# Intellectual disability is a SEN associated with disability: it is backed by the MSP or the UDAI
+DISABILITY_SOURCES = [DiagnosisSource.MSP_CERTIFICATE, DiagnosisSource.UDAI_REPORT, DiagnosisSource.IN_EVALUATION]
+
+
 class Grade(models.TextChoices):
     """Ecuadorian General Basic Education (EGB) grades."""
     EGB_1 = 'EGB_1', '1.º de EGB'

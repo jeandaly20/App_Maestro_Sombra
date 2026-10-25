@@ -291,3 +291,47 @@ class InputTypeOptionsTests(TestCase):
         for name in ('input_type', 'adjustments', 'students'):
             self.assertNotRegex(page, rf'<input[^>]*name="{name}"[^>]*class="field__control"')
             self.assertNotRegex(page, rf'<input[^>]*class="field__control"[^>]*name="{name}"')
+
+
+class CurriculumTests(TestCase):
+    """Subject and grade: rules for the prompt and warnings when the worksheet does not match."""
+
+    def setUp(self):
+        self.teacher = Teacher.objects.create_user('ana@correo.com', PASSWORD, full_name='Ana Pérez')
+        self.client.force_login(self.teacher)
+        self.student = Student.objects.create(teacher=self.teacher, name='Mateo Benítez', birth_date=date(2016, 5, 1),
+                                              grade='EGB_3', conditions=['DYSCALCULIA'])
+
+    def test_prompt_has_subject_strategies_and_reading_level(self):
+        from .udl_rules import rules_for
+        text = rules_for('DYSCALCULIA', [], 'MAT', 'EGB_1')
+        self.assertIn('concreto → gráfico → abstracto', text)
+        self.assertIn('Preparatoria', text)
+        self.assertNotIn('Estrategias para esta materia', rules_for('DYSCALCULIA', [], 'ot', 'EGB_3'))
+
+    def test_level_note_when_worksheet_is_harder(self):
+        from .curriculum import level_note
+        self.assertIn('subnivel superior', level_note({'detected_level': 'MEDIA'}, 'EGB_3'))
+        self.assertEqual(level_note({'detected_level': 'ELEMENTAL'}, 'EGB_3'), '')
+
+    def test_teacher_is_warned_about_subject_and_grade(self):
+        analysis = dict(ANALYSIS, detected_subject='CIE', detected_level='SUPERIOR')
+        material = OriginalMaterial.objects.create(
+            teacher=self.teacher, subject=Subject.objects.get(code='MAT'), title='Fracciones', topic='Fracciones',
+            input_type='TEXT', input_text='x', status=MaterialStatus.PROCESSED, ai_analysis=analysis,
+        )
+        CurricularAdaptation.objects.create(material=material, student=self.student, condition='DYSCALCULIA',
+                                            title='Fracciones', content=json.loads(json.dumps(ADAPTED)))
+        page = self.client.get(reverse('material_detail', args=[material.pk]))
+        self.assertContains(page, 'La guía parece de Ciencias Naturales')
+        self.assertContains(page, 'más avanzada que el grado de Mateo Benítez')
+
+    @override_settings(AI_PROCESS_INLINE=True)
+    def test_adaptation_receives_the_subject_code(self):
+        with mock.patch('apps.adaptations.services.ai.analyze_material', side_effect=fake_analyze), \
+                mock.patch('apps.adaptations.services.ai.adapt_worksheet', side_effect=fake_adapt) as adapt:
+            self.client.post(reverse('adapt'), {
+                'students': [str(self.student.pk)], 'subject': Subject.objects.get(code='MAT').pk, 'title': 'F',
+                'topic': 'Fracciones', 'input_type': 'TEXT', 'input_text': 'Juan tiene 3/4 de pizza...',
+            })
+        self.assertEqual(adapt.call_args.kwargs['subject_code'], 'MAT')

@@ -38,7 +38,7 @@ def _create_adaptation(material, student, condition, adjustments, *, source=None
     content, model = ai.adapt_worksheet(
         analysis=material.ai_analysis, subject=material.subject.name, topic=material.topic,
         grade=student.grade, condition=condition, adjustments=adjustments,
-        simplify=simplify, feedback=scrub_personal_data(feedback, student),
+        simplify=simplify, feedback=scrub_personal_data(feedback, student), subject_code=material.subject.code,
     )
     adaptation = CurricularAdaptation(
         material=material, student=student, condition=condition,

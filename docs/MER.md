@@ -42,6 +42,9 @@ erDiagram
         date birth_date
         varchar grade "CHECK"
         varchar_array conditions "CHECK"
+        varchar diagnosis_source "UDAI MSP DECE CLINICAL IN_EVALUATION"
+        date diagnosis_date "optional"
+        text diagnosis_reference "encrypted, optional"
         text notes "encrypted"
         varchar record_status "ACTIVE INACTIVE"
         timestamptz created_at
@@ -154,6 +157,8 @@ Todas las tablas del negocio tienen `record_status` con dos valores: `ACTIVE` (a
 6. Un material de tipo TEXT lleva `input_text`; los de tipo PHOTO, PDF o WORD llevan `file`.
 7. A Gemini se envían el material y la condición; nunca el nombre ni las observaciones del niño.
 8. Los registros no se borran desde la aplicación: se marcan como `INACTIVE`.
+9. Dislexia o discalculia (DEA) no se registran junto con discapacidad intelectual (DSM-5, criterio D) y solo se admite un nivel de discapacidad intelectual (`student_no_learning_disorder_with_id`, `student_single_id_level`).
+10. El diagnóstico se respalda con un documento (informe de la UDAI, certificado o carné del MSP, informe del DECE o diagnóstico clínico) con fecha, o queda "en proceso de evaluación"; la discapacidad intelectual se respalda con el MSP o la UDAI. No se guarda el archivo, solo su tipo, fecha y número cifrado.
 
 ## Leyenda
 

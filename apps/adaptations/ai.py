@@ -23,6 +23,7 @@ from django.conf import settings
 from apps.core.choices import Condition, Grade
 
 from . import visuals
+from .curriculum import level_note
 from .udl_rules import rules_for
 
 logger = logging.getLogger('maestro_sombra')
@@ -56,8 +57,12 @@ ANALYSIS_SCHEMA = {
         'detected_barriers': {'type': 'ARRAY', 'items': {'type': 'STRING'}},
         'cognitive_load': {'type': 'STRING', 'enum': ['BAJA', 'MEDIA', 'ALTA']},
         'summary': {'type': 'STRING'},
+        # What the worksheet really is, to warn the teacher if it does not match the registered subject or grade
+        'detected_subject': {'type': 'STRING', 'enum': ['MAT', 'LEN', 'CIE', 'SOC', 'ING', 'ART', 'OTRA']},
+        'detected_level': {'type': 'STRING', 'enum': ['PREPARATORIA', 'ELEMENTAL', 'MEDIA', 'SUPERIOR', 'BACHILLERATO']},
     },
-    'required': ['readable', 'extracted_text', 'figures', 'detected_barriers', 'cognitive_load', 'summary'],
+    'required': ['readable', 'extracted_text', 'figures', 'detected_barriers', 'cognitive_load', 'summary',
+                 'detected_subject', 'detected_level'],
 }
 
 VISUAL_SCHEMA = {
@@ -260,7 +265,11 @@ def analyze_material(*, text='', image_parts=(), subject, topic):
         f'Materia: {subject}. Tema: {topic}.\n'
         'Analiza esta guía escolar: extrae su contenido, describe y ubica cada figura, y señala las barreras '
         'de aprendizaje, el número de ejercicios y la carga cognitiva (BAJA, MEDIA o ALTA). En "summary" '
-        'resume en una frase qué trabaja la guía.'
+        'resume en una frase qué trabaja la guía. Según su contenido (no según lo que dice el docente), '
+        'indica en "detected_subject" la materia que realmente trabaja (MAT Matemática, LEN Lengua y Literatura, '
+        'CIE Ciencias Naturales, SOC Estudios Sociales, ING Inglés, ART Educación Cultural y Artística u OTRA) y '
+        'en "detected_level" el subnivel del currículo ecuatoriano para el que está pensada: PREPARATORIA (1.º), '
+        'ELEMENTAL (2.º a 4.º), MEDIA (5.º a 7.º), SUPERIOR (8.º a 10.º) o BACHILLERATO.'
     )
     parts = [{'text': prompt}]
     if text:
@@ -272,13 +281,15 @@ def analyze_material(*, text='', image_parts=(), subject, topic):
     return data, model
 
 
-def adapt_worksheet(*, analysis, subject, topic, grade, condition, adjustments, simplify=False, feedback=''):
+def adapt_worksheet(*, analysis, subject, topic, grade, condition, adjustments, simplify=False, feedback='',
+                    subject_code=None):
     """Restructures the analyzed worksheet for ONE condition. Receives no personal data."""
     figures = analysis.get('figures', [])
     figure_lines = '\n'.join(f'Figura {n}: {f["description"]}' for n, f in enumerate(figures, start=1))
     prompt = [
         f'Materia: {subject}. Tema: {topic}. Grado: {Grade(grade).label}.',
-        rules_for(condition, adjustments),
+        rules_for(condition, adjustments, subject_code, grade),
+        level_note(analysis, grade),
         f'Contenido de la guía original:\n{analysis["extracted_text"]}',
         f'Figuras de la guía original:\n{figure_lines or "(la guía no tiene figuras)"}',
         'Barreras detectadas: ' + '; '.join(analysis.get('detected_barriers', [])),
@@ -295,7 +306,8 @@ def adapt_worksheet(*, analysis, subject, topic, grade, condition, adjustments, 
         prompt.append(f'Observación del docente sobre la versión anterior: {feedback}')
     # Last on purpose: the model follows the final instruction most reliably
     prompt.append(SPELLING_RULE)
-    content, model = generate_json(ADAPTATION_SYSTEM, [{'text': '\n\n'.join(prompt)}], ADAPTATION_SCHEMA)
+    content, model = generate_json(ADAPTATION_SYSTEM, [{'text': '\n\n'.join(part for part in prompt if part)}],
+                                   ADAPTATION_SCHEMA)
     return normalize_adaptation(content, figure_count=len(figures)), model
 
 

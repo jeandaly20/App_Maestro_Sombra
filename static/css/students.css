@@ -376,3 +376,23 @@
 .button--danger:hover {
     background: var(--color-error-soft);
 }
+
+/* ---------- Diagnosis backing on the directory card ---------- */
+
+.student-card__diagnosis {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    margin-top: var(--space-xs);
+    color: var(--color-primary);
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+.student-card__diagnosis .icon {
+    font-size: 1rem;
+}
+
+.student-card__diagnosis--pending {
+    color: var(--color-tertiary);
+}

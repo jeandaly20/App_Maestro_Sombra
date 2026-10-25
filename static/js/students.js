@@ -24,6 +24,15 @@ document.addEventListener('DOMContentLoaded', () => {
         update();
     });
 
+    // "In evaluation" has no document yet: its date and number are hidden
+    const source = document.getElementById('id_diagnosis_source');
+    const details = document.querySelector('[data-diagnosis-details]');
+    if (source && details) {
+        const toggle = () => { details.hidden = source.value === 'IN_EVALUATION'; };
+        source.addEventListener('change', toggle);
+        toggle();
+    }
+
     // Giving a student leave asks for confirmation first
     document.querySelectorAll('form[data-confirm]').forEach((form) => {
         form.addEventListener('submit', (event) => {

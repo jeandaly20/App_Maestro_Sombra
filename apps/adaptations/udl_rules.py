@@ -9,6 +9,8 @@ The rule texts are in Spanish because the model must write the worksheet in Span
 """
 from apps.core.choices import Condition, UdlAdjustment
 
+from .curriculum import subject_and_level_rules
+
 CONDITION_RULES = {
     Condition.DYSLEXIA: [
         'Usa oraciones cortas, de una sola idea, y vocabulario frecuente.',
@@ -74,12 +76,13 @@ GENERAL_RULES = [
 ]
 
 
-def rules_for(condition, adjustments):
-    """Plain-text rules for one condition plus the UDL adjustments the teacher chose."""
+def rules_for(condition, adjustments, subject_code=None, grade=None):
+    """Plain-text rules for one condition, the UDL adjustments the teacher chose, the subject and the grade."""
     lines = ['Reglas generales (siempre):'] + [f'- {rule}' for rule in GENERAL_RULES]
     lines += [f'Condición del estudiante: {Condition(condition).label}.', 'Reglas obligatorias para esta condición:']
     lines += [f'- {rule}' for rule in CONDITION_RULES[condition]]
     if adjustments:
         lines.append('Ajustes DUA seleccionados por el docente:')
         lines += [f'- {UdlAdjustment(value).label}: {ADJUSTMENT_RULES[value]}' for value in adjustments]
+    lines += subject_and_level_rules(subject_code, grade)
     return '\n'.join(lines)

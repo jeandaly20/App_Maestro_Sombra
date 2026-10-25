@@ -9,7 +9,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict qRCDxwyvXaQTXRoXtSfCRoPcEysATuHsTklHtlOidYH9vzOW1PJv8Y5r8h0vQq8
+\restrict N4DLlwNg0DXRd3V5cGj2yzBGO8gvM8mBhcuJBVrtZ31aY3g8KbzcxykggvVFZ13
 
 -- Dumped from database version 17.11
 -- Dumped by pg_dump version 17.11
@@ -278,14 +278,21 @@ CREATE TABLE public.mst_student (
     updated_at timestamp with time zone NOT NULL,
     teacher_id uuid NOT NULL,
     record_status character varying(8) NOT NULL,
+    diagnosis_date date,
+    diagnosis_reference text NOT NULL,
+    diagnosis_source character varying(16) NOT NULL,
     CONSTRAINT student_conditions_valid CHECK ((conditions <@ ARRAY['DYSLEXIA'::character varying(20), 'DYSCALCULIA'::character varying(20), 'ADHD'::character varying(20), 'ASD'::character varying(20), 'ID_MILD'::character varying(20), 'ID_MODERATE'::character varying(20)])),
+    CONSTRAINT student_diagnosis_has_date CHECK ((((diagnosis_source)::text = 'IN_EVALUATION'::text) OR (diagnosis_date IS NOT NULL))),
+    CONSTRAINT student_diagnosis_source_valid CHECK (((diagnosis_source)::text = ANY ((ARRAY['UDAI_REPORT'::character varying, 'MSP_CERTIFICATE'::character varying, 'DECE_REPORT'::character varying, 'CLINICAL_REPORT'::character varying, 'IN_EVALUATION'::character varying])::text[]))),
     CONSTRAINT student_grade_valid CHECK (((grade)::text = ANY ((ARRAY['EGB_1'::character varying, 'EGB_2'::character varying, 'EGB_3'::character varying, 'EGB_4'::character varying, 'EGB_5'::character varying, 'EGB_6'::character varying, 'EGB_7'::character varying, 'EGB_8'::character varying, 'EGB_9'::character varying, 'EGB_10'::character varying])::text[]))),
     CONSTRAINT student_has_condition CHECK ((
 CASE
     WHEN (conditions IS NULL) THEN NULL::integer
     ELSE COALESCE(array_length(conditions, 1), 0)
 END >= 1)),
-    CONSTRAINT student_record_status_valid CHECK (((record_status)::text = ANY ((ARRAY['ACTIVE'::character varying, 'INACTIVE'::character varying])::text[])))
+    CONSTRAINT student_no_learning_disorder_with_id CHECK ((NOT ((conditions && ARRAY['DYSLEXIA'::character varying(20), 'DYSCALCULIA'::character varying(20)]) AND (conditions && ARRAY['ID_MILD'::character varying(20), 'ID_MODERATE'::character varying(20)])))),
+    CONSTRAINT student_record_status_valid CHECK (((record_status)::text = ANY ((ARRAY['ACTIVE'::character varying, 'INACTIVE'::character varying])::text[]))),
+    CONSTRAINT student_single_id_level CHECK ((NOT (conditions @> ARRAY['ID_MILD'::character varying(20), 'ID_MODERATE'::character varying(20)])))
 );
 
 
@@ -983,7 +990,7 @@ ALTER TABLE ONLY public.trx_original_material
 -- PostgreSQL database dump complete
 --
 
-\unrestrict qRCDxwyvXaQTXRoXtSfCRoPcEysATuHsTklHtlOidYH9vzOW1PJv8Y5r8h0vQq8
+\unrestrict N4DLlwNg0DXRd3V5cGj2yzBGO8gvM8mBhcuJBVrtZ31aY3g8KbzcxykggvVFZ13
 
 
 -- Catalogo de materias
@@ -991,7 +998,7 @@ ALTER TABLE ONLY public.trx_original_material
 -- PostgreSQL database dump
 --
 
-\restrict nVUe3JfYTWmDAMnBWlhqhREeTmw7faQfGRuxf00xGkIHTEz1Uzyeh38UqbAveCB
+\restrict EWHeeVWMo338Vs0sQL4X7dDxDX7vAm8iXVYOvV9ZpoJSUPMB6VtgnC5fi9PRHaV
 
 -- Dumped from database version 17.11
 -- Dumped by pg_dump version 17.11
@@ -1018,18 +1025,19 @@ INSERT INTO public.cat_subject VALUES (3, 'Ciencias Naturales', 'CIE', 'ACTIVE')
 INSERT INTO public.cat_subject VALUES (4, 'Estudios Sociales', 'SOC', 'ACTIVE');
 INSERT INTO public.cat_subject VALUES (5, 'Inglés', 'ING', 'ACTIVE');
 INSERT INTO public.cat_subject VALUES (6, 'Educación Cultural y Artística', 'ART', 'ACTIVE');
+INSERT INTO public.cat_subject VALUES (7, 'otros', 'ot', 'ACTIVE');
 
 
 --
 -- Name: cat_subject_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.cat_subject_id_seq', 6, true);
+SELECT pg_catalog.setval('public.cat_subject_id_seq', 7, true);
 
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict nVUe3JfYTWmDAMnBWlhqhREeTmw7faQfGRuxf00xGkIHTEz1Uzyeh38UqbAveCB
+\unrestrict EWHeeVWMo338Vs0sQL4X7dDxDX7vAm8iXVYOvV9ZpoJSUPMB6VtgnC5fi9PRHaV
 

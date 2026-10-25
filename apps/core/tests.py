@@ -113,3 +113,12 @@ class DatabaseRulesTests(TestCase):
         self.teacher.record_status = 'INACTIVE'
         self.teacher.save()
         self.assertFalse(Teacher.objects.get(pk=self.teacher.pk).is_active)
+
+    def test_learning_disorder_with_intellectual_disability_is_blocked(self):
+        self.assertBlocked(lambda: self.new_student(conditions=['DYSCALCULIA', 'ID_MILD']))
+        self.assertBlocked(lambda: self.new_student(conditions=['ID_MILD', 'ID_MODERATE']))
+        self.new_student(conditions=['ADHD', 'ID_MODERATE'])  # valid comorbidity
+
+    def test_diagnosis_document_needs_a_date(self):
+        self.assertBlocked(lambda: self.new_student(diagnosis_source='UDAI_REPORT'))
+        self.assertBlocked(lambda: self.new_student(diagnosis_source='RUMOR'))

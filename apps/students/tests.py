@@ -17,6 +17,8 @@ def student_data(**changes):
         'grade': 'EGB_4',
         'conditions': ['DYSLEXIA', 'DYSCALCULIA'],
         'notes': 'Buena comprensión oral.',
+        'diagnosis_source': 'UDAI_REPORT',
+        'diagnosis_date': '2025-03-10',
     }
     data.update(changes)
     return data
@@ -125,3 +127,31 @@ class StudentRegistryTests(TestCase):
         other = Teacher.objects.create_user('luis@correo.com', PASSWORD, full_name='Luis Mora')
         foreign = self.add_student(teacher=other, name='Daniel Vera')
         self.assertEqual(self.client.post(reverse('student_deactivate', args=[foreign.pk])).status_code, 404)
+
+    def test_learning_disorder_cannot_be_combined_with_intellectual_disability(self):
+        response = self.client.post(self.url, student_data(conditions=['DYSLEXIA', 'ADHD', 'ID_MILD']))
+        self.assertContains(response, 'no se registran junto con discapacidad intelectual')
+        self.assertFalse(Student.objects.exists())
+        # Neurodevelopment + intellectual disability is a valid combination
+        self.client.post(self.url, student_data(conditions=['ASD', 'ID_MILD'], diagnosis_source='MSP_CERTIFICATE'))
+        self.assertEqual(Student.objects.get().conditions, ['ASD', 'ID_MILD'])
+
+    def test_diagnosis_backing_rules(self):
+        no_date = self.client.post(self.url, student_data(diagnosis_date=''))
+        self.assertContains(no_date, 'Indica la fecha del informe o certificado.')
+        future = self.client.post(self.url, student_data(diagnosis_date='2999-01-01'))
+        self.assertContains(future, 'no puede ser futura')
+        dece_for_id = self.client.post(self.url, student_data(conditions=['ID_MODERATE'], diagnosis_source='DECE_REPORT'))
+        self.assertContains(dece_for_id, 'certificado o carné de discapacidad del MSP')
+        self.assertFalse(Student.objects.exists())
+        self.client.post(self.url, student_data(diagnosis_source='IN_EVALUATION', diagnosis_date='2025-03-10',
+                                                diagnosis_reference='UDAI-09D01-123'))
+        student = Student.objects.get()
+        self.assertIsNone(student.diagnosis_date)  # "in evaluation" keeps no date
+        self.assertTrue(student.is_diagnosis_pending)
+
+    def test_new_student_has_no_preselected_document(self):
+        page = self.client.get(self.url)
+        self.assertContains(page, '<option value="" selected>Selecciona el documento</option>', html=True)
+        response = self.client.post(self.url, student_data(diagnosis_source=''))
+        self.assertContains(response, 'Este campo es obligatorio.')

@@ -6,7 +6,10 @@ from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from apps.core.choices import Condition, Grade, RecordStatus, group_of
+from apps.core.choices import (
+    DISABILITY_SOURCES, INTELLECTUAL_DISABILITY, LEARNING_DISORDERS, Condition, DiagnosisSource, Grade,
+    RecordStatus, group_of,
+)
 from apps.core.fields import EncryptedTextField
 
 MAX_STUDENTS_PER_TEACHER = 3
@@ -31,6 +34,11 @@ class Student(models.Model):
         verbose_name='condiciones NEE',
         help_text='Una o varias condiciones (p. ej. dislexia y discalculia).',
     )
+    diagnosis_source = models.CharField('respaldo del diagnóstico', max_length=16, choices=DiagnosisSource.choices,
+                                        default=DiagnosisSource.IN_EVALUATION)
+    diagnosis_date = models.DateField('fecha del informe', null=True, blank=True)
+    diagnosis_reference = EncryptedTextField('número o código del documento', blank=True,
+                                             help_text='Opcional. Se guarda cifrado.')
     notes = EncryptedTextField('observaciones', blank=True, help_text='Se guardan cifradas.')
     record_status = models.CharField('estado del registro', max_length=8, choices=RecordStatus.choices,
                                      default=RecordStatus.ACTIVE)
@@ -52,6 +60,22 @@ class Student(models.Model):
                 check=models.Q(conditions__len__gte=1), name='student_has_condition'
             ),
             models.CheckConstraint(check=models.Q(grade__in=Grade.values), name='student_grade_valid'),
+            models.CheckConstraint(
+                check=~(models.Q(conditions__overlap=LEARNING_DISORDERS)
+                        & models.Q(conditions__overlap=INTELLECTUAL_DISABILITY)),
+                name='student_no_learning_disorder_with_id',
+            ),
+            models.CheckConstraint(
+                check=~models.Q(conditions__contains=INTELLECTUAL_DISABILITY), name='student_single_id_level'
+            ),
+            models.CheckConstraint(
+                check=models.Q(diagnosis_source__in=DiagnosisSource.values), name='student_diagnosis_source_valid'
+            ),
+            # A document has a date; only "in evaluation" may have none
+            models.CheckConstraint(
+                check=models.Q(diagnosis_source=DiagnosisSource.IN_EVALUATION) | models.Q(diagnosis_date__isnull=False),
+                name='student_diagnosis_has_date',
+            ),
             models.CheckConstraint(
                 check=models.Q(record_status__in=RecordStatus.values), name='student_record_status_valid'
             ),
@@ -108,8 +132,15 @@ class Student(models.Model):
                 raise ValidationError({'birth_date': 'La fecha no puede ser futura.'})
             if not 3 <= self.age <= 18:
                 raise ValidationError({'birth_date': 'La edad debe estar entre 3 y 18 años.'})
-        if self.conditions and {Condition.ID_MILD, Condition.ID_MODERATE} <= set(self.conditions):
+        chosen = set(self.conditions or [])
+        if set(INTELLECTUAL_DISABILITY) <= chosen:
             raise ValidationError({'conditions': 'Elige un solo nivel de discapacidad intelectual: leve o moderada.'})
+        if chosen & set(LEARNING_DISORDERS) and chosen & set(INTELLECTUAL_DISABILITY):
+            raise ValidationError({'conditions': (
+                'La dislexia y la discalculia (DEA) no se registran junto con discapacidad intelectual: el DSM-5 pide '
+                'descartar la discapacidad intelectual antes de diagnosticar un DEA. Elige el diagnóstico del informe.'
+            )})
+        self.clean_diagnosis(chosen)
         if self.teacher_id and self._state.adding:
             registered = Student.objects.filter(teacher_id=self.teacher_id,
                                                 record_status=RecordStatus.ACTIVE).count()
@@ -117,6 +148,26 @@ class Student(models.Model):
                 raise ValidationError(
                     f'Un docente puede registrar como máximo {MAX_STUDENTS_PER_TEACHER} estudiantes.'
                 )
+
+    def clean_diagnosis(self, chosen):
+        if self.diagnosis_source == DiagnosisSource.IN_EVALUATION:
+            self.diagnosis_date = None
+            return
+        if not self.diagnosis_date:
+            raise ValidationError({'diagnosis_date': 'Indica la fecha del informe o certificado.'})
+        if self.diagnosis_date > date.today():
+            raise ValidationError({'diagnosis_date': 'La fecha del informe no puede ser futura.'})
+        if self.birth_date and self.diagnosis_date < self.birth_date:
+            raise ValidationError({'diagnosis_date': 'La fecha del informe no puede ser anterior al nacimiento.'})
+        if chosen & set(INTELLECTUAL_DISABILITY) and self.diagnosis_source not in DISABILITY_SOURCES:
+            raise ValidationError({'diagnosis_source': (
+                'La discapacidad intelectual se respalda con el certificado o carné de discapacidad del MSP '
+                'o con el informe psicopedagógico de la UDAI.'
+            )})
+
+    @property
+    def is_diagnosis_pending(self):
+        return self.diagnosis_source == DiagnosisSource.IN_EVALUATION
 
     def save(self, *args, **kwargs):
         if not self.pseudonym:

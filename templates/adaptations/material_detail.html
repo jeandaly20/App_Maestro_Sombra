@@ -43,6 +43,12 @@
                     <p><strong>Este archivo es una guía ya adaptada por Maestro Sombra.</strong> Para recuperar los dibujos, sube la guía original que entregas en clase.</p>
                 </div>
             {% endif %}
+            {% for warning in curriculum_warnings %}
+                <div class="alert alert--info" role="status">
+                    <span class="icon" aria-hidden="true">rule</span>
+                    <p><strong>Revisa la guía:</strong> {{ warning }}</p>
+                </div>
+            {% endfor %}
             <p class="material-status__message material-status__message--ok"><span class="icon" aria-hidden="true">check_circle</span>{{ analysis.summary }} · {{ analysis.exercise_count|default:"—" }} ejercicio{{ analysis.exercise_count|pluralize }} detectado{{ analysis.exercise_count|pluralize }}.</p>
         {% endif %}
     </div>

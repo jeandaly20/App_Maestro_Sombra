@@ -66,6 +66,11 @@
     box-sizing: border-box;
 }
 
+/* The hidden attribute always wins over layout classes (grid, flex) */
+[hidden] {
+    display: none !important;
+}
+
 html {
     -webkit-text-size-adjust: 100%;
 }

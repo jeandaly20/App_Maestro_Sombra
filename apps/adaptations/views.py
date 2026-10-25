@@ -26,6 +26,7 @@ from apps.evaluations.models import Evaluation, EvaluationStatus, Outcome
 from apps.materials.models import MaterialStatus, OriginalMaterial
 
 from . import ai, figures, services, visuals
+from .curriculum import curriculum_warnings
 from .forms import ACCEPT_BY_TYPE, AdaptMaterialForm
 from .models import AdaptationStatus, CurricularAdaptation
 
@@ -185,6 +186,7 @@ class MaterialDetailView(LoginRequiredMixin, TemplateView):
             'concepts': concepts_with_images(selected) if selected else [],
             'adaptations': adaptations,
             'selected': selected,
+            'curriculum_warnings': curriculum_warnings(material, {a.student for a in adaptations}),
             'color_filters': ColorFilter.choices,
             'is_working': material.status in (MaterialStatus.PENDING, MaterialStatus.PROCESSING),
             # Our own PDFs carry this footer: an adapted worksheet has no original drawings to reuse

@@ -51,7 +51,7 @@
 
             <fieldset class="form-section-set" {% if form.conditions.errors %}aria-describedby="{{ form.conditions.auto_id }}_error"{% endif %}>
                 <legend class="form-section"><span class="icon" aria-hidden="true">psychology</span>2. Diagnóstico y condición NEE</legend>
-                <p class="field__help">Selecciona una o varias condiciones (comorbilidad).</p>
+                <p class="field__help">Selecciona una o varias condiciones (comorbilidad). La dislexia o discalculia no se combinan con discapacidad intelectual.</p>
                 {% for error in form.conditions.errors %}
                     <p class="field__error" id="{{ form.conditions.auto_id }}_error"><span class="icon" aria-hidden="true">error</span>{{ error }}</p>
                 {% endfor %}
@@ -78,7 +78,15 @@
                 {% endfor %}
             </fieldset>
 
-            <h3 class="form-section"><span class="icon" aria-hidden="true">notes</span>3. Observaciones y recomendaciones pedagógicas</h3>
+            <h3 class="form-section"><span class="icon" aria-hidden="true">verified_user</span>3. Respaldo del diagnóstico</h3>
+            <p class="field__help">Indica qué documento confirma la condición. No se sube el archivo: el sistema solo guarda el tipo, la fecha y, si quieres, su número (cifrado).</p>
+            {% include "includes/field.html" with field=form.diagnosis_source icon="description" %}
+            <div class="field-row" data-diagnosis-details>
+                {% include "includes/field.html" with field=form.diagnosis_date %}
+                {% include "includes/field.html" with field=form.diagnosis_reference icon="tag" %}
+            </div>
+
+            <h3 class="form-section"><span class="icon" aria-hidden="true">notes</span>4. Observaciones y recomendaciones pedagógicas</h3>
             {% include "includes/field.html" with field=form.notes %}
 
             <div class="student-form__footer">
@@ -133,6 +141,9 @@
                     <div class="student-card__identity">
                         <h3>{{ student.name }}</h3>
                         <p>{{ student.get_grade_display }} · {{ student.age }} años · {{ student.pseudonym }}</p>
+                        <p class="student-card__diagnosis{% if student.is_diagnosis_pending %} student-card__diagnosis--pending{% endif %}">
+                            <span class="icon" aria-hidden="true">{% if student.is_diagnosis_pending %}pending{% else %}verified_user{% endif %}</span>{{ student.get_diagnosis_source_display }}{% if student.diagnosis_date %} · {{ student.diagnosis_date|date:"M Y" }}{% endif %}
+                        </p>
                     </div>
                     <span class="student-card__count"><span class="icon" aria-hidden="true">auto_fix_high</span>{{ student.adaptation_count }} adaptada{{ student.adaptation_count|pluralize }}</span>
                 </header>
