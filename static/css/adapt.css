@@ -108,11 +108,17 @@
     font-size: 0.875rem;
     font-weight: 500;
     cursor: pointer;
+    position: relative;
 }
 
+/* The radio stays reachable by keyboard but only the label receives the clicks */
 .input-tab input {
     position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: 0;
     opacity: 0;
+    pointer-events: none;
 }
 
 .input-tab:has(input:checked) {

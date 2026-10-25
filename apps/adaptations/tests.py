@@ -277,3 +277,17 @@ class VisualsTests(TestCase):
                  {'type': 'SEQUENCE', 'items': ['Lee', 'Responde']}]
         for spec in specs:
             self.assertTrue(visuals.render_png(visuals.clean_visual(spec)).startswith(b'\x89PNG'))
+
+
+class InputTypeOptionsTests(TestCase):
+    """Regression: the radio cards must not get the full-width text box style."""
+
+    def test_radio_and_checkbox_options_are_not_text_boxes(self):
+        teacher = Teacher.objects.create_user('ana@correo.com', PASSWORD, full_name='Ana Pérez')
+        Student.objects.create(teacher=teacher, name='Mateo Benítez', birth_date=date(2016, 5, 1),
+                               grade='EGB_4', conditions=['DYSLEXIA'])
+        self.client.force_login(teacher)
+        page = self.client.get(reverse('adapt')).content.decode()
+        for name in ('input_type', 'adjustments', 'students'):
+            self.assertNotRegex(page, rf'<input[^>]*name="{name}"[^>]*class="field__control"')
+            self.assertNotRegex(page, rf'<input[^>]*class="field__control"[^>]*name="{name}"')

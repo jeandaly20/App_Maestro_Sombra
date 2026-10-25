@@ -54,7 +54,6 @@ class EvaluationForm(AccessibleFormMixin, forms.ModelForm):
         for name in ('autonomy_level', 'comprehension', 'overload', 'accuracy_range'):
             # Radio cards: no empty "---------" option
             self.fields[name].choices = [c for c in self.fields[name].choices if c[0]]
-            self.fields[name].widget.attrs.pop('class', None)
 
     def questions(self):
         """The four option-card questions, ready for the template."""

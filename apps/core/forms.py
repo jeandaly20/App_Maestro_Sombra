@@ -10,7 +10,9 @@ class AccessibleFormMixin:
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
-            if not isinstance(field.widget, forms.CheckboxInput):
+            # Checkboxes and radio options are drawn as cards: the full-width text box style would
+            # stretch their (invisible) inputs over the neighbouring options and steal their clicks
+            if not isinstance(field.widget, (forms.CheckboxInput, forms.RadioSelect, forms.CheckboxSelectMultiple)):
                 field.widget.attrs.setdefault('class', 'field__control')
 
     def full_clean(self):
