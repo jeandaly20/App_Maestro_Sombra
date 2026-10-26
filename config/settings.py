@@ -80,6 +80,8 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
             ],
+            # {% asset %} is available in every template (versioned CSS and JS)
+            'builtins': ['apps.core.templatetags.assets'],
         },
     },
 ]

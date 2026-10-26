@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block title %}Inicio{% endblock %}
-{% block styles %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/home.css' %}">{% endblock %}
+{% block styles %}{{ block.super }}<link rel="stylesheet" href="{% asset 'css/home.css' %}">{% endblock %}
 
 {% block content %}
 {# ---------- Welcome ---------- #}

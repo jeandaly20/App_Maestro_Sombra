@@ -2,8 +2,8 @@
 {% load static %}
 
 {% block title %}Banco de adaptaciones{% endblock %}
-{% block styles %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/bank.css' %}">{% endblock %}
-{% block scripts %}<script src="{% static 'js/bank.js' %}" defer></script>{% endblock %}
+{% block styles %}{{ block.super }}<link rel="stylesheet" href="{% asset 'css/bank.css' %}">{% endblock %}
+{% block scripts %}<script src="{% asset 'js/bank.js' %}" defer></script>{% endblock %}
 
 {% block content %}
 <div class="page-header">

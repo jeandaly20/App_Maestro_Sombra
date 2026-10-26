@@ -2,10 +2,10 @@
 {% load static %}
 
 {% block title %}Adaptar material{% endblock %}
-{% block styles %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/adapt.css' %}">{% endblock %}
+{% block styles %}{{ block.super }}<link rel="stylesheet" href="{% asset 'css/adapt.css' %}">{% endblock %}
 {% block scripts %}
     {{ recommended_by_student|json_script:"recommended-adjustments" }}
-    <script src="{% static 'js/adapt.js' %}" defer></script>
+    <script src="{% asset 'js/adapt.js' %}" defer></script>
 {% endblock %}
 
 {% block content %}
