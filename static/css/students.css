@@ -452,3 +452,18 @@
 .student-card__backing .student-card__diagnosis {
     margin-top: 0;
 }
+
+/* ---------- Conditions that cannot be combined ---------- */
+
+.condition-option:has(input:disabled) {
+    background: var(--color-surface-mid);
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+.condition-conflict {
+    margin: 0 0 var(--space-sm);
+    color: var(--color-tertiary);
+    font-size: 0.875rem;
+    font-weight: 600;
+}

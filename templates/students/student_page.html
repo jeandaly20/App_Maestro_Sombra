@@ -2,8 +2,8 @@
 {% load static %}
 
 {% block title %}Registro de alumnos{% endblock %}
-{% block styles %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/students.css' %}">{% endblock %}
-{% block scripts %}<script src="{% static 'js/students.js' %}" defer></script>{% endblock %}
+{% block styles %}{{ block.super }}<link rel="stylesheet" href="{% asset 'css/students.css' %}">{% endblock %}
+{% block scripts %}<script src="{% asset 'js/students.js' %}" defer></script>{% endblock %}
 
 {% block content %}
 <div class="page-header">
@@ -51,7 +51,8 @@
 
             <fieldset class="form-section-set" {% if form.conditions.errors %}aria-describedby="{{ form.conditions.auto_id }}_error"{% endif %}>
                 <legend class="form-section"><span class="icon" aria-hidden="true">psychology</span>2. Diagnóstico y condición NEE</legend>
-                <p class="field__help">Selecciona una o varias condiciones (comorbilidad). La dislexia o discalculia no se combinan con discapacidad intelectual.</p>
+                <p class="field__help">Selecciona una o varias condiciones (comorbilidad). La dislexia o discalculia no se combinan con discapacidad intelectual, y la discapacidad intelectual tiene un solo nivel.</p>
+                <p class="condition-conflict" data-condition-conflict aria-live="polite" hidden></p>
                 {% for error in form.conditions.errors %}
                     <p class="field__error" id="{{ form.conditions.auto_id }}_error"><span class="icon" aria-hidden="true">error</span>{{ error }}</p>
                 {% endfor %}

@@ -33,6 +33,33 @@ document.addEventListener('DOMContentLoaded', () => {
         toggle();
     }
 
+    // Conditions that cannot go together are disabled as soon as one of them is ticked
+    // (same rules as the model and the database: DSM-5 criterion D, one intellectual disability level)
+    const learningDisorders = ['DYSLEXIA', 'DYSCALCULIA'];
+    const intellectual = ['ID_MILD', 'ID_MODERATE'];
+    const conditionBoxes = [...document.querySelectorAll('input[name="conditions"]')];
+    const conflictNote = document.querySelector('[data-condition-conflict]');
+    if (conditionBoxes.length) {
+        const blockConflicts = () => {
+            const chosen = conditionBoxes.filter((box) => box.checked).map((box) => box.value);
+            const hasLearning = chosen.some((value) => learningDisorders.includes(value));
+            const chosenLevel = chosen.find((value) => intellectual.includes(value));
+            conditionBoxes.forEach((box) => {
+                const blocked = !box.checked && (
+                    (learningDisorders.includes(box.value) && chosenLevel)
+                    || (intellectual.includes(box.value) && (hasLearning || chosenLevel)));
+                box.disabled = Boolean(blocked);
+            });
+            let note = '';
+            if (hasLearning) note = 'La discapacidad intelectual no se combina con dislexia o discalculia (DSM-5).';
+            else if (chosenLevel) note = 'Con discapacidad intelectual no se registran dislexia ni discalculia, y solo un nivel.';
+            conflictNote.textContent = note;
+            conflictNote.hidden = !note;
+        };
+        conditionBoxes.forEach((box) => box.addEventListener('change', blockConflicts));
+        blockConflicts();
+    }
+
     // Giving a student leave asks for confirmation first
     document.querySelectorAll('form[data-confirm]').forEach((form) => {
         form.addEventListener('submit', (event) => {
