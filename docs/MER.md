@@ -44,7 +44,10 @@ erDiagram
         varchar_array conditions "CHECK"
         varchar diagnosis_source "UDAI MSP DECE CLINICAL IN_EVALUATION"
         date diagnosis_date "optional"
-        text diagnosis_reference "encrypted, optional"
+        varchar diagnosis_file "encrypted document path, optional"
+        varchar diagnosis_file_type "PDF JPG PNG"
+        timestamptz diagnosis_consent_at "representative authorization"
+        jsonb diagnosis_check "local reading: name, institution, diagnosis"
         text notes "encrypted"
         varchar record_status "ACTIVE INACTIVE"
         timestamptz created_at
@@ -158,7 +161,7 @@ Todas las tablas del negocio tienen `record_status` con dos valores: `ACTIVE` (a
 7. A Gemini se envían el material y la condición; nunca el nombre ni las observaciones del niño.
 8. Los registros no se borran desde la aplicación: se marcan como `INACTIVE`.
 9. Dislexia o discalculia (DEA) no se registran junto con discapacidad intelectual (DSM-5, criterio D) y solo se admite un nivel de discapacidad intelectual (`student_no_learning_disorder_with_id`, `student_single_id_level`).
-10. El diagnóstico se respalda con un documento (informe de la UDAI, certificado o carné del MSP, informe del DECE o diagnóstico clínico) con fecha, o queda "en proceso de evaluación"; la discapacidad intelectual se respalda con el MSP o la UDAI. No se guarda el archivo, solo su tipo, fecha y número cifrado.
+10. El diagnóstico se respalda con un documento (informe de la UDAI, certificado o carné del MSP, informe del DECE o diagnóstico clínico) con fecha (o con el documento adjunto), o queda "en proceso de evaluación"; la discapacidad intelectual se respalda con el MSP o la UDAI. Opcionalmente se adjunta el documento: solo con la autorización del representante (fecha en `diagnosis_consent_at`), cifrado en disco, visible solo para su docente, leído solo en el servidor para avisar si no coincide el nombre, la institución o el diagnóstico, nunca enviado a la IA y borrado al dar de baja al estudiante (`student_document_has_consent`, `student_document_needs_source`).
 
 ## Leyenda
 

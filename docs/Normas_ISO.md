@@ -31,6 +31,7 @@ Cada norma indica qué se hizo en el proyecto y en qué archivo está, para pode
 - **Consentimiento:** el docente acepta los términos y queda guardada la fecha (`accepted_terms`, `terms_accepted_at`).
 - **Minimización:** a Gemini solo se envía el material y la condición, nunca el nombre del niño.
 - **Acceso restringido:** el administrador ve solo seudónimos; el nombre real lo ve únicamente el docente que registró al alumno.
+- **Documento de diagnóstico (opcional):** se guarda solo con autorización del representante, cifrado, visible únicamente para su docente, con registro de cada apertura en el log, y se borra al dar de baja al estudiante.
 
 ## 4. ISO/IEC 25012 – Calidad de los datos
 

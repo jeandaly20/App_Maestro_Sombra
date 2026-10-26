@@ -24,11 +24,11 @@ document.addEventListener('DOMContentLoaded', () => {
         update();
     });
 
-    // "In evaluation" has no document yet: its date and number are hidden
+    // "In evaluation" has no document yet: its date, number and file are hidden
     const source = document.getElementById('id_diagnosis_source');
-    const details = document.querySelector('[data-diagnosis-details]');
-    if (source && details) {
-        const toggle = () => { details.hidden = source.value === 'IN_EVALUATION'; };
+    const details = document.querySelectorAll('[data-diagnosis-details]');
+    if (source && details.length) {
+        const toggle = () => details.forEach((block) => { block.hidden = source.value === 'IN_EVALUATION'; });
         source.addEventListener('change', toggle);
         toggle();
     }

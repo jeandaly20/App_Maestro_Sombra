@@ -138,14 +138,13 @@ class StudentRegistryTests(TestCase):
 
     def test_diagnosis_backing_rules(self):
         no_date = self.client.post(self.url, student_data(diagnosis_date=''))
-        self.assertContains(no_date, 'Indica la fecha del informe o certificado.')
+        self.assertContains(no_date, 'Indica la fecha del informe o certificado')
         future = self.client.post(self.url, student_data(diagnosis_date='2999-01-01'))
         self.assertContains(future, 'no puede ser futura')
         dece_for_id = self.client.post(self.url, student_data(conditions=['ID_MODERATE'], diagnosis_source='DECE_REPORT'))
         self.assertContains(dece_for_id, 'certificado o carné de discapacidad del MSP')
         self.assertFalse(Student.objects.exists())
-        self.client.post(self.url, student_data(diagnosis_source='IN_EVALUATION', diagnosis_date='2025-03-10',
-                                                diagnosis_reference='UDAI-09D01-123'))
+        self.client.post(self.url, student_data(diagnosis_source='IN_EVALUATION', diagnosis_date='2025-03-10'))
         student = Student.objects.get()
         self.assertIsNone(student.diagnosis_date)  # "in evaluation" keeps no date
         self.assertTrue(student.is_diagnosis_pending)

@@ -36,7 +36,7 @@
                 <p>Ya registraste el máximo de {{ max_students }} estudiantes. Puedes editar sus fichas desde el directorio.</p>
             </div>
         {% else %}
-        <form method="post" novalidate>
+        <form method="post" enctype="multipart/form-data" novalidate>
             {% csrf_token %}
 
             <h3 class="form-section"><span class="icon" aria-hidden="true">id_card</span>1. Identificación del estudiante</h3>
@@ -79,11 +79,29 @@
             </fieldset>
 
             <h3 class="form-section"><span class="icon" aria-hidden="true">verified_user</span>3. Respaldo del diagnóstico</h3>
-            <p class="field__help">Indica qué documento confirma la condición. No se sube el archivo: el sistema solo guarda el tipo, la fecha y, si quieres, su número (cifrado).</p>
+            <p class="field__help">Indica qué documento confirma la condición. Si lo tienes, adjúntalo: se guarda cifrado, solo tú puedes abrirlo y nunca se envía a la IA. El sistema lee su texto para avisarte si no coincide con el estudiante; no reemplaza tu revisión.</p>
             {% include "includes/field.html" with field=form.diagnosis_source icon="description" %}
-            <div class="field-row" data-diagnosis-details>
+            <div data-diagnosis-details>
                 {% include "includes/field.html" with field=form.diagnosis_date %}
-                {% include "includes/field.html" with field=form.diagnosis_reference icon="tag" %}
+                <p class="field__help">Obligatoria si no adjuntas el documento.</p>
+            </div>
+            <div class="document-box" data-diagnosis-details>
+                {% if object.has_document %}
+                    <p class="document-box__current">
+                        <span class="icon" aria-hidden="true">attach_file</span>Documento adjunto ({{ object.get_diagnosis_file_type_display }}) · autorizado el {{ object.diagnosis_consent_at|date:"j M Y" }}
+                        <a href="{% url 'student_document' object.pk %}" target="_blank" rel="noopener">Ver documento</a>
+                    </p>
+                    {% with check=object.document_check %}
+                    <p class="document-check document-check--{{ check.0 }}"><span class="icon" aria-hidden="true">{% if check.0 == 'ok' %}check_circle{% elif check.0 == 'warn' %}warning{% else %}visibility{% endif %}</span>Revisión automática: {{ check.1 }}</p>
+                    {% endwith %}
+                    <label class="checkbox" for="{{ form.remove_document.id_for_label }}">{{ form.remove_document }}<span>{{ form.remove_document.label }}</span></label>
+                {% endif %}
+                {% include "includes/field.html" with field=form.diagnosis_document icon="upload_file" %}
+                <p class="field__help">PDF, JPG o PNG de máximo 5 MB.{% if object.has_document %} Si subes otro, reemplaza al guardado.{% endif %}</p>
+                <div class="field">
+                    <label class="checkbox" for="{{ form.diagnosis_consent.id_for_label }}">{{ form.diagnosis_consent }}<span>{{ form.diagnosis_consent.label }} Se usa solo para respaldar la adaptación y se borra si el estudiante se da de baja (LOPDP).</span></label>
+                    {% for error in form.diagnosis_consent.errors %}<p class="field__error" id="{{ form.diagnosis_consent.auto_id }}_error"><span class="icon" aria-hidden="true">error</span>{{ error }}</p>{% endfor %}
+                </div>
             </div>
 
             <h3 class="form-section"><span class="icon" aria-hidden="true">notes</span>4. Observaciones y recomendaciones pedagógicas</h3>
@@ -141,12 +159,17 @@
                     <div class="student-card__identity">
                         <h3>{{ student.name }}</h3>
                         <p>{{ student.get_grade_display }} · {{ student.age }} años · {{ student.pseudonym }}</p>
-                        <p class="student-card__diagnosis{% if student.is_diagnosis_pending %} student-card__diagnosis--pending{% endif %}">
-                            <span class="icon" aria-hidden="true">{% if student.is_diagnosis_pending %}pending{% else %}verified_user{% endif %}</span>{{ student.get_diagnosis_source_display }}{% if student.diagnosis_date %} · {{ student.diagnosis_date|date:"M Y" }}{% endif %}
-                        </p>
                     </div>
                     <span class="student-card__count"><span class="icon" aria-hidden="true">auto_fix_high</span>{{ student.adaptation_count }} adaptada{{ student.adaptation_count|pluralize }}</span>
                 </header>
+                <div class="student-card__backing">
+                <p class="student-card__diagnosis{% if student.is_diagnosis_pending %} student-card__diagnosis--pending{% endif %}">
+                    <span class="icon" aria-hidden="true">{% if student.is_diagnosis_pending %}pending{% elif student.has_document %}attach_file{% else %}verified_user{% endif %}</span>{{ student.diagnosis_status }}{% if not student.is_diagnosis_pending %}: {{ student.get_diagnosis_source_display }}{% endif %}{% if student.diagnosis_date %} · {{ student.diagnosis_date|date:"M Y" }}{% endif %}
+                </p>
+                {% with check=student.document_check %}{% if check %}
+                <p class="document-check document-check--{{ check.0 }}">{{ check.1 }}</p>
+                {% endif %}{% endwith %}
+                </div>
                 <ul class="chip-list">
                     {% for label, group_key in student.condition_badges %}<li><span class="chip chip--{{ group_key }}">{{ label }}</span></li>{% endfor %}
                 </ul>

@@ -13,6 +13,7 @@ from apps.core.choices import (
 from apps.core.fields import EncryptedTextField
 
 MAX_STUDENTS_PER_TEACHER = 3
+DOCUMENT_TYPES = [('application/pdf', 'PDF'), ('image/jpeg', 'Imagen JPG'), ('image/png', 'Imagen PNG')]
 
 
 class Student(models.Model):
@@ -37,8 +38,14 @@ class Student(models.Model):
     diagnosis_source = models.CharField('respaldo del diagnóstico', max_length=16, choices=DiagnosisSource.choices,
                                         default=DiagnosisSource.IN_EVALUATION)
     diagnosis_date = models.DateField('fecha del informe', null=True, blank=True)
-    diagnosis_reference = EncryptedTextField('número o código del documento', blank=True,
-                                             help_text='Opcional. Se guarda cifrado.')
+    # Optional encrypted copy of the document (see documents.py); only the storage path is kept here
+    diagnosis_file = models.CharField('documento de respaldo (cifrado)', max_length=255, blank=True, editable=False)
+    diagnosis_file_type = models.CharField('tipo de archivo', max_length=20, blank=True, editable=False,
+                                           choices=DOCUMENT_TYPES)
+    diagnosis_consent_at = models.DateTimeField('autorización del representante', null=True, blank=True,
+                                                editable=False)
+    # Result of the local reading of the document (documents.check_document); its text is never stored
+    diagnosis_check = models.JSONField('revisión automática del documento', null=True, blank=True, editable=False)
     notes = EncryptedTextField('observaciones', blank=True, help_text='Se guardan cifradas.')
     record_status = models.CharField('estado del registro', max_length=8, choices=RecordStatus.choices,
                                      default=RecordStatus.ACTIVE)
@@ -71,10 +78,24 @@ class Student(models.Model):
             models.CheckConstraint(
                 check=models.Q(diagnosis_source__in=DiagnosisSource.values), name='student_diagnosis_source_valid'
             ),
-            # A document has a date; only "in evaluation" may have none
+            # A declared document needs its date; an attached document already carries it
             models.CheckConstraint(
-                check=models.Q(diagnosis_source=DiagnosisSource.IN_EVALUATION) | models.Q(diagnosis_date__isnull=False),
+                check=models.Q(diagnosis_source=DiagnosisSource.IN_EVALUATION) | models.Q(diagnosis_date__isnull=False)
+                | ~models.Q(diagnosis_file=''),
                 name='student_diagnosis_has_date',
+            ),
+            # A stored document needs the representative's authorization and a real document type
+            models.CheckConstraint(
+                check=models.Q(diagnosis_file='') | models.Q(diagnosis_consent_at__isnull=False),
+                name='student_document_has_consent',
+            ),
+            models.CheckConstraint(
+                check=models.Q(diagnosis_file='') | ~models.Q(diagnosis_source=DiagnosisSource.IN_EVALUATION),
+                name='student_document_needs_source',
+            ),
+            models.CheckConstraint(
+                check=models.Q(diagnosis_file_type='') | models.Q(diagnosis_file_type__in=[t for t, _ in DOCUMENT_TYPES]),
+                name='student_document_type_valid',
             ),
             models.CheckConstraint(
                 check=models.Q(record_status__in=RecordStatus.values), name='student_record_status_valid'
@@ -153,12 +174,19 @@ class Student(models.Model):
         if self.diagnosis_source == DiagnosisSource.IN_EVALUATION:
             self.diagnosis_date = None
             return
+        # The form marks whether a document is (or stays) attached; without one the date is required
+        attached = getattr(self, 'document_attached', self.has_document)
         if not self.diagnosis_date:
-            raise ValidationError({'diagnosis_date': 'Indica la fecha del informe o certificado.'})
+            if attached:
+                return self.check_disability_source(chosen)
+            raise ValidationError({'diagnosis_date': 'Indica la fecha del informe o certificado, o adjunta el documento.'})
         if self.diagnosis_date > date.today():
             raise ValidationError({'diagnosis_date': 'La fecha del informe no puede ser futura.'})
         if self.birth_date and self.diagnosis_date < self.birth_date:
             raise ValidationError({'diagnosis_date': 'La fecha del informe no puede ser anterior al nacimiento.'})
+        self.check_disability_source(chosen)
+
+    def check_disability_source(self, chosen):
         if chosen & set(INTELLECTUAL_DISABILITY) and self.diagnosis_source not in DISABILITY_SOURCES:
             raise ValidationError({'diagnosis_source': (
                 'La discapacidad intelectual se respalda con el certificado o carné de discapacidad del MSP '
@@ -168,6 +196,31 @@ class Student(models.Model):
     @property
     def is_diagnosis_pending(self):
         return self.diagnosis_source == DiagnosisSource.IN_EVALUATION
+
+    @property
+    def has_document(self):
+        return bool(self.diagnosis_file)
+
+    @property
+    def diagnosis_status(self):
+        """Short label for the directory: how well the diagnosis is backed."""
+        if self.is_diagnosis_pending:
+            return 'En evaluación'
+        return 'Documento adjunto' if self.has_document else 'Solo declarado'
+
+    @property
+    def document_check(self):
+        """(level, text) of the automatic reading: 'ok', 'warn' or 'manual'. It flags, it never proves."""
+        check = self.diagnosis_check or {}
+        if not self.has_document:
+            return None
+        if not check.get('readable'):
+            return 'manual', 'No se pudo leer su texto (foto o escaneo): revísalo manualmente.'
+        missing = [label for key, label in (('name', 'el nombre del estudiante'), ('institution', 'la institución'),
+                                              ('diagnosis', 'el diagnóstico')) if not check.get(key)]
+        if not missing:
+            return 'ok', 'Coincide el nombre, la institución y el diagnóstico.'
+        return 'warn', f'No se encontró {", ".join(missing)} en el documento. Revísalo.'
 
     def save(self, *args, **kwargs):
         if not self.pseudonym:

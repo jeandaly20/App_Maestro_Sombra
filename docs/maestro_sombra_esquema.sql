@@ -9,7 +9,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict N4DLlwNg0DXRd3V5cGj2yzBGO8gvM8mBhcuJBVrtZ31aY3g8KbzcxykggvVFZ13
+\restrict TdzkgzQofQrkNhzFC7RraiRx02icM3JJUVcXuPCgPzsVMzNKx24C51iQOaObKnQ
 
 -- Dumped from database version 17.11
 -- Dumped by pg_dump version 17.11
@@ -279,11 +279,17 @@ CREATE TABLE public.mst_student (
     teacher_id uuid NOT NULL,
     record_status character varying(8) NOT NULL,
     diagnosis_date date,
-    diagnosis_reference text NOT NULL,
     diagnosis_source character varying(16) NOT NULL,
+    diagnosis_consent_at timestamp with time zone,
+    diagnosis_file character varying(255) NOT NULL,
+    diagnosis_file_type character varying(20) NOT NULL,
+    diagnosis_check jsonb,
     CONSTRAINT student_conditions_valid CHECK ((conditions <@ ARRAY['DYSLEXIA'::character varying(20), 'DYSCALCULIA'::character varying(20), 'ADHD'::character varying(20), 'ASD'::character varying(20), 'ID_MILD'::character varying(20), 'ID_MODERATE'::character varying(20)])),
-    CONSTRAINT student_diagnosis_has_date CHECK ((((diagnosis_source)::text = 'IN_EVALUATION'::text) OR (diagnosis_date IS NOT NULL))),
+    CONSTRAINT student_diagnosis_has_date CHECK ((((diagnosis_source)::text = 'IN_EVALUATION'::text) OR (diagnosis_date IS NOT NULL) OR (NOT ((diagnosis_file)::text = ''::text)))),
     CONSTRAINT student_diagnosis_source_valid CHECK (((diagnosis_source)::text = ANY ((ARRAY['UDAI_REPORT'::character varying, 'MSP_CERTIFICATE'::character varying, 'DECE_REPORT'::character varying, 'CLINICAL_REPORT'::character varying, 'IN_EVALUATION'::character varying])::text[]))),
+    CONSTRAINT student_document_has_consent CHECK ((((diagnosis_file)::text = ''::text) OR (diagnosis_consent_at IS NOT NULL))),
+    CONSTRAINT student_document_needs_source CHECK ((((diagnosis_file)::text = ''::text) OR (NOT ((diagnosis_source)::text = 'IN_EVALUATION'::text)))),
+    CONSTRAINT student_document_type_valid CHECK ((((diagnosis_file_type)::text = ''::text) OR ((diagnosis_file_type)::text = ANY ((ARRAY['application/pdf'::character varying, 'image/jpeg'::character varying, 'image/png'::character varying])::text[])))),
     CONSTRAINT student_grade_valid CHECK (((grade)::text = ANY ((ARRAY['EGB_1'::character varying, 'EGB_2'::character varying, 'EGB_3'::character varying, 'EGB_4'::character varying, 'EGB_5'::character varying, 'EGB_6'::character varying, 'EGB_7'::character varying, 'EGB_8'::character varying, 'EGB_9'::character varying, 'EGB_10'::character varying])::text[]))),
     CONSTRAINT student_has_condition CHECK ((
 CASE
@@ -990,7 +996,7 @@ ALTER TABLE ONLY public.trx_original_material
 -- PostgreSQL database dump complete
 --
 
-\unrestrict N4DLlwNg0DXRd3V5cGj2yzBGO8gvM8mBhcuJBVrtZ31aY3g8KbzcxykggvVFZ13
+\unrestrict TdzkgzQofQrkNhzFC7RraiRx02icM3JJUVcXuPCgPzsVMzNKx24C51iQOaObKnQ
 
 
 -- Catalogo de materias
@@ -998,7 +1004,7 @@ ALTER TABLE ONLY public.trx_original_material
 -- PostgreSQL database dump
 --
 
-\restrict EWHeeVWMo338Vs0sQL4X7dDxDX7vAm8iXVYOvV9ZpoJSUPMB6VtgnC5fi9PRHaV
+\restrict Vf5cXrwZgQg9rcCa1ihDOqw0adkI6m5nhdslx3oOMjcCKNIBUj7Ep97BVgDGNhx
 
 -- Dumped from database version 17.11
 -- Dumped by pg_dump version 17.11
@@ -1039,5 +1045,5 @@ SELECT pg_catalog.setval('public.cat_subject_id_seq', 7, true);
 -- PostgreSQL database dump complete
 --
 
-\unrestrict EWHeeVWMo338Vs0sQL4X7dDxDX7vAm8iXVYOvV9ZpoJSUPMB6VtgnC5fi9PRHaV
+\unrestrict Vf5cXrwZgQg9rcCa1ihDOqw0adkI6m5nhdslx3oOMjcCKNIBUj7Ep97BVgDGNhx
 

@@ -396,3 +396,59 @@
 .student-card__diagnosis--pending {
     color: var(--color-tertiary);
 }
+
+/* ---------- Diagnosis document ---------- */
+
+.document-box {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-lg);
+    padding: var(--space-md);
+    border: 2px dashed var(--color-border-control);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-low);
+}
+
+.document-box .field {
+    margin-bottom: 0;
+}
+
+.document-box__current {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-sm);
+    margin: 0;
+    color: var(--color-primary);
+    font-weight: 600;
+}
+
+.document-check {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-xs);
+    margin: 0;
+    font-size: 0.8125rem;
+}
+
+.document-check .icon {
+    font-size: 1rem;
+}
+
+.document-check--ok { color: var(--color-primary); }
+
+.document-check--warn { color: var(--color-tertiary); font-weight: 600; }
+
+.document-check--manual { color: var(--color-text-soft); }
+
+.student-card__backing {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    margin-bottom: var(--space-sm);
+}
+
+.student-card__backing .student-card__diagnosis {
+    margin-top: 0;
+}

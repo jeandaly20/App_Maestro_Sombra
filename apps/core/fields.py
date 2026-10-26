@@ -7,6 +7,15 @@ def _fernet():
     return Fernet(settings.FIELD_ENCRYPTION_KEY.encode())
 
 
+def encrypt_bytes(data):
+    """Encrypted token for a whole file (e.g. a diagnosis document)."""
+    return _fernet().encrypt(data)
+
+
+def decrypt_bytes(token):
+    return _fernet().decrypt(token)
+
+
 class EncryptedTextField(models.TextField):
     """
     Text stored encrypted with Fernet (AES-128 + HMAC).
