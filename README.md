@@ -32,7 +32,6 @@ APP maestro sombra/
 ├── templates/              Pantallas en HTML5
 ├── static/                 Estilos (css/) y JavaScript (js/)
 ├── scripts/create_db.py    Crea la base de datos en PostgreSQL (una sola vez)
-├── docs/                   MER, script SQL del esquema y normas ISO aplicadas
 ├── requirements.txt        Librerías de Python
 └── .env.example            Plantilla de configuración (el .env real no se sube a Git)
 ```
@@ -72,14 +71,6 @@ venv\Scripts\python.exe manage.py createsuperuser
 
 Antes de `create_db.py`, completa el `.env` (clave secreta, clave de cifrado y contraseña del usuario `maestro_app`).
 
-## Pruebas automáticas
-
-```bash
-venv\Scripts\python.exe manage.py test --keepdb
-```
-
-50 pruebas: adaptación con IA simulada (foto, PDF, Word y texto; el nombre del alumno nunca llega a la IA; PDF solo tras aprobar; versiones), registro de alumnos (máximo 3, validaciones, privacidad entre docentes, PDF), registro, inicio de sesión, bloqueo tras 5 intentos, recuperación de contraseña, idioma español y reglas de la base de datos (cifrado, trigger, CHECK y UNIQUE).
-
 ## Direcciones
 
 | Pantalla | Dirección |
@@ -91,5 +82,7 @@ venv\Scripts\python.exe manage.py test --keepdb
 | Registro de alumnos | `/alumnos/` |
 | Expedientes en PDF | `/alumnos/expedientes.pdf` |
 | Adaptar material | `/adaptar/` |
+| Banco de adaptaciones | `/adaptar/banco/` |
+| Evaluación en el aula | `/evaluar/<adaptación>/` |
 | Panel principal | `/` |
 | Administrador | `/admin/` |

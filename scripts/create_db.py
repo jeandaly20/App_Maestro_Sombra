@@ -1,5 +1,5 @@
 """
-Creates the application database (and the test database) in PostgreSQL.
+Creates the application database in PostgreSQL.
 
 Run ONCE with the superuser (postgres). Its password is typed at the prompt
 and never stored. The application never uses that superuser: it connects with
@@ -37,9 +37,7 @@ def connect_admin(dbname):
     )
 
 
-# The app database and the test database (tests reuse it with --keepdb,
-# so the app user never needs permission to create databases)
-DATABASES = (DB_NAME, f'test_{DB_NAME}')
+DATABASES = (DB_NAME,)
 
 with connect_admin('postgres') as conn:
     if conn.execute('SELECT 1 FROM pg_roles WHERE rolname = %s', [APP_USER]).fetchone():
@@ -69,4 +67,3 @@ for name in DATABASES:
         conn.execute('REVOKE ALL ON SCHEMA public FROM PUBLIC')
 
 print('Listo. Ahora ejecuta: venv\\Scripts\\python.exe manage.py migrate')
-print('Para las pruebas: venv\\Scripts\\python.exe manage.py test --keepdb')

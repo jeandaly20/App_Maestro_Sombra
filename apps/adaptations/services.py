@@ -4,7 +4,6 @@ import re
 import threading
 import time
 
-from django.conf import settings
 from django.db import close_old_connections, transaction
 from django.db.models import Max
 
@@ -94,9 +93,6 @@ def process_material(material_id, requests, adjustments):
 
 def start_processing(material, requests, adjustments):
     """Runs the processing in the background so the page can show the material status."""
-    if settings.AI_PROCESS_INLINE:
-        return process_material(material.pk, requests, adjustments)
-
     def run():
         try:
             process_material(material.pk, requests, adjustments)

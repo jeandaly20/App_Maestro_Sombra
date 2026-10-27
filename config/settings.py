@@ -6,7 +6,6 @@ Security controls follow ISO/IEC 27001:2022, Annex A (see docs/Normas_ISO.md).
 Code and database are in English; everything the user sees is in Spanish.
 """
 import os
-import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -33,9 +32,6 @@ GEMINI_FALLBACK_MODEL = os.getenv('GEMINI_FALLBACK_MODEL', 'gemini-flash-lite-la
 GEMINI_TIMEOUT_SECONDS = 60
 # The main model gets less time: if it is slow (overloaded) the fallback answers sooner
 GEMINI_PRIMARY_TIMEOUT_SECONDS = 25
-# Materials are processed in a background thread so the page can show the status;
-# tests set this to True to run the processing inline.
-AI_PROCESS_INLINE = False
 
 
 # Applications
@@ -216,12 +212,3 @@ LOGGING = {
         'maestro_sombra': {'handlers': ['console', 'file'], 'level': 'INFO'},
     },
 }
-
-# Automated tests must not fill the real security log nor the real uploads folder
-if 'test' in sys.argv:
-    import tempfile
-    MEDIA_ROOT = Path(tempfile.mkdtemp(prefix='maestro_sombra_test_media_'))
-    LOGGING['handlers']['null'] = {'class': 'logging.NullHandler'}
-    for logger in LOGGING['loggers'].values():
-        logger['handlers'] = ['null']
-        logger['propagate'] = False
