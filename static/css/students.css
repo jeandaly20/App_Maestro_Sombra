@@ -467,3 +467,7 @@
     font-size: 0.875rem;
     font-weight: 600;
 }
+
+.age-hint--invalid {
+    color: var(--color-error);
+}

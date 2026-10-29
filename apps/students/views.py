@@ -69,7 +69,8 @@ class StudentPageMixin(LoginRequiredMixin):
                 if form.cleaned_data.get('diagnosis_document'):
                     replaced = documents.save_document(form.instance, form.cleaned_data['diagnosis_document'],
                                                        form.document_type)
-                elif form.cleaned_data.get('remove_document'):
+                elif form.remove_document:
+                    # Back to "in evaluation": the stored document no longer applies
                     documents.delete_document(form.instance, save=False)
                 elif form.instance.has_document:
                     documents.recheck_document(form.instance)

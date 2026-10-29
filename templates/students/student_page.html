@@ -80,11 +80,14 @@
             </fieldset>
 
             <h3 class="form-section"><span class="icon" aria-hidden="true">verified_user</span>3. Respaldo del diagnóstico</h3>
-            <p class="field__help">Indica qué documento confirma la condición. Si lo tienes, adjúntalo: se guarda cifrado, solo tú puedes abrirlo y nunca se envía a la IA. El sistema lee su texto para avisarte si no coincide con el estudiante; no reemplaza tu revisión.</p>
+            <p class="field__help">Adjunta el informe o certificado que confirma la condición{% if form.document_required %} (obligatorio){% else %}; si el estudiante aún no lo tiene, elige "En proceso de evaluación"{% endif %}. Se guarda cifrado, solo tú puedes abrirlo y nunca se envía a la IA. El sistema lee su texto para avisarte si no coincide con el estudiante; no reemplaza tu revisión.</p>
+            {% if form.document_required and object and not object.has_document %}
+                <div class="alert alert--info" role="status"><span class="icon" aria-hidden="true">warning</span>
+                    <p>Esta ficha se guardó antes de que el documento fuera obligatorio. Adjúntalo para poder guardar cambios.</p></div>
+            {% endif %}
             {% include "includes/field.html" with field=form.diagnosis_source icon="description" %}
             <div data-diagnosis-details>
                 {% include "includes/field.html" with field=form.diagnosis_date %}
-                <p class="field__help">Obligatoria si no adjuntas el documento.</p>
             </div>
             <div class="document-box" data-diagnosis-details>
                 {% if object.has_document %}
@@ -95,10 +98,9 @@
                     {% with check=object.document_check %}
                     <p class="document-check document-check--{{ check.0 }}"><span class="icon" aria-hidden="true">{% if check.0 == 'ok' %}check_circle{% elif check.0 == 'warn' %}warning{% else %}visibility{% endif %}</span>Revisión automática: {{ check.1 }}</p>
                     {% endwith %}
-                    <label class="checkbox" for="{{ form.remove_document.id_for_label }}">{{ form.remove_document }}<span>{{ form.remove_document.label }}</span></label>
                 {% endif %}
                 {% include "includes/field.html" with field=form.diagnosis_document icon="upload_file" %}
-                <p class="field__help">PDF, JPG o PNG de máximo 5 MB.{% if object.has_document %} Si subes otro, reemplaza al guardado.{% endif %}</p>
+                <p class="field__help">PDF, JPG o PNG de máximo 5 MB.{% if object.has_document %} Si subes otro, reemplaza al guardado.{% elif form.document_required %} Obligatorio.{% else %} Opcional.{% endif %}</p>
                 <div class="field">
                     <label class="checkbox" for="{{ form.diagnosis_consent.id_for_label }}">{{ form.diagnosis_consent }}<span>{{ form.diagnosis_consent.label }} Se usa solo para respaldar la adaptación y se borra si el estudiante se da de baja (LOPDP).</span></label>
                     {% for error in form.diagnosis_consent.errors %}<p class="field__error" id="{{ form.diagnosis_consent.auto_id }}_error"><span class="icon" aria-hidden="true">error</span>{{ error }}</p>{% endfor %}
@@ -165,7 +167,7 @@
                 </header>
                 <div class="student-card__backing">
                 <p class="student-card__diagnosis{% if student.is_diagnosis_pending %} student-card__diagnosis--pending{% endif %}">
-                    <span class="icon" aria-hidden="true">{% if student.is_diagnosis_pending %}pending{% elif student.has_document %}attach_file{% else %}verified_user{% endif %}</span>{{ student.diagnosis_status }}{% if not student.is_diagnosis_pending %}: {{ student.get_diagnosis_source_display }}{% endif %}{% if student.diagnosis_date %} · {{ student.diagnosis_date|date:"M Y" }}{% endif %}
+                    <span class="icon" aria-hidden="true">{% if student.has_document %}attach_file{% else %}warning{% endif %}</span>{{ student.diagnosis_status }}{% if student.has_document %}: {{ student.get_diagnosis_source_display }}{% endif %}{% if student.diagnosis_date %} · {{ student.diagnosis_date|date:"M Y" }}{% endif %}
                 </p>
                 {% with check=student.document_check %}{% if check %}
                 <p class="document-check document-check--{{ check.0 }}">{{ check.1 }}</p>

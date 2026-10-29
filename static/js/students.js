@@ -18,19 +18,32 @@ document.addEventListener('DOMContentLoaded', () => {
             const birthdayPassed = today.getMonth() > born.getMonth()
                 || (today.getMonth() === born.getMonth() && today.getDate() >= born.getDate());
             if (!birthdayPassed) age -= 1;
-            hint.textContent = age >= 0 ? `Edad: ${age} años (calculada automáticamente)` : '';
+            const minAge = Number(input.dataset.minAge), maxAge = Number(input.dataset.maxAge);
+            const outside = age < minAge || age > maxAge;
+            hint.classList.toggle('age-hint--invalid', outside);
+            hint.textContent = outside
+                ? `Edad: ${age} años · fuera del rango permitido (${minAge} a ${maxAge} años)`
+                : `Edad: ${age} años (calculada automáticamente)`;
         };
         input.addEventListener('input', update);
         update();
     });
 
-    // "In evaluation" has no document yet: its date, number and file are hidden
+    // "In evaluation" has no report yet: its date and file are hidden and cleared
     const source = document.getElementById('id_diagnosis_source');
     const details = document.querySelectorAll('[data-diagnosis-details]');
     if (source && details.length) {
-        const toggle = () => details.forEach((block) => { block.hidden = source.value === 'IN_EVALUATION'; });
-        source.addEventListener('change', toggle);
-        toggle();
+        const toggleDetails = () => {
+            const inEvaluation = source.value === 'IN_EVALUATION';
+            details.forEach((block) => {
+                block.hidden = inEvaluation;
+                if (inEvaluation) {
+                    block.querySelectorAll('input[type="date"], input[type="file"]').forEach((field) => { field.value = ''; });
+                }
+            });
+        };
+        source.addEventListener('change', toggleDetails);
+        toggleDetails();
     }
 
     // Conditions that cannot go together are disabled as soon as one of them is ticked

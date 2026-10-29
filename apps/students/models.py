@@ -13,6 +13,7 @@ from apps.core.choices import (
 from apps.core.fields import EncryptedTextField
 
 MAX_STUDENTS_PER_TEACHER = 3
+MIN_AGE, MAX_AGE = 3, 18
 DOCUMENT_TYPES = [('application/pdf', 'PDF'), ('image/jpeg', 'Imagen JPG'), ('image/png', 'Imagen PNG')]
 
 
@@ -151,8 +152,8 @@ class Student(models.Model):
         if self.birth_date:
             if self.birth_date > date.today():
                 raise ValidationError({'birth_date': 'La fecha no puede ser futura.'})
-            if not 3 <= self.age <= 18:
-                raise ValidationError({'birth_date': 'La edad debe estar entre 3 y 18 años.'})
+            if not MIN_AGE <= self.age <= MAX_AGE:
+                raise ValidationError({'birth_date': f'La edad debe estar entre {MIN_AGE} y {MAX_AGE} años.'})
         chosen = set(self.conditions or [])
         if set(INTELLECTUAL_DISABILITY) <= chosen:
             raise ValidationError({'conditions': 'Elige un solo nivel de discapacidad intelectual: leve o moderada.'})
@@ -172,12 +173,16 @@ class Student(models.Model):
 
     def clean_diagnosis(self, chosen):
         if self.diagnosis_source == DiagnosisSource.IN_EVALUATION:
-            self.diagnosis_date = None
+            if settings.DIAGNOSIS_DOCUMENT_REQUIRED:
+                raise ValidationError({'diagnosis_source': 'Selecciona el documento que respalda el diagnóstico.'})
+            if self.diagnosis_date:
+                raise ValidationError({'diagnosis_date': (
+                    'Si el estudiante está en proceso de evaluación aún no hay informe: deja la fecha vacía.'
+                )})
             return
-        # The form marks whether a document is (or stays) attached; without one the date is required
         attached = getattr(self, 'document_attached', self.has_document)
         if not self.diagnosis_date:
-            if attached:
+            if attached:  # the attached document already carries the date
                 return self.check_disability_source(chosen)
             raise ValidationError({'diagnosis_date': 'Indica la fecha del informe o certificado, o adjunta el documento.'})
         if self.diagnosis_date > date.today():
@@ -187,7 +192,8 @@ class Student(models.Model):
         self.check_disability_source(chosen)
 
     def check_disability_source(self, chosen):
-        if chosen & set(INTELLECTUAL_DISABILITY) and self.diagnosis_source not in DISABILITY_SOURCES:
+        allowed = DISABILITY_SOURCES + ([] if settings.DIAGNOSIS_DOCUMENT_REQUIRED else [DiagnosisSource.IN_EVALUATION])
+        if chosen & set(INTELLECTUAL_DISABILITY) and self.diagnosis_source not in allowed:
             raise ValidationError({'diagnosis_source': (
                 'La discapacidad intelectual se respalda con el certificado o carné de discapacidad del MSP '
                 'o con el informe psicopedagógico de la UDAI.'
@@ -204,9 +210,11 @@ class Student(models.Model):
     @property
     def diagnosis_status(self):
         """Short label for the directory: how well the diagnosis is backed."""
+        if self.has_document:
+            return 'Documento adjunto'
         if self.is_diagnosis_pending:
             return 'En evaluación'
-        return 'Documento adjunto' if self.has_document else 'Solo declarado'
+        return 'Solo declarado (sin documento)'
 
     @property
     def document_check(self):
@@ -215,12 +223,14 @@ class Student(models.Model):
         if not self.has_document:
             return None
         if not check.get('readable'):
-            return 'manual', 'No se pudo leer su texto (foto o escaneo): revísalo manualmente.'
+            return 'manual', 'No se pudo leer su texto (foto borrosa o escaneo de baja calidad): revísalo manualmente.'
         missing = [label for key, label in (('name', 'el nombre del estudiante'), ('institution', 'la institución'),
                                               ('diagnosis', 'el diagnóstico')) if not check.get(key)]
+        # OCR can misread a photo, so its mismatches ask for a look instead of suggesting a wrong document
+        source = ' (leído de la imagen)' if check.get('method') == 'ocr' else ''
         if not missing:
-            return 'ok', 'Coincide el nombre, la institución y el diagnóstico.'
-        return 'warn', f'No se encontró {", ".join(missing)} en el documento. Revísalo.'
+            return 'ok', f'Coincide el nombre, la institución y el diagnóstico{source}.'
+        return 'warn', f'No se encontró {", ".join(missing)} en el documento{source}. Revísalo.'
 
     def save(self, *args, **kwargs):
         if not self.pseudonym:

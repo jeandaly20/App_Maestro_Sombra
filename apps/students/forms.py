@@ -1,23 +1,31 @@
-from datetime import date
+from datetime import date, timedelta
 
 from django import forms
+from django.conf import settings
 
 from apps.core.choices import Condition, DiagnosisSource, Grade
 from apps.core.forms import AccessibleFormMixin
 
 from .documents import ACCEPT, MAX_DOCUMENT_MB, detect_type
-from .models import Student
+from .models import MAX_AGE, MIN_AGE, Student
+
+
+def years_ago(years, today=None):
+    today = today or date.today()
+    try:
+        return today.replace(year=today.year - years)
+    except ValueError:  # 29 February in a non-leap year
+        return today.replace(year=today.year - years, day=28)
 
 
 class StudentForm(AccessibleFormMixin, forms.ModelForm):
     diagnosis_document = forms.FileField(
-        label='Documento de respaldo (opcional)', required=False,
+        label='Documento de respaldo', required=False,  # required in clean(): an edit may keep the stored one
         widget=forms.ClearableFileInput(attrs={'accept': ACCEPT}),
     )
     diagnosis_consent = forms.BooleanField(
         label='El representante legal del estudiante autorizó guardar este documento en el sistema.', required=False,
     )
-    remove_document = forms.BooleanField(label='Quitar el documento guardado', required=False)
     conditions = forms.MultipleChoiceField(
         label='Condiciones NEE',
         choices=Condition.choices,
@@ -49,10 +57,20 @@ class StudentForm(AccessibleFormMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['birth_date'].widget.attrs['max'] = date.today().isoformat()
+        # Oldest allowed: turns MAX_AGE + 1 tomorrow; youngest: turned MIN_AGE today
+        oldest = years_ago(MAX_AGE + 1) + timedelta(days=1)
+        self.fields['birth_date'].widget.attrs.update({
+            'min': oldest.isoformat(), 'max': years_ago(MIN_AGE).isoformat(),
+            'data-min-age': MIN_AGE, 'data-max-age': MAX_AGE,
+        })
         self.fields['diagnosis_date'].widget.attrs['max'] = date.today().isoformat()
-        # The teacher picks the document consciously: no option is preselected for a new student
-        self.fields['diagnosis_source'].choices = [('', 'Selecciona el documento')] + DiagnosisSource.choices
+        # The teacher picks the document consciously: no option is preselected for a new student.
+        # When the document is required, "in evaluation" is not offered (an enrolled student has the report).
+        self.document_required = settings.DIAGNOSIS_DOCUMENT_REQUIRED
+        self.fields['diagnosis_source'].choices = [('', 'Selecciona el documento')] + [
+            choice for choice in DiagnosisSource.choices
+            if not (self.document_required and choice[0] == DiagnosisSource.IN_EVALUATION)
+        ]
         if self.instance._state.adding:
             self.initial['diagnosis_source'] = ''
         self.fields['grade'].choices = [('', 'Selecciona el grado')] + Grade.choices
@@ -71,17 +89,20 @@ class StudentForm(AccessibleFormMixin, forms.ModelForm):
 
     def clean(self):
         data = super().clean()
-        if data.get('diagnosis_document'):
-            if not data.get('diagnosis_consent'):
-                self.add_error('diagnosis_consent', 'Para guardar el documento necesitas la autorización del representante.')
-            if data.get('diagnosis_source') == DiagnosisSource.IN_EVALUATION:
-                self.add_error('diagnosis_document', 'Si subes un documento, indica cuál es en lugar de "en proceso de evaluación".')
-        elif data.get('diagnosis_source') == DiagnosisSource.IN_EVALUATION and self.instance.has_document:
-            # Back to "in evaluation": the stored document no longer applies
-            data['remove_document'] = True
+        uploaded = data.get('diagnosis_document')
+        if uploaded and not data.get('diagnosis_consent'):
+            self.add_error('diagnosis_consent', 'Para guardar el documento necesitas la autorización del representante.')
+        in_evaluation = data.get('diagnosis_source') == DiagnosisSource.IN_EVALUATION
+        if uploaded and in_evaluation:
+            self.add_error('diagnosis_document', 'Si subes un documento, indica cuál es en lugar de "en proceso de evaluación".')
+        if (self.document_required and not uploaded and not self.instance.has_document
+                and 'diagnosis_document' not in self.errors):
+            self.add_error('diagnosis_document', (
+                'Adjunta el informe o certificado que respalda el diagnóstico (UDAI, MSP, DECE o profesional clínico).'
+            ))
         # Tells the model whether a document backs the diagnosis after saving (then the date is optional)
-        keeps_stored = self.instance.has_document and not data.get('remove_document')
-        self.instance.document_attached = bool(data.get('diagnosis_document')) or keeps_stored
+        self.instance.document_attached = bool(uploaded) or (self.instance.has_document and not in_evaluation)
+        self.remove_document = in_evaluation and self.instance.has_document
         return data
 
     def clean_conditions(self):

@@ -6,15 +6,23 @@ Diagnosis backing document (UDAI report, MSP certificate...). Optional and prote
 - Served only to the student's teacher, every opening is logged, and it is never sent to the AI.
 - Deleted when the student is given leave or removed.
 - Read locally (never by the AI) to flag, not to prove, whether it matches the student: their name, the
-  declared institution and one of their conditions.
+  declared institution and one of their conditions. Digital PDFs give their text directly; photos and
+  scanned PDFs are read with Tesseract OCR on the same server.
 """
+import functools
 import io
 import logging
+import os
 import re
+import shutil
+import subprocess
 import unicodedata
 import uuid
+from pathlib import Path
 
 import pypdfium2 as pdfium
+from django.conf import settings
+from PIL import Image
 
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
@@ -71,6 +79,75 @@ CONDITION_WORDS = {
     'ID_MODERATE': ['discapacidad intelectual', 'intelectual'],
 }
 MAX_PAGES_READ = 5
+OCR_PAGES = 3           # scanned PDFs: only the first pages, where the name and diagnosis usually are
+OCR_TIMEOUT_SECONDS = 40
+OCR_MAX_SIDE = 2500     # bigger photos are reduced: faster, and enough for printed text
+WINDOWS_TESSERACT = Path(r'C:\Program Files\Tesseract-OCR\tesseract.exe')
+USER_TESSDATA = Path(os.getenv('LOCALAPPDATA', '')) / 'Tesseract-OCR' / 'tessdata'
+
+
+@functools.lru_cache(maxsize=1)
+def tesseract():
+    """(command plus its options, language) of the local Tesseract, or None if it is not installed."""
+    command = settings.TESSERACT_CMD or shutil.which('tesseract') or (
+        str(WINDOWS_TESSERACT) if WINDOWS_TESSERACT.exists() else '')
+    if not command:
+        return None
+    data_dir = settings.TESSERACT_DATA_DIR or (
+        str(USER_TESSDATA) if (USER_TESSDATA / 'spa.traineddata').exists() else '')
+    base = [command] + (['--tessdata-dir', data_dir] if data_dir else [])
+    try:
+        listed = subprocess.run(base + ['--list-langs'], capture_output=True, text=True, timeout=10).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    languages = set(listed.split())
+    # Spanish when installed; English also reads Spanish text well enough, accents are ignored when comparing
+    language = 'spa' if 'spa' in languages else 'eng' if 'eng' in languages else None
+    return (base, language) if language else None
+
+
+def ocr_image(image):
+    """Text of a PIL image read by the local Tesseract ('' if it cannot)."""
+    found = tesseract()
+    if not found:
+        return ''
+    image = image.convert('L')
+    image.thumbnail((OCR_MAX_SIDE, OCR_MAX_SIDE))
+    buffer = io.BytesIO()
+    image.save(buffer, 'PNG')
+    base, language = found
+    try:
+        # stdin/stdout: the image never touches a temporary file on disk
+        result = subprocess.run(base + ['stdin', 'stdout', '-l', language], input=buffer.getvalue(),
+                                capture_output=True, timeout=OCR_TIMEOUT_SECONDS)
+    except (OSError, subprocess.SubprocessError):
+        logger.warning('OCR failed or timed out')
+        return ''
+    return result.stdout.decode('utf-8', errors='ignore')
+
+
+def scanned_pdf_text(content):
+    try:
+        pdf = pdfium.PdfDocument(io.BytesIO(content))
+    except pdfium.PdfiumError:
+        return ''
+    try:
+        return ' '.join(ocr_image(pdf[i].render(scale=2.5).to_pil()) for i in range(min(len(pdf), OCR_PAGES)))
+    finally:
+        pdf.close()
+
+
+def document_text(content, content_type):
+    """(text, method): the PDF's own text, or OCR for photos and scans."""
+    if content_type == 'application/pdf':
+        text = pdf_text(content)
+        if len(text.strip()) >= 20:
+            return text, 'text'
+        return scanned_pdf_text(content), 'ocr'
+    try:
+        return ocr_image(Image.open(io.BytesIO(content))), 'ocr'
+    except OSError:
+        return '', 'ocr'
 
 
 def plain(text):
@@ -98,14 +175,16 @@ def pdf_text(content):
 
 
 def check_document(student, content, content_type):
-    """Local, text-only check of an attached document. Images and scans cannot be read without OCR."""
-    text = plain(pdf_text(content)) if content_type == 'application/pdf' else ''
+    """Local check of an attached document: its text (digital PDF) or what OCR reads (photo, scan)."""
+    raw, method = document_text(content, content_type)
+    text = plain(raw)
     if len(text.strip()) < 20:
-        return {'readable': False}
+        return {'readable': False, 'method': method}
     names = [word for word in plain(student.name).split() if len(word) > 2]
     found = [word for word in names if has_word(text, word)]
     return {
         'readable': True,
+        'method': method,
         # First name plus at least one surname (or the only word, for a single-word name)
         'name': bool(names) and names[0] in found and (len(names) == 1 or len(found) >= 2),
         'institution': any(has_word(text, word) for word in INSTITUTION_WORDS.get(student.diagnosis_source, [])),

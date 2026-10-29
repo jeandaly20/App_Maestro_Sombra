@@ -154,6 +154,18 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = MAX_UPLOAD_MB * 1024 * 1024
 FILE_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024
 FILE_UPLOAD_PERMISSIONS = 0o640
 
+# Diagnosis backing document. False (now, for testing): optional, and "in evaluation" is offered.
+# True: every student must attach the UDAI, MSP, DECE or clinical document.
+DIAGNOSIS_DOCUMENT_REQUIRED = os.getenv('DIAGNOSIS_DOCUMENT_REQUIRED', 'False').lower() in ('1', 'true', 'yes')
+
+# Local OCR (Tesseract) to read photos and scanned diagnosis documents; nothing leaves the server.
+# Empty: look for "tesseract" in PATH and in its default Windows folder. If it is missing, the
+# document is marked for manual review.
+TESSERACT_CMD = os.getenv('TESSERACT_CMD', '')
+# Folder with the language models (spa.traineddata). Empty: Tesseract's own folder, or the user's
+# %LOCALAPPDATA%/Tesseract-OCR/tessdata when Spanish was installed there without admin rights.
+TESSERACT_DATA_DIR = os.getenv('TESSERACT_DATA_DIR', '')
+
 # Dashboard: minutes a teacher needs to adapt one worksheet by hand. It is the reference for
 # the "time saved" estimate and must be replaced by the value measured in the validation sprint.
 MANUAL_ADAPTATION_MINUTES = int(os.getenv('MANUAL_ADAPTATION_MINUTES', '60'))
