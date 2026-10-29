@@ -47,7 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Immediate warning when the confirmation does not match
-    document.querySelectorAll('[data-confirm]').forEach((confirmation) => {
+    document.querySelectorAll('input[data-confirm]').forEach((confirmation) => {
         const original = document.getElementById(confirmation.dataset.confirm);
         const validate = () => {
             const differs = confirmation.value && confirmation.value !== original.value;
@@ -55,6 +55,13 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         confirmation.addEventListener('input', validate);
         original.addEventListener('input', validate);
+    });
+
+    // Actions that remove something (a student's leave, deleting an adaptation) ask first
+    document.querySelectorAll('form[data-confirm]').forEach((form) => {
+        form.addEventListener('submit', (event) => {
+            if (!window.confirm(form.dataset.confirm)) event.preventDefault();
+        });
     });
 
     // Sidebar on mobile

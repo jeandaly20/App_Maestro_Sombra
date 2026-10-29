@@ -102,7 +102,8 @@ def crop_figures(material, images, figures):
         ymin, xmin, ymax, xmax = [max(0, min(1000, int(v))) for v in box]
         if ymax <= ymin or xmax <= xmin:
             continue
-        pad_x, pad_y = width * 0.008, height * 0.008
+        # Generous margin: the model's boxes are often a little tight and cut the edges of tables
+        pad_x, pad_y = width * 0.03, height * 0.03
         crop_box = (max(0, xmin * width / 1000 - pad_x), max(0, ymin * height / 1000 - pad_y),
                     min(width, xmax * width / 1000 + pad_x), min(height, ymax * height / 1000 + pad_y))
         crop = image.crop(tuple(int(v) for v in crop_box))

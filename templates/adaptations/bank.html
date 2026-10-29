@@ -108,6 +108,12 @@
                 </form>
                 <a class="button button--primary" href="{% url 'evaluation' card.pk %}">
                     <span class="icon" aria-hidden="true">fact_check</span>{% if card.outcome == 'PENDING' %}Evaluar en aula{% else %}Editar evaluación{% endif %}</a>
+                <form method="post" action="{% url 'adaptation_delete' card.pk %}"
+                      data-confirm="¿Eliminar la adaptación {{ card.code }} ({{ card.title }})? Se quitan todas sus versiones del banco y no se puede deshacer desde la app.">
+                    {% csrf_token %}
+                    <button type="submit" class="button button--danger" aria-label="Eliminar la adaptación {{ card.code }}">
+                        <span class="icon" aria-hidden="true">delete</span>Eliminar</button>
+                </form>
             </div>
         </footer>
     </article>

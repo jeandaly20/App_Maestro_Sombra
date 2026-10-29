@@ -57,7 +57,7 @@ block of the worksheet is a one-cell table. Fonts are registered in views.regist
                 {% if concept.example %}<tr><td class="mid"><p class="example">Ejemplo: {{ concept.example }}</p></td></tr>{% endif %}
                 {% if concept.figure_src %}<tr><td class="mid picture"><img src="{{ concept.figure_src }}" width="{{ concept.figure_width }}" height="{{ concept.figure_height }}"></td></tr>
                 {% elif concept.visual_src %}<tr><td class="mid picture"><img src="{{ concept.visual_src }}" width="342" height="152"></td></tr>{% endif %}
-                {% if concept.figure_description %}<tr><td class="mid"><p class="figure">[Figura: {{ concept.figure_description }}]</p></td></tr>{% endif %}
+                {% if concept.figure_description and not concept.figure_src and not concept.visual_src %}<tr><td class="mid"><p class="figure">[Figura: {{ concept.figure_description }}]</p></td></tr>{% endif %}
                 <tr><td class="bottom"></td></tr>
             </table>
         {% endfor %}
@@ -74,7 +74,7 @@ block of the worksheet is a one-cell table. Fonts are registered in views.regist
             {% elif step.visual_src %}<tr><td class="mid picture"><img src="{{ step.visual_src }}" width="342" height="152"></td></tr>{% endif %}
             {% if step.hint %}<tr><td class="mid"><p class="hint">Pista: {{ step.hint }}</p></td></tr>{% endif %}
             {% if step.visual_support %}<tr><td class="mid"><p class="support">Apoyo visual: {{ step.visual_support }}</p></td></tr>{% endif %}
-            {% if step.figure_description %}<tr><td class="mid"><p class="figure">[Figura: {{ step.figure_description }}]</p></td></tr>{% endif %}
+            {% if step.figure_description and not step.figure_src and not step.visual_src %}<tr><td class="mid"><p class="figure">[Figura: {{ step.figure_description }}]</p></td></tr>{% endif %}
             {% for option in step.options %}<tr><td class="mid"><p><span class="box">[&nbsp;&nbsp;]</span> {{ option }}</p></td></tr>{% endfor %}
             {% if step.answer_type == 'ESPACIO' %}<tr><td class="mid"><p class="line">______________________________________________________</p><p class="line">______________________________________________________</p></td></tr>{% endif %}
             <tr><td class="bottom"></td></tr>
@@ -83,14 +83,14 @@ block of the worksheet is a one-cell table. Fonts are registered in views.regist
 
     {% if content.check_questions %}
         <p class="section">Comprueba lo que aprendiste</p>
-        <table class="step">
-            <tr><td class="top"></td></tr>
-            {% for question in content.check_questions %}
-                <tr><td class="mid"><p><b>{{ forloop.counter }}. {{ question.question }}</b></p>
-                    {% for option in question.options %}<p><span class="box">[&nbsp;&nbsp;]</span> {{ option }}</p>{% endfor %}</td></tr>
-            {% endfor %}
-            <tr><td class="bottom"></td></tr>
-        </table>
+        {# Same layout as the steps: a question per table, one row per option (an empty first row collapsed the column) #}
+        {% for question in content.check_questions %}
+            <table class="step">
+                <tr><td class="top"><p class="step-title">{{ forloop.counter }}. {{ question.question }}</p></td></tr>
+                {% for option in question.options %}<tr><td class="mid"><p><span class="box">[&nbsp;&nbsp;]</span> {{ option }}</p></td></tr>{% endfor %}
+                <tr><td class="bottom"></td></tr>
+            </table>
+        {% endfor %}
     {% endif %}
 
     {% if content.glossary %}

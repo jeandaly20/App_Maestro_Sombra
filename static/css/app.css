@@ -140,6 +140,16 @@
     font-size: 2rem;
 }
 
+.page-header__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+}
+
+.page-header__actions form {
+    display: contents;
+}
+
 .page-header__intro {
     max-width: 68ch;
     margin: 0;

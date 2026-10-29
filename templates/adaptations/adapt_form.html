@@ -17,6 +17,15 @@
     </div>
 </div>
 
+<a class="card lesson-shortcut" href="{% url 'lesson_upload' %}">
+    <span class="lesson-shortcut__icon"><span class="icon" aria-hidden="true">table_view</span></span>
+    <span class="lesson-shortcut__text">
+        <strong>¿Tienes tu planificación en Excel?</strong>
+        <span>Adapta la clase completa: sube la planificación y las páginas del libro, y recibe la fila de adaptación curricular, la guía para el docente sombra y la ficha del alumno.</span>
+    </span>
+    <span class="button button--secondary">Adaptar clase<span class="icon" aria-hidden="true">arrow_forward</span></span>
+</a>
+
 {% if not student_options %}
     <div class="card empty-state">
         <span class="icon" aria-hidden="true">person_add</span>

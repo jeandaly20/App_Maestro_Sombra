@@ -7,6 +7,7 @@ import time
 from django.db import close_old_connections, transaction
 from django.db.models import Max
 
+from apps.core.choices import RecordStatus
 from apps.materials.models import MaterialStatus, OriginalMaterial
 from apps.students.models import Student
 
@@ -151,6 +152,9 @@ def process_lesson(lesson_id, requests, adjustments, chosen_grade=''):
                     'content': content, 'ai_model': model[:50],
                 })
         lesson.status = MaterialStatus.PROCESSED
+        # The teacher's file (with the school's and people's names) is no longer needed: only its
+        # anonymized session text and the adaptation are kept
+        lesson.plan_file.delete(save=False)
         logger.info('Lesson %s adapted for %s student(s)', lesson.pk, len(requests))
     except ai.AIError as error:
         lesson.status = MaterialStatus.ERROR
@@ -160,7 +164,7 @@ def process_lesson(lesson_id, requests, adjustments, chosen_grade=''):
         lesson.status = MaterialStatus.ERROR
         lesson.ai_error = 'Ocurrió un error inesperado al adaptar la clase. Inténtalo de nuevo.'
         logger.exception('Unexpected error processing lesson %s', lesson.pk)
-    lesson.save(update_fields=['status', 'ai_error', 'updated_at'])
+    lesson.save(update_fields=['status', 'ai_error', 'plan_file', 'updated_at'])
     return lesson
 
 
@@ -173,3 +177,48 @@ def start_lesson_processing(lesson, requests, adjustments, chosen_grade=''):
 
     threading.Thread(target=run, daemon=True).start()
     return lesson
+
+
+def _release_material(material):
+    """A material no active worksheet or class uses any more: its file and figures go (LOPDP)."""
+    in_use = (material.adaptations.filter(record_status=RecordStatus.ACTIVE).exists()
+              or material.lessons.filter(record_status=RecordStatus.ACTIVE).exists())
+    if in_use:
+        return
+    if material.file:
+        material.file.delete(save=False)
+    figures.delete_figures(material)
+    material.record_status = RecordStatus.INACTIVE
+    material.save(update_fields=['file', 'record_status', 'updated_at'])
+
+
+@transaction.atomic
+def delete_worksheet(adaptation):
+    """
+    Logical delete of a worksheet with all its versions (otherwise the previous version would show
+    up in its place). The evaluations stay in the history; the material goes once nothing uses it.
+    """
+    versions = CurricularAdaptation.objects.filter(material=adaptation.material, student=adaptation.student,
+                                                   condition=adaptation.condition)
+    for version in versions:
+        if version.pdf:
+            version.pdf.delete(save=False)  # the PDF names the student
+    LessonAdaptation.objects.filter(worksheet__in=versions).update(worksheet=None)
+    count = versions.update(record_status=RecordStatus.INACTIVE, pdf='')
+    _release_material(adaptation.material)
+    return count
+
+
+@transaction.atomic
+def delete_lesson(lesson):
+    """Logical delete of an adapted class, its worksheets and its stored plan and guide files."""
+    for field in (lesson.plan_file, lesson.guide_file):
+        if field:
+            field.delete(save=False)
+    lesson.record_status = RecordStatus.INACTIVE
+    lesson.save(update_fields=['plan_file', 'guide_file', 'record_status', 'updated_at'])
+    lesson.adaptations.update(record_status=RecordStatus.INACTIVE)
+    if lesson.material:
+        for worksheet in lesson.material.adaptations.filter(record_status=RecordStatus.ACTIVE):
+            delete_worksheet(worksheet)
+        _release_material(lesson.material)

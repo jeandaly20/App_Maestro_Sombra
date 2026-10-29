@@ -73,13 +73,6 @@ document.addEventListener('DOMContentLoaded', () => {
         blockConflicts();
     }
 
-    // Giving a student leave asks for confirmation first
-    document.querySelectorAll('form[data-confirm]').forEach((form) => {
-        form.addEventListener('submit', (event) => {
-            if (!window.confirm(form.dataset.confirm)) event.preventDefault();
-        });
-    });
-
     // Directory: search box + group chips
     const cards = [...document.querySelectorAll('[data-student]')];
     const search = document.querySelector('[data-directory-search]');

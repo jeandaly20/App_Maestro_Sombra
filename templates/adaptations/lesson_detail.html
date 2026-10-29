@@ -11,7 +11,16 @@
         <h1>{{ lesson.title|default:"Clase adaptada" }}</h1>
         {% if analysis.objective %}<p class="page-header__intro"><strong>Objetivo de la clase:</strong> {{ analysis.objective }}</p>{% endif %}
     </div>
-    <a class="button button--secondary" href="{% url 'lesson_upload' %}"><span class="icon" aria-hidden="true">add</span>Adaptar otra clase</a>
+    <div class="page-header__actions">
+        <a class="button button--secondary" href="{% url 'lesson_upload' %}"><span class="icon" aria-hidden="true">add</span>Adaptar otra clase</a>
+        {% if not is_working %}
+        <form method="post" action="{% url 'lesson_delete' lesson.pk %}"
+              data-confirm="¿Eliminar esta clase adaptada? Se quitan la clase, sus fichas y los archivos subidos, y no se puede deshacer desde la app.">
+            {% csrf_token %}
+            <button type="submit" class="button button--danger"><span class="icon" aria-hidden="true">delete</span>Eliminar clase</button>
+        </form>
+        {% endif %}
+    </div>
 </div>
 
 <section class="card material-status" aria-live="polite" {% if is_working %}data-poll-url="{% url 'lesson_status' lesson.pk %}"{% endif %}>
@@ -55,9 +64,9 @@
         <p class="lesson-row" id="plan-row">{{ plan_row }}</p>
         <div class="lesson-actions">
             <button type="button" class="button button--secondary" data-copy="plan-row"><span class="icon" aria-hidden="true">content_copy</span>Copiar texto</button>
-            <a class="button button--primary" href="{% url 'lesson_excel' selected.pk %}"><span class="icon" aria-hidden="true">download</span>Descargar mi Excel con la adaptación</a>
+            <a class="button button--primary" href="{% url 'lesson_excel' selected.pk %}"><span class="icon" aria-hidden="true">download</span>Descargar la clase adaptada (Excel)</a>
         </div>
-        <p class="field__help">El Excel es tu mismo archivo: solo se llena la fila "Adaptación curricular" de esta sesión.</p>
+        <p class="field__help">Un Excel solo con esta clase adaptada para el estudiante: momentos, apoyos, evaluación y la fila de adaptación curricular. No incluye datos de la institución ni el nombre del estudiante (aparece su seudónimo).</p>
     </section>
 
     <section class="card lesson-guide-out" aria-labelledby="guide-title">

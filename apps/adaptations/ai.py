@@ -45,6 +45,8 @@ ANALYSIS_SCHEMA = {
     'properties': {
         'readable': {'type': 'BOOLEAN'},
         'problem': {'type': 'STRING'},
+        # What another student wrote by hand on the photo: kept apart so it never reaches the worksheet
+        'handwritten': {'type': 'ARRAY', 'items': {'type': 'STRING'}},
         'extracted_text': {'type': 'STRING'},
         'figures': {'type': 'ARRAY', 'items': {
             'type': 'OBJECT',
@@ -79,6 +81,9 @@ VISUAL_SCHEMA = {
         'marks': {'type': 'ARRAY', 'items': {'type': 'INTEGER'}},
         'count': {'type': 'INTEGER'},
         'items': {'type': 'ARRAY', 'items': {'type': 'STRING'}},
+        'a': {'type': 'INTEGER'},
+        'b': {'type': 'INTEGER'},
+        'show_products': {'type': 'BOOLEAN'},
     },
     'required': ['type'],
 }
@@ -151,7 +156,10 @@ ANALYSIS_SYSTEM = (
     'en escala de 0 a 1000, que encierre solo la figura y no el texto que la rodea. Cuenta también como '
     'figura todo material de actividad que el estudiante necesita ver o completar: tablas para llenar, sopas '
     'de letras, crucigramas, plantillas para recortar o armar, esquemas para completar y líneas de tiempo. '
-    'Señala además las barreras '
+    'Ignora todo lo escrito a mano por un estudiante en las fotos (respuestas, cálculos, números o '
+    'dibujos hechos con lápiz o esfero): anótalo en "handwritten" (por ejemplo "99", "8100" o '
+    '"55 x 55 = 3025"), extrae solo el contenido impreso de la guía, y describe las tablas '
+    'o cuadrículas como vacías si su contenido impreso está vacío. Señala además las barreras '
     'de aprendizaje que el material presenta para estudiantes con necesidades educativas especiales. '
     'Si la imagen está borrosa, cortada o no contiene una guía escolar, responde readable=false y explica '
     'el problema en "problem". Escribe siempre en español.'
@@ -171,19 +179,31 @@ ADAPTATION_SYSTEM = (
 )
 
 PEDAGOGY_RULES = (
+    'Lo escrito a mano en las fotos (respuestas, cálculos o números con lápiz o esfero) es de otro '
+    'estudiante: nunca lo uses ni lo menciones; trabaja solo con lo impreso.\n'
     'Estructura obligatoria de la guía adaptada:\n'
     '- "learning_goal": una frase corta que empiece con "Vas a aprender…".\n'
     '- "concepts" (APRENDE): de 2 a 5 conceptos esenciales que el estudiante necesita para hacer la tarea, '
     'elegidos según los objetivos de la guía. Para cada uno: "explanation" en 2 o 3 frases cortas y sencillas '
     'que expliquen qué es y para qué sirve (no qué muestra una imagen), y "example" con una comparación de la '
     'vida diaria (por ejemplo, la membrana es como la piel o la puerta de la casa). Si una figura de la guía '
-    'ayuda a entender ese concepto, pon su número en "figure_number".\n'
+    'ayuda a entender ese concepto, pon su número en "figure_number". Si la guía trae un ejemplo resuelto '
+    '(por ejemplo 45 × 45 = 2 025 y 20 + 25 = 45), inclúyelo paso a paso en el "example" del concepto que '
+    'explica, porque es el modelo que el estudiante va a seguir.\n'
     '- "steps" (AHORA PRACTICA): las actividades y preguntas de la guía original, adaptadas. Cada paso dice '
-    'qué hacer y cómo hacerlo, con una "hint" (pista) que remite a lo aprendido en "concepts". Si la guía '
+    'qué hacer y cómo hacerlo, con una "hint" (pista) que remite a lo aprendido en "concepts". La "keyword" es '
+    'la palabra clave de la consigna (un verbo o concepto, por ejemplo "descomponer" o "sumar las partes"), '
+    'NUNCA la respuesta ni un resultado numérico. Ningún paso, pista o título puede revelar la respuesta de '
+    'ese paso ni de otro: si una actividad pide descubrir o encontrar un número, ese número no aparece en '
+    'ningún título, consigna, pista, opción ni "visual" (la pista da una estrategia, por ejemplo "prueba con '
+    'números de dos cifras grandes", y el paso no lleva cuadrícula). Las opciones de un '
+    'paso deben estar relacionadas con el tema. Si la guía '
     'no trae actividades, crea de 2 a 4 actividades cortas para practicar el contenido de la guía (completar, '
     'unir, elegir o clasificar), sin datos nuevos.\n'
     '- "check_questions" (COMPRUEBA LO QUE APRENDISTE): de 2 a 3 preguntas de opción múltiple con 3 opciones '
-    'y su "answer" correcta, sobre los conceptos explicados.\n'
+    'y su "answer" correcta, sobre lo que se practicó en esta clase (por ejemplo, un cálculo corto como los de '
+    'los pasos). Las opciones incorrectas deben ser errores comunes y creíbles del tema (por ejemplo, un cálculo con una suma mal llevada), no opciones absurdas. Cada opción es '
+    'solo la respuesta (un número o una frase corta), sin repetir la pregunta.\n'
     '- Nunca escribas una instrucción que solo diga "Observa la figura" o que describa la imagen: la '
     'descripción para accesibilidad va únicamente en "figure_description".'
 )
@@ -196,8 +216,13 @@ IMAGE_RULES = (
     'una ilustración que la guía no tiene, elige en "visual" uno de estos '
     'tipos usando SOLO datos de la guía: FRACTION_CIRCLE o FRACTION_BAR (parts, shaded y crossed para lo que '
     'se quita o se comparte), NUMBER_LINE (start, end y marks), COUNT (count y crossed) o SEQUENCE (items: de '
-    '2 a 5 frases muy cortas con el orden de la actividad). Si ningún tipo sirve, usa NONE. Máximo 3 pasos '
-    'con "visual", y nunca uno que contradiga los datos de la guía. Si el texto menciona un dibujo, imagen o '
+    '2 a 5 frases muy cortas con el orden de la actividad) o MULTIPLICATION_GRID (a y b de 2 cifras, '
+    'show_products=true solo en APRENDE, para el ejemplo resuelto que trae la guía (por ejemplo 45 × 45), y '
+    'false en AHORA PRACTICA, para la cuadrícula vacía que el estudiante completa; es la tabla de doble entrada '
+    'que descompone en decenas y unidades). Si la figura de la guía es '
+    'una tabla o cuadrícula que el sistema puede dibujar, usa el "visual" en su lugar (figure_number 0): se ve '
+    'completa y nítida. Si ningún tipo sirve, usa NONE. Máximo 5 pasos con "visual", y nunca uno que '
+    'contradiga los datos de la guía. Si el texto menciona un dibujo, imagen o '
     'figura que NO está en la lista de figuras, no le pidas al estudiante que lo mire: reescribe la consigna '
     'para que se entienda sin ese dibujo o usa un "visual". Cada paso debe tener un título corto que diga qué '
     'se hace (por ejemplo "Observa la célula animal"), nunca solo "Paso 1".'
@@ -223,6 +248,17 @@ def _call(model, system, parts, schema, timeout):
         return json.load(response)
 
 
+# When the main model times out or is overloaded, it is skipped for a few minutes: the next calls of
+# the same job (a class makes four) go straight to the fallback instead of waiting for it again.
+PRIMARY_PAUSE_SECONDS = 300
+_primary_paused_until = 0.0
+
+
+def _pause_primary():
+    global _primary_paused_until
+    _primary_paused_until = time.monotonic() + PRIMARY_PAUSE_SECONDS
+
+
 def generate_json(system, parts, schema):
     """Calls Gemini and returns (data, model_version). Falls back to the lite model if overloaded."""
     if not settings.GEMINI_API_KEY:
@@ -232,6 +268,8 @@ def generate_json(system, parts, schema):
     # which gets a second chance. This keeps the wait for the teacher short.
     plan = ((settings.GEMINI_MODEL, 1, settings.GEMINI_PRIMARY_TIMEOUT_SECONDS),
             (settings.GEMINI_FALLBACK_MODEL, 2, settings.GEMINI_TIMEOUT_SECONDS))
+    if time.monotonic() < _primary_paused_until:
+        plan = plan[1:]
     for model, attempts, timeout in plan:
         for attempt in range(attempts):
             try:
@@ -250,11 +288,15 @@ def generate_json(system, parts, schema):
                 logger.warning('Gemini HTTP %s with model %s (attempt %s)', error.code, model, attempt + 1)
                 if error.code not in RETRYABLE_STATUS:
                     raise AIError('La IA rechazó la solicitud. Revisa la clave de Gemini o el archivo enviado.') from error
+                if model == settings.GEMINI_MODEL:
+                    _pause_primary()
                 if attempts > 1:
                     time.sleep(2)
             except (urllib.error.URLError, TimeoutError) as error:
                 last_error = error
                 logger.warning('Gemini connection error with model %s: %s', model, error)
+                if model == settings.GEMINI_MODEL:
+                    _pause_primary()
             except (KeyError, IndexError, json.JSONDecodeError) as error:
                 last_error = error
                 logger.warning('Gemini returned an unexpected answer with model %s: %s', model, repr(error)[:200])
@@ -288,6 +330,7 @@ def adapt_worksheet(*, analysis, subject, topic, grade, condition, adjustments, 
     """Restructures the analyzed worksheet for ONE condition. Receives no personal data."""
     figures = analysis.get('figures', [])
     figure_lines = '\n'.join(f'Figura {n}: {f["description"]}' for n, f in enumerate(figures, start=1))
+    forbidden = handwritten_numbers(analysis)
     prompt = [
         f'Materia: {subject}. Tema: {topic}. Grado: {Grade(grade).label}.',
         rules_for(condition, adjustments, subject_code, grade),
@@ -295,6 +338,8 @@ def adapt_worksheet(*, analysis, subject, topic, grade, condition, adjustments, 
         f'Contenido de la guía original:\n{analysis["extracted_text"]}',
         f'Figuras de la guía original:\n{figure_lines or "(la guía no tiene figuras)"}',
         'Barreras detectadas: ' + '; '.join(analysis.get('detected_barriers', [])),
+        (f'Números escritos a mano por otro estudiante, que no debes usar: {", ".join(sorted(forbidden))}.'
+         if forbidden else ''),
         PEDAGOGY_RULES,
         IMAGE_RULES,
         'Devuelve la guía adaptada. En "summary" escribe una frase para el banco de adaptaciones. '
@@ -310,7 +355,7 @@ def adapt_worksheet(*, analysis, subject, topic, grade, condition, adjustments, 
     prompt.append(SPELLING_RULE)
     content, model = generate_json(ADAPTATION_SYSTEM, [{'text': '\n\n'.join(part for part in prompt if part)}],
                                    ADAPTATION_SCHEMA)
-    return normalize_adaptation(content, figure_count=len(figures)), model
+    return normalize_adaptation(content, figure_count=len(figures), forbidden=forbidden), model
 
 
 RECOMMENDATION_SCHEMA = {
@@ -475,7 +520,28 @@ SPELLING_RULE = (
     'Revisa todos los campos antes de responder.'
 )
 
-STEP_PREFIX = re.compile(r'^\s*paso\s*\d+\s*[:.\-–]?\s*', re.IGNORECASE)
+# "Paso 1:", "Paso a:", "a)", "1." and their combinations ("Paso 1: Paso a: …")
+STEP_PREFIX = re.compile(r'^\s*(?:(?:paso\s*(?:\d+|[a-z])\b|\d+|[a-z])\s*[:.)\-–]\s*)+', re.IGNORECASE)
+ANSWER_LIKE = re.compile(r'^[\d\s.,×x+=\-]+$')
+TWO_DIGIT_PRODUCT = re.compile(r'\b(\d{2})\s*(?:×|x|por|multiplicado por)\s*(\d{2})\b', re.IGNORECASE)
+
+
+NUMBER = re.compile(r'\d+')
+
+
+def _numbers(text):
+    # "2 025" and "2025" are the same number
+    return set(NUMBER.findall(re.sub(r'\b(\d{1,3})[ .](\d{3})\b', r'\1\2', str(text))))
+
+
+def handwritten_numbers(analysis):
+    """
+    Numbers another student wrote on the photo (usually the answers), minus the printed ones
+    ("Calcula 55 × 55", "20 + 25 = 45"), which the student may have copied by hand.
+    """
+    printed = _numbers(analysis.get('extracted_text', ''))
+    found = _numbers(' '.join(analysis.get('handwritten') or []))
+    return {n for n in found if len(n) >= 2} - printed
 
 
 def _step_title(step):
@@ -485,29 +551,51 @@ def _step_title(step):
         return title
     words = step.get('instruction', '').split()
     return ' '.join(words[:6]).rstrip('.,:;') + ('…' if len(words) > 6 else '')
-MAX_DRAWN_VISUALS = 4
+MAX_DRAWN_VISUALS = 6
 
 
-def normalize_adaptation(content, figure_count=0):
+def normalize_adaptation(content, figure_count=0, forbidden=()):
     """
-    Cleans the model's answer: the templates number the steps themselves (drop "Paso 1:"),
-    figure numbers must exist (each figure used once), and drawn visuals are validated (at most four).
+    Cleans the model's answer: the templates number the steps themselves (drop "Paso 1:"), a keyword
+    is never the answer, figure numbers must exist (each figure used once) and drawn visuals are
+    validated. A drawn multiplication grid replaces a photo of the same grid: it is always complete.
+    Steps and questions built on what another student wrote by hand (forbidden) are dropped.
     """
+    def reveals(*texts):
+        return bool(forbidden) and bool(_numbers(' '.join(str(t) for t in texts)) & set(forbidden))
+
+    content['steps'] = [step for step in content.get('steps', [])
+                        if not reveals(step.get('title', ''), step.get('instruction', ''), *step.get('options', []))]
+    for step in content['steps']:
+        if reveals(step.get('hint', '')):
+            step['hint'] = ''
+    content['check_questions'] = [q for q in content.get('check_questions', [])
+                                  if not reveals(q.get('question', ''), *q.get('options', []))]
     drawn = 0
     used_figures = set()
     for item in content.setdefault('concepts', []) + content.setdefault('steps', []):
         if 'instruction' in item:
             item['title'] = _step_title(item)
             item.setdefault('options', [])
+            if ANSWER_LIKE.match(str(item.get('keyword', '')).strip() or 'x'):
+                item['keyword'] = ''  # a number or an operation would give the answer away
+        visual = visuals.clean_visual(item.get('visual')) if drawn < MAX_DRAWN_VISUALS else None
+        if visual and visual['type'] == 'MULTIPLICATION_GRID':
+            if 'instruction' in item:
+                visual['show_products'] = False  # a practice grid is for the student to fill in, never solved
+            # The grid shows the same product the text asks for (concept: its example; step: its instruction)
+            if product := TWO_DIGIT_PRODUCT.search(str(item.get('instruction', item.get('example', '')))):
+                visual['a'], visual['b'] = int(product[1]), int(product[2])
+            if {str(visual['a']), str(visual['b'])} & set(forbidden):
+                visual = None
         number = item.get('figure_number') or 0
+        if visual and visual['type'] == 'MULTIPLICATION_GRID':
+            number = 0
         valid = 1 <= number <= figure_count and number not in used_figures
         item['figure_number'] = number if valid else 0
         used_figures.add(item['figure_number'])
-        visual = None
-        if not item['figure_number'] and drawn < MAX_DRAWN_VISUALS:
-            visual = visuals.clean_visual(item.get('visual'))
-        item['visual'] = visual
-        drawn += 1 if visual else 0
+        item['visual'] = visual if not item['figure_number'] else None
+        drawn += 1 if item['visual'] else 0
     questions = []
     for question in content.get('check_questions', []):
         options = [o for o in question.get('options', []) if str(o).strip()][:4]

@@ -367,16 +367,6 @@
     font-size: 0.9375rem;
 }
 
-.button--danger {
-    border: 1.5px solid var(--color-error);
-    background: var(--color-surface);
-    color: var(--color-error);
-}
-
-.button--danger:hover {
-    background: var(--color-error-soft);
-}
-
 /* ---------- Diagnosis backing on the directory card ---------- */
 
 .student-card__diagnosis {

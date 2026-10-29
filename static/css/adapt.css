@@ -941,3 +941,44 @@
     background: var(--color-surface);
     font-size: 0.8125rem;
 }
+
+/* Shortcut from "Adaptar material" (one worksheet) to "Adaptar clase" (the Excel class plan) */
+.lesson-shortcut {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-md);
+    margin-bottom: var(--space-lg);
+    border: 1.5px solid var(--color-primary-border);
+    background: var(--color-primary-soft);
+    color: var(--color-text);
+    text-decoration: none;
+}
+
+.lesson-shortcut:hover {
+    border-color: var(--color-primary);
+}
+
+.lesson-shortcut__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-primary);
+}
+
+.lesson-shortcut__text {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: var(--space-xs);
+    min-width: 240px;
+}
+
+.lesson-shortcut__text span {
+    color: var(--color-text-soft);
+    font-size: 0.9375rem;
+}

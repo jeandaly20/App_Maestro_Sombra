@@ -215,6 +215,16 @@ svg {
     background: var(--color-primary-soft);
 }
 
+.button--danger {
+    border: 1.5px solid var(--color-error);
+    background: var(--color-surface);
+    color: var(--color-error);
+}
+
+.button--danger:hover {
+    background: var(--color-error-soft);
+}
+
 .button--block {
     width: 100%;
 }

@@ -10,4 +10,4 @@
         <figcaption><span class="icon" aria-hidden="true">draw</span>{{ item.visual_label }} dibujado por el sistema con los datos de la guía</figcaption>
     </figure>
 {% endif %}
-{% if item.figure_description %}<p class="step__figure">[Descripción para accesibilidad: {{ item.figure_description }}]</p>{% endif %}
+{% if item.figure_description and not item.figure_src and not item.visual_src %}<p class="step__figure">[Descripción para accesibilidad: {{ item.figure_description }}]</p>{% endif %}

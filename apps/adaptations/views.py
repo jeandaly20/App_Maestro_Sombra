@@ -316,6 +316,17 @@ class AdaptationActionView(LoginRequiredMixin, View):
         return redirect(f"{reverse('material_detail', args=[adaptation.material_id])}?a={target.pk}")
 
 
+class AdaptationDeleteView(LoginRequiredMixin, View):
+    """Removes a worksheet (all its versions) from the bank: logical delete, the history stays in the DB."""
+
+    def post(self, request, pk):
+        adaptation = own_adaptation(request, pk)
+        services.delete_worksheet(adaptation)
+        logger.info('Adaptation %s deleted by teacher=%s', adaptation.code, request.user.pk)
+        messages.success(request, f'Se eliminó la adaptación {adaptation.code}.')
+        return redirect('bank')
+
+
 class AdaptationEditView(LoginRequiredMixin, TemplateView):
     """'Ajustar manualmente': the teacher corrects the texts the AI wrote."""
     template_name = 'adaptations/adaptation_edit.html'
@@ -442,6 +453,10 @@ class LessonSetupView(LoginRequiredMixin, FormView):
     def dispatch(self, request, *args, **kwargs):
         if request.user.is_authenticated:
             self.lesson = own_lesson(request, kwargs['pk'])
+            if not self.lesson.plan_file:
+                # Already adapted: its plan file was deleted, so a new class starts with a new upload
+                messages.info(request, 'Esa clase ya fue adaptada. Sube tu planificación para adaptar otra.')
+                return redirect('lesson_upload')
             with self.lesson.plan_file.open('rb') as plan:
                 self.plan_content = plan.read()
         return super().dispatch(request, *args, **kwargs)
@@ -516,6 +531,17 @@ class LessonDetailView(LoginRequiredMixin, TemplateView):
         return context
 
 
+class LessonDeleteView(LoginRequiredMixin, View):
+    """Removes an adapted class with its worksheets and stored files: logical delete."""
+
+    def post(self, request, pk):
+        lesson = own_lesson(request, pk)
+        services.delete_lesson(lesson)
+        logger.info('Lesson %s deleted by teacher=%s', lesson.pk, request.user.pk)
+        messages.success(request, 'Se eliminó la clase adaptada y sus fichas.')
+        return redirect('bank')
+
+
 class LessonStatusView(LoginRequiredMixin, View):
     def get(self, request, pk):
         lesson = own_lesson(request, pk)
@@ -523,32 +549,31 @@ class LessonStatusView(LoginRequiredMixin, View):
 
 
 def plan_row_text(adaptation):
-    """The "Adaptación curricular" cell. The initials are added here, on the server: the AI never sees them."""
+    """The "Adaptación curricular" text. The student appears by pseudonym, added here: the AI never sees it."""
     grade = GRADE_NUMBERS[adaptation.grade]
     actions = ' / '.join(adaptation.content.get('plan_row', []))
-    return f'Para el estudiante {adaptation.student.initials} (Grado {grade}) {actions}'
+    return f'Para el estudiante {adaptation.student.pseudonym} (Grado {grade}) {actions}'
 
 
 class LessonExcelView(LoginRequiredMixin, View):
-    """The teacher's own Excel with the session's "Adaptación curricular" row filled in."""
+    """Only the chosen session, adapted for the student, as a new Excel without personal or school data."""
 
     def get(self, request, pk):
         adaptation = get_object_or_404(
-            LessonAdaptation.objects.select_related('lesson', 'student'), pk=pk,
+            LessonAdaptation.objects.select_related('lesson__subject', 'student'), pk=pk,
             lesson__teacher=request.user, lesson__record_status=RecordStatus.ACTIVE,
         )
         lesson = adaptation.lesson
-        with lesson.plan_file.open('rb') as plan:
-            content = lesson_plan.write_adaptation(plan.read(), lesson.sheet, lesson.session_row,
-                                                   plan_row_text(adaptation))
-        if content is None:
-            messages.error(request, 'Tu planificación no tiene una fila "Adaptación curricular" en esta sesión. '
-                                    'Copia el texto de la adaptación desde esta pantalla.')
-            return redirect(f"{reverse('lesson_detail', args=[lesson.pk])}?a={adaptation.pk}")
+        content = lesson_plan.adapted_workbook(
+            analysis=lesson.analysis or {}, content=adaptation.content, subject=lesson.subject.name,
+            grade=adaptation.student.get_grade_display(), pseudonym=adaptation.student.pseudonym,
+            condition=adaptation.get_condition_display(), adaptation_grade=adaptation.get_grade_display(),
+            plan_row=plan_row_text(adaptation),
+        )
         logger.info('Lesson %s exported to Excel by teacher=%s', lesson.pk, request.user.pk)
         response = HttpResponse(
             content, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        name = f'planificacion-{lesson.session_label}-adaptada.xlsx'.replace(' ', '-').lower()
+        name = f'clase-adaptada-{lesson.session_label}-{adaptation.student.pseudonym}.xlsx'.replace(' ', '-').lower()
         response['Content-Disposition'] = f'attachment; filename="{name}"'
         response['Cache-Control'] = 'private, no-store'
         return response
