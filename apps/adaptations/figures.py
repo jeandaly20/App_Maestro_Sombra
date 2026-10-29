@@ -127,3 +127,28 @@ def figure_path_is_safe(path, material):
     """Only paths inside this material's folder can be served."""
     expected = Path('figures') / str(material.teacher_id) / str(material.id)
     return Path(path).parent == expected
+
+
+def file_images(raw):
+    """Page images of an uploaded PDF or photo (used for the teacher guide of a class)."""
+    if raw[:5] == b'%PDF-':
+        pdf = pypdfium2.PdfDocument(raw)
+        try:
+            return [_fit(pdf[i].render(scale=2).to_pil()) for i in range(min(len(pdf), MAX_PDF_PAGES))]
+        finally:
+            pdf.close()
+    return [_fit(Image.open(io.BytesIO(raw)))]
+
+
+def to_pdf(uploads):
+    """Several photos (or one PDF) of the same pages as a single PDF, so they travel as one material."""
+    if len(uploads) == 1 and uploads[0].read(5) == b'%PDF-':
+        uploads[0].seek(0)
+        return uploads[0].read()
+    pages = []
+    for upload in uploads:
+        upload.seek(0)
+        pages.append(_fit(Image.open(io.BytesIO(upload.read()))))
+    buffer = io.BytesIO()
+    pages[0].save(buffer, 'PDF', save_all=True, append_images=pages[1:], resolution=150)
+    return buffer.getvalue()

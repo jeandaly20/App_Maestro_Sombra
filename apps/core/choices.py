@@ -44,11 +44,12 @@ class DiagnosisSource(models.TextChoices):
     MSP_CERTIFICATE = 'MSP_CERTIFICATE', 'Certificado o carné de discapacidad del MSP'
     DECE_REPORT = 'DECE_REPORT', 'Informe del DECE de la institución'
     CLINICAL_REPORT = 'CLINICAL_REPORT', 'Diagnóstico clínico (neurólogo, psicólogo o psiquiatra)'
+    # Only offered while the document is optional (settings.DIAGNOSIS_DOCUMENT_REQUIRED = False)
     IN_EVALUATION = 'IN_EVALUATION', 'En proceso de evaluación (sin informe aún)'
 
 
 # Intellectual disability is a SEN associated with disability: it is backed by the MSP or the UDAI
-DISABILITY_SOURCES = [DiagnosisSource.MSP_CERTIFICATE, DiagnosisSource.UDAI_REPORT, DiagnosisSource.IN_EVALUATION]
+DISABILITY_SOURCES = [DiagnosisSource.MSP_CERTIFICATE, DiagnosisSource.UDAI_REPORT]
 
 
 class Grade(models.TextChoices):
@@ -118,6 +119,16 @@ class RecordStatus(models.TextChoices):
     """Record status present in every table: INACTIVE is a logical delete (the row is kept for traceability)."""
     ACTIVE = 'ACTIVE', 'Activo'
     INACTIVE = 'INACTIVE', 'Inactivo'
+
+
+class AdaptationGrade(models.TextChoices):
+    """Degrees of curricular adaptation used in Ecuador's inclusive education."""
+    ACCESS = 'ACCESS', 'Grado 1 · De acceso'
+    NON_SIGNIFICANT = 'NON_SIGNIFICANT', 'Grado 2 · No significativa'
+    SIGNIFICANT = 'SIGNIFICANT', 'Grado 3 · Significativa'
+
+
+GRADE_NUMBERS = {AdaptationGrade.ACCESS: 1, AdaptationGrade.NON_SIGNIFICANT: 2, AdaptationGrade.SIGNIFICANT: 3}
 
 
 class ColorFilter(models.TextChoices):

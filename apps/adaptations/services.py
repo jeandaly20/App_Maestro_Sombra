@@ -11,7 +11,7 @@ from apps.materials.models import MaterialStatus, OriginalMaterial
 from apps.students.models import Student
 
 from . import ai, figures
-from .models import CurricularAdaptation
+from .models import CurricularAdaptation, LessonAdaptation, LessonPlan
 
 logger = logging.getLogger('maestro_sombra')
 
@@ -109,3 +109,67 @@ def regenerate(adaptation, *, simplify=True, feedback=''):
         adaptation.material, adaptation.student, adaptation.condition, adaptation.applied_adjustments,
         source=adaptation, simplify=simplify, feedback=feedback,
     )
+
+
+def process_lesson(lesson_id, requests, adjustments, chosen_grade=''):
+    """
+    "Adaptar clase": adapts the student book pages (as any worksheet), reads the class plan session
+    (plus the teacher guide) once, and adapts the whole class for each (student, condition).
+    """
+    lesson = LessonPlan.objects.select_related('subject').get(pk=lesson_id)
+    lesson.status = MaterialStatus.PROCESSING
+    lesson.ai_error = ''
+    lesson.save(update_fields=['status', 'ai_error', 'updated_at'])
+    try:
+        material = process_material(lesson.material_id, requests, adjustments)
+        if material.status == MaterialStatus.ERROR:
+            raise ai.AIError(material.ai_error)
+        book_summary = (material.ai_analysis or {}).get('summary', '')
+        guide_parts = []
+        if lesson.guide_file:
+            with lesson.guide_file.open('rb') as guide:
+                guide_parts = figures.image_parts(figures.file_images(guide.read()))
+        students = {s.pk: s for s in Student.objects.filter(teacher=lesson.teacher, pk__in=[r[0] for r in requests])}
+        class_grade = students[requests[0][0]].grade
+        analysis, model = ai.analyze_lesson(session_text=lesson.session_text, guide_parts=guide_parts,
+                                            book_summary=book_summary, subject=lesson.subject.name, grade=class_grade)
+        lesson.analysis = analysis
+        lesson.save(update_fields=['analysis', 'updated_at'])
+        with transaction.atomic():
+            for student_id, condition in requests:
+                student = students[student_id]
+                content, model = ai.adapt_lesson(
+                    lesson=analysis, book_summary=book_summary, subject=lesson.subject.name,
+                    subject_code=lesson.subject.code, grade=student.grade, condition=condition,
+                    adjustments=adjustments, chosen_grade=chosen_grade,
+                )
+                worksheet = (material.adaptations.filter(student=student, condition=condition)
+                             .order_by('-version').first())
+                LessonAdaptation.objects.update_or_create(lesson=lesson, student=student, defaults={
+                    'condition': condition, 'grade': chosen_grade or content['suggested_grade'],
+                    'suggested_grade': content['suggested_grade'], 'worksheet': worksheet,
+                    'content': content, 'ai_model': model[:50],
+                })
+        lesson.status = MaterialStatus.PROCESSED
+        logger.info('Lesson %s adapted for %s student(s)', lesson.pk, len(requests))
+    except ai.AIError as error:
+        lesson.status = MaterialStatus.ERROR
+        lesson.ai_error = str(error)
+        logger.warning('Lesson %s failed: %s', lesson.pk, error)
+    except Exception:  # noqa: BLE001 - the teacher must always get a final state
+        lesson.status = MaterialStatus.ERROR
+        lesson.ai_error = 'Ocurrió un error inesperado al adaptar la clase. Inténtalo de nuevo.'
+        logger.exception('Unexpected error processing lesson %s', lesson.pk)
+    lesson.save(update_fields=['status', 'ai_error', 'updated_at'])
+    return lesson
+
+
+def start_lesson_processing(lesson, requests, adjustments, chosen_grade=''):
+    def run():
+        try:
+            process_lesson(lesson.pk, requests, adjustments, chosen_grade)
+        finally:
+            close_old_connections()
+
+    threading.Thread(target=run, daemon=True).start()
+    return lesson

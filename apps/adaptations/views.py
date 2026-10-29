@@ -6,6 +6,7 @@ from pathlib import Path
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.staticfiles import finders
+from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
@@ -21,14 +22,14 @@ from reportlab.pdfbase.ttfonts import TTFont
 from xhtml2pdf import default as pisa_default
 from xhtml2pdf import pisa
 
-from apps.core.choices import ColorFilter, RecordStatus, UdlAdjustment
+from apps.core.choices import GRADE_NUMBERS, ColorFilter, RecordStatus, UdlAdjustment
 from apps.evaluations.models import Evaluation, EvaluationStatus, Outcome
-from apps.materials.models import MaterialStatus, OriginalMaterial
+from apps.materials.models import InputType, MaterialStatus, OriginalMaterial
 
-from . import ai, figures, services, visuals
+from . import ai, figures, lesson_plan, services, visuals
 from .curriculum import curriculum_warnings
-from .forms import ACCEPT_BY_TYPE, AdaptMaterialForm
-from .models import AdaptationStatus, CurricularAdaptation
+from .forms import ACCEPT_BY_TYPE, AdaptMaterialForm, LessonSetupForm, LessonUploadForm
+from .models import AdaptationStatus, CurricularAdaptation, LessonAdaptation, LessonPlan
 
 logger = logging.getLogger('maestro_sombra')
 
@@ -409,4 +410,145 @@ class AdaptationPdfView(LoginRequiredMixin, View):
         logger.info('Adaptation %s exported to PDF by teacher=%s', adaptation.code, request.user.pk)
         response = HttpResponse(pdf.getvalue(), content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="{adaptation.code}-v{adaptation.version}.pdf"'
+        return response
+
+
+# ---------- "Adaptar clase": the whole class, from the teacher's plan ----------
+
+def own_lesson(request, pk):
+    return get_object_or_404(LessonPlan.objects.select_related('subject', 'material'), pk=pk,
+                             teacher=request.user, record_status=RecordStatus.ACTIVE)
+
+
+class LessonUploadView(LoginRequiredMixin, FormView):
+    """Step 1: the class plan in Excel."""
+    template_name = 'adaptations/lesson_upload.html'
+    form_class = LessonUploadForm
+
+    def form_valid(self, form):
+        upload = form.cleaned_data['plan_file']
+        lesson = LessonPlan(teacher=self.request.user, plan_file_name=Path(upload.name).name[:255])
+        lesson.plan_file = upload
+        lesson.save()
+        logger.info('Lesson plan %s uploaded by teacher=%s', lesson.pk, self.request.user.pk)
+        return redirect('lesson_setup', pk=lesson.pk)
+
+
+class LessonSetupView(LoginRequiredMixin, FormView):
+    """Step 2: which session, its book pages, the optional guide and the students."""
+    template_name = 'adaptations/lesson_setup.html'
+    form_class = LessonSetupForm
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated:
+            self.lesson = own_lesson(request, kwargs['pk'])
+            with self.lesson.plan_file.open('rb') as plan:
+                self.plan_content = plan.read()
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs.update(teacher=self.request.user, sessions=lesson_plan.sessions(self.plan_content))
+        return kwargs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        form = context['form']
+        context.update({
+            'lesson': self.lesson,
+            'student_options': [
+                {'option': option, 'student': form.student_objects[option.data['value']],
+                 'condition_field': form.condition_fields().get(option.data['value'])}
+                for option in form['students']
+            ],
+            'recommended_by_student': {
+                pk: [str(a) for group in s.groups for a in group.adjustments]
+                for pk, s in form.student_objects.items()
+            },
+        })
+        return context
+
+    def form_valid(self, form):
+        data = form.cleaned_data
+        session = form.chosen_session()
+        lesson = self.lesson
+        title = (session['title'] or session['label'])[:150]
+        material = OriginalMaterial(
+            teacher=self.request.user, subject=data['subject'], title=title,
+            topic=f"{session['label']} · {session['title']}".strip(' ·')[:150], input_type=InputType.PDF,
+        )
+        material.file.save(f'{material.id}.pdf', ContentFile(figures.to_pdf(data['book_files'])), save=False)
+        material.file_name = f'Libro del alumno · {title}'[:255]
+        material.size_kb = max(1, round(material.file.size / 1024))
+        material.full_clean()
+        material.save()
+        if data['guide_files']:
+            lesson.guide_file.save('guia.pdf', ContentFile(figures.to_pdf(data['guide_files'])), save=False)
+        lesson.subject = data['subject']
+        lesson.material = material
+        lesson.sheet, lesson.session_row = session['sheet'], session['row']
+        lesson.session_label, lesson.title = session['label'][:100], title
+        lesson.session_text = lesson_plan.session_text(self.plan_content, session['sheet'], session['row'])
+        lesson.status = MaterialStatus.PENDING
+        lesson.save()
+        logger.info('Lesson %s (%s) sent to the AI by teacher=%s', lesson.pk, lesson.session_label, self.request.user.pk)
+        services.start_lesson_processing(lesson, form.requests(), form.chosen_adjustments(),
+                                         data.get('adaptation_grade') or '')
+        return redirect('lesson_detail', pk=lesson.pk)
+
+
+class LessonDetailView(LoginRequiredMixin, TemplateView):
+    """The adapted class for each student: plan row, shadow-teacher guide, worksheet and Excel."""
+    template_name = 'adaptations/lesson_detail.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        lesson = own_lesson(self.request, kwargs['pk'])
+        adaptations = list(lesson.adaptations.filter(record_status=RecordStatus.ACTIVE)
+                           .select_related('student', 'worksheet'))
+        wanted = self.request.GET.get('a')
+        selected = next((a for a in adaptations if str(a.pk) == wanted), adaptations[0] if adaptations else None)
+        context.update({
+            'lesson': lesson, 'analysis': lesson.analysis or {}, 'adaptations': adaptations, 'selected': selected,
+            'is_working': lesson.status in (MaterialStatus.PENDING, MaterialStatus.PROCESSING),
+            'plan_row': plan_row_text(selected) if selected else '',
+        })
+        return context
+
+
+class LessonStatusView(LoginRequiredMixin, View):
+    def get(self, request, pk):
+        lesson = own_lesson(request, pk)
+        return JsonResponse({'status': lesson.status, 'label': lesson.get_status_display(), 'error': lesson.ai_error})
+
+
+def plan_row_text(adaptation):
+    """The "Adaptación curricular" cell. The initials are added here, on the server: the AI never sees them."""
+    grade = GRADE_NUMBERS[adaptation.grade]
+    actions = ' / '.join(adaptation.content.get('plan_row', []))
+    return f'Para el estudiante {adaptation.student.initials} (Grado {grade}) {actions}'
+
+
+class LessonExcelView(LoginRequiredMixin, View):
+    """The teacher's own Excel with the session's "Adaptación curricular" row filled in."""
+
+    def get(self, request, pk):
+        adaptation = get_object_or_404(
+            LessonAdaptation.objects.select_related('lesson', 'student'), pk=pk,
+            lesson__teacher=request.user, lesson__record_status=RecordStatus.ACTIVE,
+        )
+        lesson = adaptation.lesson
+        with lesson.plan_file.open('rb') as plan:
+            content = lesson_plan.write_adaptation(plan.read(), lesson.sheet, lesson.session_row,
+                                                   plan_row_text(adaptation))
+        if content is None:
+            messages.error(request, 'Tu planificación no tiene una fila "Adaptación curricular" en esta sesión. '
+                                    'Copia el texto de la adaptación desde esta pantalla.')
+            return redirect(f"{reverse('lesson_detail', args=[lesson.pk])}?a={adaptation.pk}")
+        logger.info('Lesson %s exported to Excel by teacher=%s', lesson.pk, request.user.pk)
+        response = HttpResponse(
+            content, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        name = f'planificacion-{lesson.session_label}-adaptada.xlsx'.replace(' ', '-').lower()
+        response['Content-Disposition'] = f'attachment; filename="{name}"'
+        response['Cache-Control'] = 'private, no-store'
         return response

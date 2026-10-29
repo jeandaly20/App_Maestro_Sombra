@@ -3,9 +3,11 @@ from pathlib import Path
 from django import forms
 from django.conf import settings
 
-from apps.core.choices import Condition, RecordStatus, UdlAdjustment
+from apps.core.choices import AdaptationGrade, Condition, RecordStatus, UdlAdjustment
 from apps.core.forms import AccessibleFormMixin
 from apps.materials.models import EXTENSIONS_BY_TYPE, InputType, Subject
+
+from . import lesson_plan
 
 ACCEPT_BY_TYPE = {
     InputType.PHOTO: 'image/jpeg,image/png,image/webp',
@@ -85,3 +87,87 @@ class AdaptMaterialForm(AccessibleFormMixin, forms.Form):
             for group in self.student_objects[pk].groups:
                 recommended += [a for a in group.adjustments if a not in recommended]
         return [str(a) for a in recommended]
+
+
+MAX_PLAN_MB = 10
+MAX_PAGE_FILES = 6
+PAGE_TYPES = {b'%PDF-': 'pdf', b'\x89PNG': 'png', b'\xff\xd8\xff': 'jpg', b'RIFF': 'webp'}
+
+
+class MultipleFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+
+class MultipleFileField(forms.FileField):
+    """Several photos of the same pages (or one PDF)."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault('widget', MultipleFileInput(attrs={'accept': 'image/jpeg,image/png,image/webp,application/pdf'}))
+        super().__init__(*args, **kwargs)
+
+    def clean(self, data, initial=None):
+        files = data if isinstance(data, (list, tuple)) else ([data] if data else [])
+        cleaned = [super(MultipleFileField, self).clean(item, initial) for item in files]
+        if self.required and not cleaned:
+            raise forms.ValidationError(self.error_messages['required'], code='required')
+        if len(cleaned) > MAX_PAGE_FILES:
+            raise forms.ValidationError(f'Sube como máximo {MAX_PAGE_FILES} fotos o un PDF.')
+        kinds = []
+        for item in cleaned:
+            if item.size > settings.MAX_UPLOAD_MB * 1024 * 1024:
+                raise forms.ValidationError(f'«{item.name}» supera los {settings.MAX_UPLOAD_MB} MB.')
+            head = item.read(8)
+            item.seek(0)
+            kind = next((value for signature, value in PAGE_TYPES.items() if head.startswith(signature)), None)
+            if not kind:
+                raise forms.ValidationError(f'«{item.name}» no es una foto (JPG, PNG o WEBP) ni un PDF.')
+            kinds.append(kind)
+        if 'pdf' in kinds and len(cleaned) > 1:
+            raise forms.ValidationError('Sube un solo PDF, o varias fotos.')
+        return cleaned
+
+
+class LessonUploadForm(AccessibleFormMixin, forms.Form):
+    """Step 1 of "Adaptar clase": the teacher's class plan in Excel."""
+    plan_file = forms.FileField(label='Planificación en Excel (.xlsx)',
+                                widget=forms.ClearableFileInput(attrs={'accept': '.xlsx'}))
+
+    def clean_plan_file(self):
+        upload = self.cleaned_data['plan_file']
+        if Path(upload.name).suffix.lower() != '.xlsx':
+            raise forms.ValidationError('Sube la planificación en formato Excel (.xlsx).')
+        if upload.size > MAX_PLAN_MB * 1024 * 1024:
+            raise forms.ValidationError(f'El archivo supera los {MAX_PLAN_MB} MB.')
+        content = upload.read()
+        upload.seek(0)
+        try:
+            found = lesson_plan.sessions(content)
+        except Exception as error:  # noqa: BLE001 - a damaged or non-Excel file
+            raise forms.ValidationError('No se pudo leer el archivo. Verifica que sea un Excel (.xlsx) válido.') from error
+        if not found:
+            raise forms.ValidationError('No se encontró ninguna clase en el archivo.')
+        return upload
+
+
+class LessonSetupForm(AdaptMaterialForm):
+    """Step 2: the session to adapt, its student book pages, the optional teacher guide and the students."""
+    session = forms.ChoiceField(label='Clase (sesión) a adaptar')
+    book_files = MultipleFileField(label='Páginas del libro del alumno', required=True)
+    guide_files = MultipleFileField(label='Páginas de la guía del docente (opcional)', required=False)
+    adaptation_grade = forms.ChoiceField(
+        label='Grado de adaptación', required=False,
+        choices=[('', 'Que la IA sugiera el grado')] + AdaptationGrade.choices,
+    )
+
+    def __init__(self, *args, sessions, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name in ('title', 'topic', 'input_type', 'file', 'input_text'):
+            del self.fields[name]  # they come from the chosen session and the book pages
+        self.sessions = {s['key']: s for s in sessions}
+        self.fields['session'].choices = [('', 'Selecciona la clase')] + [
+            (key, f"{s['sheet'].strip()} · {s['label']}{' · ' + s['title'] if s['title'] else ''}")
+            for key, s in self.sessions.items()
+        ]
+
+    def chosen_session(self):
+        return self.sessions[self.cleaned_data['session']]

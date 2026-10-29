@@ -1,11 +1,13 @@
 import uuid
+from pathlib import Path
 
+from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from apps.core.choices import ColorFilter, Condition, RecordStatus, UdlAdjustment
-from apps.materials.models import OriginalMaterial
+from apps.core.choices import AdaptationGrade, ColorFilter, Condition, RecordStatus, UdlAdjustment
+from apps.materials.models import MaterialStatus, OriginalMaterial, Subject
 from apps.students.models import Student
 
 
@@ -114,3 +116,98 @@ class CurricularAdaptation(models.Model):
 
     def __str__(self):
         return f'{self.code} · {self.title}'
+
+
+def lesson_plan_path(instance, filename):
+    # The teacher's own file, stored under its UUID and only served back to them
+    return f'lessons/{instance.teacher_id}/{instance.id}.xlsx'
+
+
+def lesson_guide_path(instance, filename):
+    return f'lessons/{instance.teacher_id}/{instance.id}-guia{Path(filename).suffix.lower()}'
+
+
+class LessonPlan(models.Model):
+    """
+    "Adaptar clase": one session of the teacher's class plan (Excel), the student book pages of that
+    class (kept as an OriginalMaterial, adapted like any worksheet) and, optionally, the teacher guide.
+    """
+
+    Status = MaterialStatus
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    teacher = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='lessons',
+                                verbose_name='docente')
+    subject = models.ForeignKey(Subject, on_delete=models.PROTECT, null=True, blank=True, related_name='lessons',
+                                verbose_name='materia')
+    material = models.ForeignKey(OriginalMaterial, on_delete=models.SET_NULL, null=True, blank=True,
+                                 related_name='lessons', verbose_name='páginas del libro')
+    plan_file = models.FileField('planificación (Excel)', upload_to=lesson_plan_path)
+    plan_file_name = models.CharField('nombre del archivo', max_length=255, blank=True)
+    guide_file = models.FileField('guía del docente', upload_to=lesson_guide_path, blank=True)
+    sheet = models.CharField('hoja', max_length=100, blank=True)
+    session_row = models.PositiveIntegerField('fila de la sesión', default=0)
+    session_label = models.CharField('sesión', max_length=100, blank=True)
+    title = models.CharField('título de la clase', max_length=150, blank=True)
+    session_text = models.TextField('texto de la sesión (sin datos personales)', blank=True)
+    analysis = models.JSONField('análisis de la IA', null=True, blank=True)
+    status = models.CharField('estado', max_length=10, choices=Status.choices, default=Status.PENDING)
+    ai_error = models.TextField('error de la IA', blank=True)
+    record_status = models.CharField('estado del registro', max_length=8, choices=RecordStatus.choices,
+                                     default=RecordStatus.ACTIVE)
+    created_at = models.DateTimeField('creado', auto_now_add=True)
+    updated_at = models.DateTimeField('actualizado', auto_now=True)
+
+    class Meta:
+        db_table = 'trx_lesson_plan'
+        ordering = ['-created_at']
+        verbose_name = 'clase planificada'
+        verbose_name_plural = 'clases planificadas'
+        constraints = [
+            models.CheckConstraint(check=models.Q(status__in=MaterialStatus.values), name='lesson_status_valid'),
+            models.CheckConstraint(check=models.Q(record_status__in=RecordStatus.values),
+                                   name='lesson_record_status_valid'),
+        ]
+
+    def __str__(self):
+        return f'{self.session_label} · {self.title}'.strip(' ·') or 'Clase'
+
+
+class LessonAdaptation(models.Model):
+    """The class adapted for one student: plan row for the coordinator, guide for the shadow teacher."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    lesson = models.ForeignKey(LessonPlan, on_delete=models.CASCADE, related_name='adaptations',
+                               verbose_name='clase')
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='lesson_adaptations',
+                                verbose_name='estudiante')
+    condition = models.CharField('condición', max_length=20, choices=Condition.choices)
+    grade = models.CharField('grado de adaptación', max_length=16, choices=AdaptationGrade.choices)
+    suggested_grade = models.CharField('grado sugerido por la IA', max_length=16, choices=AdaptationGrade.choices,
+                                       blank=True)
+    worksheet = models.ForeignKey(CurricularAdaptation, on_delete=models.SET_NULL, null=True, blank=True,
+                                  related_name='lesson_adaptations', verbose_name='ficha adaptada')
+    content = models.JSONField('contenido')
+    ai_model = models.CharField('modelo de IA', max_length=50, blank=True)
+    record_status = models.CharField('estado del registro', max_length=8, choices=RecordStatus.choices,
+                                     default=RecordStatus.ACTIVE)
+    created_at = models.DateTimeField('creado', auto_now_add=True)
+    updated_at = models.DateTimeField('actualizado', auto_now=True)
+
+    class Meta:
+        db_table = 'trx_lesson_adaptation'
+        ordering = ['student__created_at']
+        verbose_name = 'clase adaptada'
+        verbose_name_plural = 'clases adaptadas'
+        constraints = [
+            models.UniqueConstraint(fields=['lesson', 'student'], name='lesson_adaptation_unique'),
+            models.CheckConstraint(check=models.Q(condition__in=Condition.values),
+                                   name='lesson_adaptation_condition_valid'),
+            models.CheckConstraint(check=models.Q(grade__in=AdaptationGrade.values),
+                                   name='lesson_adaptation_grade_valid'),
+            models.CheckConstraint(check=models.Q(record_status__in=RecordStatus.values),
+                                   name='lesson_adaptation_record_status_valid'),
+        ]
+
+    def __str__(self):
+        return f'{self.lesson} · {self.student}'

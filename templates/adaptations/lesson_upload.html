@@ -1,0 +1,25 @@
+{% extends "app_base.html" %}
+
+{% block title %}Adaptar clase{% endblock %}
+{% block styles %}{{ block.super }}<link rel="stylesheet" href="{% asset 'css/adapt.css' %}">{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <p class="badge-line"><span class="icon" aria-hidden="true">school</span>Paso 1 de 2 · Planificación</p>
+        <h1>Adaptar una clase completa</h1>
+        <p class="page-header__intro">Sube tu planificación en Excel. En el siguiente paso eliges la clase (sesión), subes las páginas del libro del alumno y, si la tienes, la guía del docente. La IA adapta toda la clase para cada estudiante.</p>
+    </div>
+</div>
+
+<form method="post" enctype="multipart/form-data" novalidate class="card adapt-section">
+    {% csrf_token %}
+    <h2 class="adapt-section__title"><span class="icon" aria-hidden="true">table_view</span>Planificación de la clase</h2>
+    {% include "includes/field.html" with field=form.plan_file icon="upload_file" %}
+    <p class="field__help">Puede tener una hoja por semana y varias sesiones por hoja. Del archivo solo se usan los datos pedagógicos de la clase que elijas: los nombres de la institución, de los docentes y de los estudiantes no se envían a la IA.</p>
+    <div class="adapt-actions">
+        <p><span class="icon" aria-hidden="true">lock</span>El archivo se guarda solo para ti, para devolverte tu planificación con la adaptación.</p>
+        <button type="submit" class="button button--primary button--large"><span class="icon" aria-hidden="true">arrow_forward</span>Continuar</button>
+    </div>
+</form>
+{% endblock %}

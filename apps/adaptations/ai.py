@@ -7,6 +7,8 @@ Google Gemini client (REST API) and the three prompts of the system:
    UDL rules of udl_rules.py. It only receives text, never the original file again.
 3. recommend_next_steps: reads the teacher's classroom evaluation and advises how to adjust
    the next adaptation.
+4. analyze_lesson / adapt_lesson ("Adaptar clase"): read one session of the teacher's class plan
+   (plus the teacher guide pages, if any) once, then adapt the whole class for each student.
 
 Privacy (LOPDP): the model never receives the student's name, notes or birth date;
 only the grade, the condition and the UDL adjustments.
@@ -20,7 +22,7 @@ import urllib.request
 
 from django.conf import settings
 
-from apps.core.choices import Condition, Grade
+from apps.core.choices import AdaptationGrade, Condition, Grade
 
 from . import visuals
 from .curriculum import level_note
@@ -343,6 +345,128 @@ def recommend_next_steps(*, subject, topic, grade, condition, adjustments, summa
     if not text:
         raise AIError('La IA no devolvió una recomendación. Inténtalo de nuevo.')
     return text, bool(data.get('simplify')), model
+
+
+MOMENT_SCHEMA = {
+    'type': 'OBJECT',
+    'properties': {
+        'name': {'type': 'STRING'},
+        'duration': {'type': 'STRING'},
+        'activities': {'type': 'STRING'},
+    },
+    'required': ['name', 'activities'],
+}
+
+LESSON_SCHEMA = {
+    'type': 'OBJECT',
+    'properties': {
+        'title': {'type': 'STRING'},
+        'skill': {'type': 'STRING'},
+        'indicator': {'type': 'STRING'},
+        'objective': {'type': 'STRING'},
+        'moments': {'type': 'ARRAY', 'items': MOMENT_SCHEMA},
+        'materials': {'type': 'STRING'},
+        'metacognition': {'type': 'ARRAY', 'items': {'type': 'STRING'}},
+        'guide_support': {'type': 'STRING'},
+        'summary': {'type': 'STRING'},
+    },
+    'required': ['title', 'objective', 'moments', 'summary'],
+}
+
+ADAPTED_MOMENT_SCHEMA = {
+    'type': 'OBJECT',
+    'properties': {
+        'name': {'type': 'STRING'},
+        'duration': {'type': 'STRING'},
+        'teacher_actions': {'type': 'ARRAY', 'items': {'type': 'STRING'}},
+        'student_task': {'type': 'STRING'},
+        'supports': {'type': 'ARRAY', 'items': {'type': 'STRING'}},
+        'watch_for': {'type': 'STRING'},
+    },
+    'required': ['name', 'teacher_actions', 'student_task', 'supports'],
+}
+
+LESSON_ADAPTATION_SCHEMA = {
+    'type': 'OBJECT',
+    'properties': {
+        'suggested_grade': {'type': 'STRING', 'enum': ['ACCESS', 'NON_SIGNIFICANT', 'SIGNIFICANT']},
+        'grade_reason': {'type': 'STRING'},
+        'adapted_objective': {'type': 'STRING'},
+        'plan_row': {'type': 'ARRAY', 'items': {'type': 'STRING'}},
+        'moments': {'type': 'ARRAY', 'items': ADAPTED_MOMENT_SCHEMA},
+        'evaluation': {'type': 'STRING'},
+        'metacognition': {'type': 'ARRAY', 'items': {'type': 'STRING'}},
+    },
+    'required': ['suggested_grade', 'grade_reason', 'adapted_objective', 'plan_row', 'moments', 'evaluation'],
+}
+
+LESSON_SYSTEM = (
+    'Eres un asesor pedagógico del Ecuador. Lees la planificación de UNA clase (sesión) escrita por un docente, '
+    'en cualquier formato, y, si las hay, las páginas de la guía del docente de esa clase. Identifica la destreza '
+    'con criterio de desempeño, el indicador de evaluación, el objetivo, los momentos de la clase en orden (por '
+    'ejemplo Calentemos, Conversemos, Registremos, Transferencia, o Inicio, Desarrollo, Cierre) con su duración '
+    'y actividades, los materiales y las preguntas de metacognición. Si la guía trae una sección de "Apoyo" '
+    'para alumnos con dificultades, resúmela en "guide_support". No incluyas nombres de personas ni de '
+    'instituciones. Escribe en español.'
+)
+
+LESSON_ADAPTATION_SYSTEM = (
+    'Eres un docente experto en Diseño Universal para el Aprendizaje (DUA) y educación inclusiva en Ecuador que '
+    'acompaña como docente sombra a un estudiante con necesidades educativas especiales. Adaptas una clase '
+    'completa para ese estudiante, momento por momento, para que participe en la misma clase que sus compañeros. '
+    'Grados de adaptación curricular: Grado 1 (de acceso): solo cambian los recursos, el espacio, el tiempo o la '
+    'comunicación; el contenido y la evaluación son los mismos. Grado 2 (no significativa): cambian la metodología, '
+    'las actividades, los recursos y la forma de evaluar, pero se mantienen la destreza y el objetivo. Grado 3 '
+    '(significativa): se ajustan la destreza y el objetivo a un nivel más básico del mismo tema. Para cada momento '
+    'indicas qué hace el docente sombra, qué hace el estudiante, los apoyos y qué señales de dificultad vigilar. '
+    'En "plan_row" escribe de 3 a 6 acciones breves, en el estilo de la fila "Adaptación curricular" de una '
+    'planificación (por ejemplo "Reducir la cantidad de ejercicios, priorizando…"), sin nombre ni iniciales del '
+    'estudiante. Usa las sugerencias de "Apoyo" de la guía y deja de lado las de "Ampliación". No inventes datos '
+    'que no estén en la clase. Escribe en español del Ecuador, dirigiéndote al docente.'
+)
+
+
+def analyze_lesson(*, session_text, guide_parts=(), book_summary='', subject, grade):
+    """Reads one session of the class plan (and the teacher guide pages) once. No personal data."""
+    prompt = '\n\n'.join(part for part in [
+        f'Materia: {subject}. Grado de los estudiantes: {Grade(grade).label}.',
+        f'Planificación de la sesión:\n{session_text}',
+        f'Resumen de las páginas del libro del alumno: {book_summary}' if book_summary else '',
+        'Imágenes de la guía del docente a continuación.' if guide_parts else '',
+    ] if part)
+    data, model = generate_json(LESSON_SYSTEM, [{'text': prompt}, *guide_parts], LESSON_SCHEMA)
+    if not data.get('moments'):
+        raise AIError('No se encontraron los momentos de la clase en la planificación. Revisa la sesión elegida.')
+    return data, model
+
+
+def adapt_lesson(*, lesson, book_summary, subject, subject_code, grade, condition, adjustments, chosen_grade=''):
+    """Adapts the whole class for ONE condition. Receives no personal data."""
+    moments = '\n'.join(f'- {m.get("name", "")} ({m.get("duration", "")}): {m.get("activities", "")}'
+                         for m in lesson.get('moments', []))
+    prompt = [
+        f'Materia: {subject}. Grado: {Grade(grade).label}.',
+        rules_for(condition, adjustments, subject_code, grade),
+        f'Clase: {lesson.get("title", "")}. Destreza: {lesson.get("skill", "")}. '
+        f'Indicador: {lesson.get("indicator", "")}. Objetivo: {lesson.get("objective", "")}.',
+        f'Momentos de la clase:\n{moments}',
+        f'Materiales: {lesson.get("materials", "")}',
+        f'Apoyo sugerido por la guía del docente: {lesson.get("guide_support", "")}' if lesson.get('guide_support') else '',
+        f'Lo que trabaja el alumno en su libro: {book_summary}' if book_summary else '',
+        f'Preguntas de metacognición de la clase: {"; ".join(lesson.get("metacognition", []))}',
+        (f'El docente decidió una adaptación de {AdaptationGrade(chosen_grade).label}: aplícala.' if chosen_grade
+         else 'Sugiere el grado de adaptación más adecuado y aplícalo.'),
+        'Adapta todos los momentos, en el mismo orden. En "evaluation" explica cómo evaluar al estudiante con el '
+        'indicador de la clase. En "metacognition" no copies las preguntas de la clase: reescríbelas para este '
+        'estudiante, con palabras sencillas y de máximo 10 palabras cada una (por ejemplo "¿Qué te ayudó a '
+        'multiplicar?").',
+        SPELLING_RULE,
+    ]
+    data, model = generate_json(LESSON_ADAPTATION_SYSTEM, [{'text': '\n\n'.join(p for p in prompt if p)}],
+                                LESSON_ADAPTATION_SCHEMA)
+    if not data.get('moments') or not data.get('plan_row'):
+        raise AIError('La IA no devolvió la clase adaptada completa. Inténtalo de nuevo.')
+    return data, model
 
 
 SPELLING_RULE = (

@@ -1,0 +1,96 @@
+{% extends "app_base.html" %}
+
+{% block title %}{{ lesson.title|default:"Clase adaptada" }}{% endblock %}
+{% block styles %}{{ block.super }}<link rel="stylesheet" href="{% asset 'css/adapt.css' %}">{% endblock %}
+{% block scripts %}<script src="{% asset 'js/adapt.js' %}" defer></script><script src="{% asset 'js/lesson.js' %}" defer></script>{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <p class="badge-line"><span class="icon" aria-hidden="true">school</span>{{ lesson.subject.name }} · {{ lesson.session_label }}</p>
+        <h1>{{ lesson.title|default:"Clase adaptada" }}</h1>
+        {% if analysis.objective %}<p class="page-header__intro"><strong>Objetivo de la clase:</strong> {{ analysis.objective }}</p>{% endif %}
+    </div>
+    <a class="button button--secondary" href="{% url 'lesson_upload' %}"><span class="icon" aria-hidden="true">add</span>Adaptar otra clase</a>
+</div>
+
+<section class="card material-status" aria-live="polite" {% if is_working %}data-poll-url="{% url 'lesson_status' lesson.pk %}"{% endif %}>
+    <span class="material-status__icon"><span class="icon" aria-hidden="true">table_view</span></span>
+    <div class="material-status__body">
+        <p class="material-status__name">{{ lesson.plan_file_name }}</p>
+        <ol class="status-steps" aria-label="Estado de la clase">
+            {% for value, label in lesson.Status.choices %}
+                <li class="status-step{% if lesson.status == value %} status-step--current status-step--{{ value|lower }}{% endif %}">{{ label }}</li>
+            {% endfor %}
+        </ol>
+        {% if is_working %}
+            <p class="material-status__message"><span class="spinner" aria-hidden="true"></span>La IA está leyendo la planificación y las páginas y adaptando la clase. Puede tardar uno o dos minutos.</p>
+        {% elif lesson.status == 'ERROR' %}
+            <div class="alert alert--error" role="alert"><span class="icon" aria-hidden="true">error</span>
+                <div><p><strong>No se pudo adaptar la clase.</strong> {{ lesson.ai_error }}</p>
+                <a class="button button--primary" href="{% url 'lesson_setup' lesson.pk %}">Intentar de nuevo</a></div></div>
+        {% elif analysis %}
+            <p class="material-status__message material-status__message--ok"><span class="icon" aria-hidden="true">check_circle</span>{{ analysis.summary }}</p>
+        {% endif %}
+    </div>
+</section>
+
+{% if selected %}
+<nav class="adaptation-tabs" aria-label="Estudiantes">
+    {% for item in adaptations %}
+        <a class="adaptation-tab" href="?a={{ item.pk }}" {% if item.pk == selected.pk %}aria-current="page"{% endif %}>
+            <span class="avatar avatar--sm" aria-hidden="true">{{ item.student.initials }}</span>{{ item.student.name }} · {{ item.get_condition_display }}
+        </a>
+    {% endfor %}
+</nav>
+
+<div class="lesson-layout">
+    <section class="card lesson-plan" aria-labelledby="plan-title">
+        <h2 id="plan-title"><span class="icon" aria-hidden="true">table_view</span>Para tu planificación</h2>
+        <p class="lesson-grade"><span class="chip chip--primary">{{ selected.get_grade_display }}</span>
+            {% if selected.suggested_grade and selected.suggested_grade != selected.grade %}<span class="lesson-grade__note">La IA sugirió {{ selected.get_suggested_grade_display }}.</span>{% endif %}</p>
+        {% if selected.content.grade_reason %}<p class="lesson-note">{{ selected.content.grade_reason }}</p>{% endif %}
+        <p><strong>Objetivo adaptado:</strong> {{ selected.content.adapted_objective }}</p>
+        <p class="lesson-label">Fila "Adaptación curricular"</p>
+        <p class="lesson-row" id="plan-row">{{ plan_row }}</p>
+        <div class="lesson-actions">
+            <button type="button" class="button button--secondary" data-copy="plan-row"><span class="icon" aria-hidden="true">content_copy</span>Copiar texto</button>
+            <a class="button button--primary" href="{% url 'lesson_excel' selected.pk %}"><span class="icon" aria-hidden="true">download</span>Descargar mi Excel con la adaptación</a>
+        </div>
+        <p class="field__help">El Excel es tu mismo archivo: solo se llena la fila "Adaptación curricular" de esta sesión.</p>
+    </section>
+
+    <section class="card lesson-guide-out" aria-labelledby="guide-title">
+        <h2 id="guide-title"><span class="icon" aria-hidden="true">co_present</span>Guía para el docente sombra</h2>
+        <ol class="lesson-moments">
+            {% for moment in selected.content.moments %}
+            <li class="lesson-moment">
+                <h3>{{ moment.name }}{% if moment.duration %} <span class="lesson-moment__time">{{ moment.duration }}</span>{% endif %}</h3>
+                <p class="lesson-label">Qué haces tú</p>
+                <ul>{% for action in moment.teacher_actions %}<li>{{ action }}</li>{% endfor %}</ul>
+                <p class="lesson-label">Qué hace el estudiante</p>
+                <p>{{ moment.student_task }}</p>
+                {% if moment.supports %}<p class="lesson-label">Apoyos</p><ul class="lesson-supports">{% for support in moment.supports %}<li>{{ support }}</li>{% endfor %}</ul>{% endif %}
+                {% if moment.watch_for %}<p class="lesson-watch"><span class="icon" aria-hidden="true">visibility</span>{{ moment.watch_for }}</p>{% endif %}
+            </li>
+            {% endfor %}
+        </ol>
+        <p class="lesson-label">Evaluación</p>
+        <p>{{ selected.content.evaluation }}</p>
+        {% if selected.content.metacognition %}
+            <p class="lesson-label">Preguntas de cierre (lenguaje sencillo)</p>
+            <ul>{% for question in selected.content.metacognition %}<li>{{ question }}</li>{% endfor %}</ul>
+        {% endif %}
+    </section>
+</div>
+
+<section class="card lesson-worksheet">
+    <span class="icon" aria-hidden="true">assignment</span>
+    <div>
+        <h2>Ficha adaptada del alumno</h2>
+        <p>Las páginas del libro de esta clase, adaptadas para {{ selected.student.name }}: aprende, practica y comprueba. Revísala y apruébala para imprimirla.</p>
+    </div>
+    {% if selected.worksheet %}<a class="button button--primary" href="{% url 'material_detail' lesson.material_id %}?a={{ selected.worksheet.pk }}">Ver la ficha</a>{% endif %}
+</section>
+{% endif %}
+{% endblock %}

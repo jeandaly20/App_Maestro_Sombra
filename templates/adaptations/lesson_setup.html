@@ -1,0 +1,93 @@
+{% extends "app_base.html" %}
+
+{% block title %}Adaptar clase{% endblock %}
+{% block styles %}{{ block.super }}<link rel="stylesheet" href="{% asset 'css/adapt.css' %}">{% endblock %}
+{% block scripts %}
+    {{ recommended_by_student|json_script:"recommended-adjustments" }}
+    <script src="{% asset 'js/lesson.js' %}" defer></script>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <p class="badge-line"><span class="icon" aria-hidden="true">school</span>Paso 2 de 2 · {{ lesson.plan_file_name }}</p>
+        <h1>¿Qué clase adaptamos?</h1>
+        <p class="page-header__intro">Elige la sesión de tu planificación y sube las páginas del libro que usan los estudiantes en esa clase. La guía del docente es opcional: si tu libro ya trae la explicación, no hace falta.</p>
+    </div>
+</div>
+
+{% if not student_options %}
+    <div class="card empty-state">
+        <span class="icon" aria-hidden="true">person_add</span>
+        <div>
+            <h2>Primero registra a tus estudiantes</h2>
+            <a class="button button--primary" href="{% url 'student_list' %}">Ir al registro de alumnos</a>
+        </div>
+    </div>
+{% else %}
+<form method="post" enctype="multipart/form-data" novalidate class="adapt-form" data-lesson-form data-busy>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert--error" role="alert"><span class="icon" aria-hidden="true">error</span><p>{{ form.non_field_errors|join:" " }}</p></div>{% endif %}
+
+    <section class="card adapt-section" aria-labelledby="session-title">
+        <h2 id="session-title" class="adapt-section__title"><span class="icon" aria-hidden="true">event_note</span>1. Clase de la planificación</h2>
+        {% include "includes/field.html" with field=form.session icon="event_note" %}
+        <div class="field-row">
+            {% include "includes/field.html" with field=form.subject icon="menu_book" %}
+            {% include "includes/field.html" with field=form.adaptation_grade icon="stairs" %}
+        </div>
+        <p class="field__help">Grado 1: cambian solo los recursos y el tiempo. Grado 2: cambian la metodología y la evaluación, se mantiene la destreza. Grado 3: se ajusta la destreza a un nivel más básico. Si no eliges, la IA sugiere uno y tú lo revisas.</p>
+    </section>
+
+    <section class="card adapt-section" aria-labelledby="pages-title">
+        <h2 id="pages-title" class="adapt-section__title"><span class="icon" aria-hidden="true">auto_stories</span>2. Páginas de la clase</h2>
+        <div class="upload-zone">
+            {% include "includes/field.html" with field=form.book_files icon="photo_camera" %}
+            <p class="field__help">Fotos de las páginas del libro del alumno (hasta 6) o un PDF. Obligatorio.</p>
+        </div>
+        <div class="upload-zone lesson-guide">
+            {% include "includes/field.html" with field=form.guide_files icon="menu_book" %}
+            <p class="field__help">Fotos de la guía del docente para esta clase (hasta 6) o un PDF. Si trae una sección de "Apoyo", la IA la usa.</p>
+        </div>
+    </section>
+
+    <section class="card adapt-section" aria-labelledby="students-title">
+        <h2 id="students-title" class="adapt-section__title"><span class="icon" aria-hidden="true">groups</span>3. ¿Para quién es la adaptación?</h2>
+        {% for error in form.students.errors %}<p class="field__error" id="{{ form.students.auto_id }}_error"><span class="icon" aria-hidden="true">error</span>{{ error }}</p>{% endfor %}
+        <div class="student-picker">
+            {% for item in student_options %}
+                <div class="student-pick">
+                    <label class="student-pick__label" for="{{ item.option.id_for_label }}">
+                        {{ item.option.tag }}
+                        <span class="avatar avatar--{{ item.student.groups.0.key }}" aria-hidden="true">{{ item.student.initials }}</span>
+                        <span>
+                            <strong>{{ item.student.name }}</strong>
+                            <small>{{ item.student.get_grade_display }} · {{ item.student.condition_labels|join:", " }}</small>
+                        </span>
+                    </label>
+                    {% if item.condition_field %}
+                        <div class="student-pick__condition">
+                            <label class="field__label" for="{{ item.condition_field.id_for_label }}">Condición a adaptar</label>
+                            {{ item.condition_field }}
+                        </div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+        <p class="adapt-section__subtitle"><span class="icon" aria-hidden="true">tune</span>Reglas de adaptación aplicadas</p>
+        <div class="rule-grid">
+            {% for checkbox in form.adjustments %}
+                <label class="rule-option" for="{{ checkbox.id_for_label }}">{{ checkbox.tag }}<span>{{ checkbox.choice_label }}</span></label>
+            {% endfor %}
+        </div>
+    </section>
+
+    <div class="adapt-actions">
+        <p><span class="icon" aria-hidden="true">lock</span>A la IA se envían la clase (sin nombres de la institución ni de personas), las páginas y la condición. Nunca el nombre del estudiante.</p>
+        <button type="submit" class="button button--primary button--large" data-submit>
+            <span class="icon" aria-hidden="true">bolt</span>Adaptar la clase con IA
+        </button>
+    </div>
+</form>
+{% endif %}
+{% endblock %}
