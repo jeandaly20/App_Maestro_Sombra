@@ -33,15 +33,16 @@ def _next_version(material, student, condition):
     return (current or 0) + 1
 
 
-def _create_adaptation(material, student, condition, adjustments, *, source=None, simplify=False, feedback=''):
+def _create_adaptation(material, student, conditions, adjustments, *, source=None, simplify=False, feedback=''):
     started = time.monotonic()
+    condition = conditions[0]  # groups the versions of the same worksheet
     content, model = ai.adapt_worksheet(
         analysis=material.ai_analysis, subject=material.subject.name, topic=material.topic,
-        grade=student.grade, condition=condition, adjustments=adjustments,
+        grade=student.grade, conditions=conditions, adjustments=adjustments,
         simplify=simplify, feedback=scrub_personal_data(feedback, student), subject_code=material.subject.code,
     )
     adaptation = CurricularAdaptation(
-        material=material, student=student, condition=condition,
+        material=material, student=student, condition=condition, conditions=list(conditions),
         version=_next_version(material, student, condition), source_adaptation=source,
         title=content.get('title', material.title)[:150], description=content.get('summary', ''),
         applied_adjustments=list(adjustments), content=content, ai_model=model[:50],
@@ -53,10 +54,12 @@ def _create_adaptation(material, student, condition, adjustments, *, source=None
     return adaptation
 
 
-def process_material(material_id, requests, adjustments):
+def process_material(material_id, requests, adjustments, *, session_text='', before_adapting=None):
     """
-    Analyzes the worksheet and creates one adaptation per (student_id, condition) request.
+    Analyzes the worksheet and creates one adaptation per (student_id, conditions) request.
     The material ends PROCESSED, or ERROR with a message for the teacher.
+    "Adaptar clase" passes the chosen session (session_text) so pages of another topic are rejected
+    before adapting, and before_adapting(analysis), a step that may still stop the process.
     """
     material = OriginalMaterial.objects.select_related('subject').get(pk=material_id)
     material.status = MaterialStatus.PROCESSING
@@ -68,16 +71,22 @@ def process_material(material_id, requests, adjustments):
         if not text.strip() and not images:
             raise ai.AIError('El archivo no tiene texto ni imágenes que leer. Revisa el archivo o pega el texto.')
         analysis, model = ai.analyze_material(text=text, image_parts=figures.image_parts(images),
-                                              subject=material.subject.name, topic=material.topic)
+                                              subject=material.subject.name, topic=material.topic,
+                                              session_text=session_text)
+        if session_text and analysis.get('matches_lesson') is False:
+            raise ai.AIError(f'{ai.TOPIC_MISMATCH}: las páginas del libro son de otro tema. '
+                             f'{analysis.get("lesson_mismatch", "")}'.strip())
         figures.crop_figures(material, images, analysis.get('figures', []))
         analysis['model'] = model
         analysis['seconds'] = round(time.monotonic() - started)
         material.ai_analysis = analysis
         material.save(update_fields=['ai_analysis', 'updated_at'])
+        if before_adapting:
+            before_adapting(analysis)
         students = {s.pk: s for s in Student.objects.filter(teacher=material.teacher, pk__in=[r[0] for r in requests])}
         with transaction.atomic():
-            for student_id, condition in requests:
-                _create_adaptation(material, students[student_id], condition, adjustments)
+            for student_id, conditions in requests:
+                _create_adaptation(material, students[student_id], conditions, adjustments)
         material.status = MaterialStatus.PROCESSED
         logger.info('Material %s processed: %s adaptation(s)', material.pk, len(requests))
     except ai.AIError as error:
@@ -107,47 +116,61 @@ def start_processing(material, requests, adjustments):
 def regenerate(adaptation, *, simplify=True, feedback=''):
     """Creates the next version of an adaptation from the same analyzed worksheet."""
     return _create_adaptation(
-        adaptation.material, adaptation.student, adaptation.condition, adaptation.applied_adjustments,
+        adaptation.material, adaptation.student, adaptation.conditions or [adaptation.condition],
+        adaptation.applied_adjustments,
         source=adaptation, simplify=simplify, feedback=feedback,
     )
 
 
-def process_lesson(lesson_id, requests, adjustments, chosen_grade=''):
+def process_lesson(lesson_id, requests, adjustments, chosen_grade='', check_topic=True):
     """
-    "Adaptar clase": adapts the student book pages (as any worksheet), reads the class plan session
-    (plus the teacher guide) once, and adapts the whole class for each (student, condition).
+    "Adaptar clase": reads the student book pages and checks they belong to the chosen session, reads
+    the session (plus the teacher guide, also checked) once, and only then adapts the worksheet and the
+    whole class for each student and all their conditions. check_topic=False when the teacher confirmed
+    that the pages are right after a mismatch warning.
     """
     lesson = LessonPlan.objects.select_related('subject').get(pk=lesson_id)
     lesson.status = MaterialStatus.PROCESSING
     lesson.ai_error = ''
     lesson.save(update_fields=['status', 'ai_error', 'updated_at'])
-    try:
-        material = process_material(lesson.material_id, requests, adjustments)
-        if material.status == MaterialStatus.ERROR:
-            raise ai.AIError(material.ai_error)
-        book_summary = (material.ai_analysis or {}).get('summary', '')
+
+    def read_lesson(book_analysis):
+        # Runs after the book is read and before anything is adapted: a guide of another topic stops here
         guide_parts = []
         if lesson.guide_file:
             with lesson.guide_file.open('rb') as guide:
                 guide_parts = figures.image_parts(figures.file_images(guide.read()))
-        students = {s.pk: s for s in Student.objects.filter(teacher=lesson.teacher, pk__in=[r[0] for r in requests])}
-        class_grade = students[requests[0][0]].grade
-        analysis, model = ai.analyze_lesson(session_text=lesson.session_text, guide_parts=guide_parts,
-                                            book_summary=book_summary, subject=lesson.subject.name, grade=class_grade)
+        analysis, _model = ai.analyze_lesson(
+            session_text=lesson.session_text, guide_parts=guide_parts, book_summary=book_analysis.get('summary', ''),
+            subject=lesson.subject.name, grade=class_grade, check_guide=check_topic)
+        if check_topic and guide_parts and analysis.get('guide_matches') is False:
+            raise ai.AIError(f'{ai.TOPIC_MISMATCH}: la guía del docente es de otro tema. '
+                             f'{analysis.get("guide_mismatch", "")}'.strip())
         lesson.analysis = analysis
         lesson.save(update_fields=['analysis', 'updated_at'])
+
+    try:
+        students = {s.pk: s for s in Student.objects.filter(teacher=lesson.teacher, pk__in=[r[0] for r in requests])}
+        class_grade = students[requests[0][0]].grade
+        material = process_material(lesson.material_id, requests, adjustments, before_adapting=read_lesson,
+                                    session_text=lesson.session_text if check_topic else '')
+        if material.status == MaterialStatus.ERROR:
+            raise ai.AIError(material.ai_error)
+        book_summary = (material.ai_analysis or {}).get('summary', '')
+        analysis = lesson.analysis
         with transaction.atomic():
-            for student_id, condition in requests:
+            for student_id, conditions in requests:
                 student = students[student_id]
                 content, model = ai.adapt_lesson(
                     lesson=analysis, book_summary=book_summary, subject=lesson.subject.name,
-                    subject_code=lesson.subject.code, grade=student.grade, condition=condition,
+                    subject_code=lesson.subject.code, grade=student.grade, conditions=conditions,
                     adjustments=adjustments, chosen_grade=chosen_grade,
                 )
-                worksheet = (material.adaptations.filter(student=student, condition=condition)
+                worksheet = (material.adaptations.filter(student=student, condition=conditions[0])
                              .order_by('-version').first())
                 LessonAdaptation.objects.update_or_create(lesson=lesson, student=student, defaults={
-                    'condition': condition, 'grade': chosen_grade or content['suggested_grade'],
+                    'condition': conditions[0], 'conditions': list(conditions),
+                    'grade': chosen_grade or content['suggested_grade'],
                     'suggested_grade': content['suggested_grade'], 'worksheet': worksheet,
                     'content': content, 'ai_model': model[:50],
                 })
@@ -168,10 +191,10 @@ def process_lesson(lesson_id, requests, adjustments, chosen_grade=''):
     return lesson
 
 
-def start_lesson_processing(lesson, requests, adjustments, chosen_grade=''):
+def start_lesson_processing(lesson, requests, adjustments, chosen_grade='', check_topic=True):
     def run():
         try:
-            process_lesson(lesson.pk, requests, adjustments, chosen_grade)
+            process_lesson(lesson.pk, requests, adjustments, chosen_grade, check_topic)
         finally:
             close_old_connections()
 
@@ -179,10 +202,10 @@ def start_lesson_processing(lesson, requests, adjustments, chosen_grade=''):
     return lesson
 
 
-def _release_material(material):
+def _release_material(material, keep_lessons=True):
     """A material no active worksheet or class uses any more: its file and figures go (LOPDP)."""
     in_use = (material.adaptations.filter(record_status=RecordStatus.ACTIVE).exists()
-              or material.lessons.filter(record_status=RecordStatus.ACTIVE).exists())
+              or (keep_lessons and material.lessons.filter(record_status=RecordStatus.ACTIVE).exists()))
     if in_use:
         return
     if material.file:
@@ -209,6 +232,13 @@ def delete_worksheet(adaptation):
     return count
 
 
+def discard_material(material):
+    """Logical delete of a material's worksheets; its file and figures go (see _release_material)."""
+    for worksheet in material.adaptations.filter(record_status=RecordStatus.ACTIVE):
+        delete_worksheet(worksheet)
+    _release_material(material, keep_lessons=False)
+
+
 @transaction.atomic
 def delete_lesson(lesson):
     """Logical delete of an adapted class, its worksheets and its stored plan and guide files."""
@@ -219,6 +249,4 @@ def delete_lesson(lesson):
     lesson.save(update_fields=['plan_file', 'guide_file', 'record_status', 'updated_at'])
     lesson.adaptations.update(record_status=RecordStatus.INACTIVE)
     if lesson.material:
-        for worksheet in lesson.material.adaptations.filter(record_status=RecordStatus.ACTIVE):
-            delete_worksheet(worksheet)
-        _release_material(lesson.material)
+        discard_material(lesson.material)

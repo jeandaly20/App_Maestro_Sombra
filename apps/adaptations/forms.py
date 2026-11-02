@@ -3,7 +3,7 @@ from pathlib import Path
 from django import forms
 from django.conf import settings
 
-from apps.core.choices import AdaptationGrade, Condition, RecordStatus, UdlAdjustment
+from apps.core.choices import AdaptationGrade, RecordStatus, UdlAdjustment
 from apps.core.forms import AccessibleFormMixin
 from apps.materials.models import EXTENSIONS_BY_TYPE, InputType, Subject
 
@@ -17,7 +17,7 @@ ACCEPT_BY_TYPE = {
 
 
 class AdaptMaterialForm(AccessibleFormMixin, forms.Form):
-    """Upload a worksheet and choose which students (and which of their conditions) to adapt it for."""
+    """Upload a worksheet and choose the students: each one gets a worksheet for all their conditions."""
     students = forms.MultipleChoiceField(
         label='Estudiantes', widget=forms.CheckboxSelectMultiple,
         error_messages={'required': 'Selecciona al menos un estudiante.'},
@@ -39,16 +39,6 @@ class AdaptMaterialForm(AccessibleFormMixin, forms.Form):
         super().__init__(*args, **kwargs)
         self.student_objects = {str(s.pk): s for s in teacher.students.filter(record_status=RecordStatus.ACTIVE).order_by('created_at')}
         self.fields['students'].choices = [(pk, s.name) for pk, s in self.student_objects.items()]
-        # A student with several conditions: the teacher picks which one this worksheet adapts for
-        for pk, student in self.student_objects.items():
-            if len(student.conditions) > 1:
-                self.fields[f'condition_{pk}'] = forms.ChoiceField(
-                    label=f'Condición a adaptar para {student.name}',
-                    choices=[(c, Condition(c).label) for c in student.conditions], required=False,
-                )
-
-    def condition_fields(self):
-        return {pk: self[f'condition_{pk}'] for pk in self.student_objects if f'condition_{pk}' in self.fields}
 
     def clean(self):
         data = super().clean()
@@ -70,13 +60,9 @@ class AdaptMaterialForm(AccessibleFormMixin, forms.Form):
         return data
 
     def requests(self):
-        """(student_id, condition) pairs to adapt, one per selected student."""
-        pairs = []
-        for pk in self.cleaned_data['students']:
-            student = self.student_objects[pk]
-            chosen = self.cleaned_data.get(f'condition_{pk}') or student.conditions[0]
-            pairs.append((student.pk, chosen))
-        return pairs
+        """(student_id, conditions) pairs to adapt: one worksheet per student, with all their conditions."""
+        return [(self.student_objects[pk].pk, list(self.student_objects[pk].conditions))
+                for pk in self.cleaned_data['students']]
 
     def chosen_adjustments(self):
         """The teacher's choice, or the recommended adjustments of the selected students."""
@@ -158,6 +144,9 @@ class LessonSetupForm(AdaptMaterialForm):
         label='Grado de adaptación', required=False,
         choices=[('', 'Que la IA sugiera el grado')] + AdaptationGrade.choices,
     )
+    # Only shown after the AI said the pages are of another topic: the teacher can overrule it
+    skip_topic_check = forms.BooleanField(label='Las páginas son correctas: adaptar de todas formas',
+                                          required=False)
 
     def __init__(self, *args, sessions, **kwargs):
         super().__init__(*args, **kwargs)

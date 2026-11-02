@@ -111,16 +111,40 @@ COLUMNS = [('Momento', 16), ('Duración', 11), ('Lo que hace la clase', 34), ('Q
            ('Qué hace el estudiante', 32), ('Apoyos', 30), ('Qué vigilar', 28)]
 
 
-def adapted_workbook(*, analysis, content, subject, grade, pseudonym, condition, adaptation_grade, plan_row):
+SHEET_NAME_FORBIDDEN = re.compile(r'[\[\]:*?/\\]')
+
+
+def unique_sheet_name(name, used):
+    """A valid Excel sheet name (31 characters, no []:*?/\\), different from the ones already used."""
+    base = SHEET_NAME_FORBIDDEN.sub(' ', name).strip()[:31] or 'Estudiante'
+    candidate, number = base, 2
+    while candidate.lower() in used:
+        suffix = f' ({number})'
+        candidate, number = base[:31 - len(suffix)] + suffix, number + 1
+    used.add(candidate.lower())
+    return candidate
+
+
+def adapted_workbook(sheets):
     """
-    Only the chosen session, adapted for one student: no institution, teacher or student names
-    (the student appears by pseudonym). Built from scratch so nothing of the original file leaks.
+    Only the chosen session, adapted: one independent sheet per student, [(sheet name, data)], where data
+    holds the keyword arguments of write_class_sheet. Built from scratch so nothing of the original file
+    leaks: inside the sheet the student appears by pseudonym, with no institution or teacher names.
     """
+    workbook = openpyxl.Workbook()
+    workbook.remove(workbook.active)
+    used = set()
+    for name, data in sheets:
+        write_class_sheet(workbook.create_sheet(unique_sheet_name(name, used)), **data)
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+    return buffer.getvalue()
+
+
+def write_class_sheet(sheet, *, analysis, content, subject, grade, pseudonym, condition, adaptation_grade, plan_row):
+    """The class adapted for one student, in five sections."""
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
-    workbook = openpyxl.Workbook()
-    sheet = workbook.active
-    sheet.title = 'Clase adaptada'
     side = Side(style='thin', color=BORDER)
     border = Border(left=side, right=side, top=side, bottom=side)
     wrap = Alignment(wrap_text=True, vertical='top')
@@ -210,6 +234,3 @@ def adapted_workbook(*, analysis, content, subject, grade, pseudonym, condition,
     sheet.page_setup.orientation = 'landscape'
     sheet.page_setup.fitToWidth = 1
     sheet.sheet_properties.pageSetUpPr.fitToPage = True
-    buffer = io.BytesIO()
-    workbook.save(buffer)
-    return buffer.getvalue()

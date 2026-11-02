@@ -76,11 +76,29 @@ GENERAL_RULES = [
 ]
 
 
-def rules_for(condition, adjustments, subject_code=None, grade=None):
-    """Plain-text rules for one condition, the UDL adjustments the teacher chose, the subject and the grade."""
+# When a student has several conditions their rules are applied together; if two of them pull in
+# opposite directions, the one that protects the student more wins
+PROTECTIVE_ORDER = [Condition.ID_MODERATE, Condition.ID_MILD, Condition.ASD, Condition.ADHD,
+                    Condition.DYSCALCULIA, Condition.DYSLEXIA]
+
+
+def rules_for(conditions, adjustments, subject_code=None, grade=None):
+    """
+    Plain-text rules for all the student's conditions (one list, or a single one), the UDL adjustments
+    the teacher chose, the subject and the grade.
+    """
+    conditions = [conditions] if isinstance(conditions, str) else list(conditions)
+    conditions.sort(key=PROTECTIVE_ORDER.index)
     lines = ['Reglas generales (siempre):'] + [f'- {rule}' for rule in GENERAL_RULES]
-    lines += [f'Condición del estudiante: {Condition(condition).label}.', 'Reglas obligatorias para esta condición:']
-    lines += [f'- {rule}' for rule in CONDITION_RULES[condition]]
+    labels = ' + '.join(Condition(value).label for value in conditions)
+    lines.append(f'Condiciones del estudiante: {labels}.')
+    if len(conditions) > 1:
+        lines.append('El estudiante tiene varias condiciones: una sola guía debe cumplir las reglas de TODAS a la '
+                     'vez. Si dos reglas se contradicen, aplica la de la condición que aparece primero (la que '
+                     'más protege al estudiante).')
+    for condition in conditions:
+        lines.append(f'Reglas obligatorias para {Condition(condition).label}:')
+        lines += [f'- {rule}' for rule in CONDITION_RULES[condition]]
     if adjustments:
         lines.append('Ajustes DUA seleccionados por el docente:')
         lines += [f'- {UdlAdjustment(value).label}: {ADJUSTMENT_RULES[value]}' for value in adjustments]

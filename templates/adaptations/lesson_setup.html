@@ -28,6 +28,15 @@
 <form method="post" enctype="multipart/form-data" novalidate class="adapt-form" data-lesson-form data-busy>
     {% csrf_token %}
     {% if form.non_field_errors %}<div class="alert alert--error" role="alert"><span class="icon" aria-hidden="true">error</span><p>{{ form.non_field_errors|join:" " }}</p></div>{% endif %}
+    {% if topic_mismatch %}
+    <div class="alert alert--info topic-mismatch" role="alert"><span class="icon" aria-hidden="true">warning</span>
+        <div>
+            <p><strong>En el intento anterior:</strong> {{ lesson.ai_error }}</p>
+            <p>Revisa que elegiste la sesión correcta y sube las páginas de esa clase. Si estás seguro de que son las correctas, marca la casilla.</p>
+            <label class="topic-mismatch__check" for="{{ form.skip_topic_check.id_for_label }}">{{ form.skip_topic_check }}<span>{{ form.skip_topic_check.label }}</span></label>
+        </div>
+    </div>
+    {% endif %}
 
     <section class="card adapt-section" aria-labelledby="session-title">
         <h2 id="session-title" class="adapt-section__title"><span class="icon" aria-hidden="true">event_note</span>1. Clase de la planificación</h2>
@@ -65,12 +74,6 @@
                             <small>{{ item.student.get_grade_display }} · {{ item.student.condition_labels|join:", " }}</small>
                         </span>
                     </label>
-                    {% if item.condition_field %}
-                        <div class="student-pick__condition">
-                            <label class="field__label" for="{{ item.condition_field.id_for_label }}">Condición a adaptar</label>
-                            {{ item.condition_field }}
-                        </div>
-                    {% endif %}
                 </div>
             {% endfor %}
         </div>

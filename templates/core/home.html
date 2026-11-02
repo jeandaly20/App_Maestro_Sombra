@@ -115,7 +115,7 @@
             {% for adaptation in recent %}
                 <tr>
                     <td><strong>{{ adaptation.title }}</strong><span class="activity__sub">{{ adaptation.material.subject.name }} · {{ adaptation.student.get_grade_display }}</span></td>
-                    <td>{{ adaptation.student.name }}<span class="activity__sub">{{ adaptation.get_condition_display }}</span></td>
+                    <td>{{ adaptation.student.name }}<span class="activity__sub">{{ adaptation.conditions_label }}</span></td>
                     <td class="activity__adjustments">{{ adaptation.adjustment_labels|slice:":2"|join:", " }}</td>
                     <td><span class="chip chip--{% if adaptation.status == 'IN_REVIEW' %}secondary{% else %}primary{% endif %}">{{ adaptation.get_status_display }}</span></td>
                     <td class="activity__actions">

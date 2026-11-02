@@ -7,6 +7,11 @@ from django.core.exceptions import ValidationError
 from django.db import models
 
 from apps.core.choices import AdaptationGrade, ColorFilter, Condition, RecordStatus, UdlAdjustment
+
+
+def conditions_label(conditions):
+    """'DEA: Dislexia + TDAH': all the conditions a worksheet or a class was adapted for."""
+    return ' + '.join(Condition(value).label for value in conditions)
 from apps.materials.models import MaterialStatus, OriginalMaterial, Subject
 from apps.students.models import Student
 
@@ -23,7 +28,8 @@ def pdf_path(instance, filename):
 
 class CurricularAdaptation(models.Model):
     """
-    Worksheet adapted by the AI for one student and one of their conditions.
+    Worksheet adapted by the AI for one student, following the rules of all their conditions
+    (conditions). "condition" keeps the first one: it groups the versions of the same worksheet.
     Each regeneration creates a new version that points to the previous one.
     """
 
@@ -44,6 +50,8 @@ class CurricularAdaptation(models.Model):
     )
     version = models.PositiveSmallIntegerField('versión', default=1)
     condition = models.CharField('condición', max_length=20, choices=Condition.choices)
+    conditions = ArrayField(models.CharField(max_length=20, choices=Condition.choices), default=list,
+                            verbose_name='condiciones adaptadas')
     title = models.CharField('título', max_length=150)
     description = models.TextField('descripción', blank=True)
     applied_adjustments = ArrayField(
@@ -73,6 +81,10 @@ class CurricularAdaptation(models.Model):
                 check=models.Q(condition__in=Condition.values), name='adaptation_condition_valid'
             ),
             models.CheckConstraint(
+                check=models.Q(conditions__contained_by=Condition.values) & models.Q(conditions__len__gte=1),
+                name='adaptation_conditions_valid',
+            ),
+            models.CheckConstraint(
                 check=models.Q(status__in=AdaptationStatus.values), name='adaptation_status_valid'
             ),
             models.CheckConstraint(
@@ -100,13 +112,17 @@ class CurricularAdaptation(models.Model):
     def adjustment_labels(self):
         return [UdlAdjustment(value).label for value in self.applied_adjustments]
 
+    @property
+    def conditions_label(self):
+        return conditions_label(self.conditions or [self.condition])
+
     def clean(self):
         if not (self.student_id and self.material_id):
             return
         if self.student.teacher_id != self.material.teacher_id:
             raise ValidationError({'student': 'El estudiante no pertenece a este docente.'})
-        if self.condition not in self.student.conditions:
-            raise ValidationError({'condition': 'El estudiante no tiene registrada esta condición.'})
+        if not set(self.conditions or [self.condition]) <= set(self.student.conditions):
+            raise ValidationError({'conditions': 'El estudiante no tiene registrada esta condición.'})
 
     def save(self, *args, **kwargs):
         if not self.code:
@@ -182,6 +198,8 @@ class LessonAdaptation(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='lesson_adaptations',
                                 verbose_name='estudiante')
     condition = models.CharField('condición', max_length=20, choices=Condition.choices)
+    conditions = ArrayField(models.CharField(max_length=20, choices=Condition.choices), default=list,
+                            verbose_name='condiciones adaptadas')
     grade = models.CharField('grado de adaptación', max_length=16, choices=AdaptationGrade.choices)
     suggested_grade = models.CharField('grado sugerido por la IA', max_length=16, choices=AdaptationGrade.choices,
                                        blank=True)
@@ -203,11 +221,18 @@ class LessonAdaptation(models.Model):
             models.UniqueConstraint(fields=['lesson', 'student'], name='lesson_adaptation_unique'),
             models.CheckConstraint(check=models.Q(condition__in=Condition.values),
                                    name='lesson_adaptation_condition_valid'),
+            models.CheckConstraint(check=models.Q(conditions__contained_by=Condition.values)
+                                   & models.Q(conditions__len__gte=1),
+                                   name='lesson_adaptation_conditions_valid'),
             models.CheckConstraint(check=models.Q(grade__in=AdaptationGrade.values),
                                    name='lesson_adaptation_grade_valid'),
             models.CheckConstraint(check=models.Q(record_status__in=RecordStatus.values),
                                    name='lesson_adaptation_record_status_valid'),
         ]
+
+    @property
+    def conditions_label(self):
+        return conditions_label(self.conditions or [self.condition])
 
     def __str__(self):
         return f'{self.lesson} · {self.student}'

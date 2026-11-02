@@ -163,6 +163,21 @@
     font-weight: 600;
 }
 
+.bank-card__lesson {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-xs);
+    margin: 0 0 var(--space-sm);
+    color: var(--color-text-soft);
+    font-size: 0.875rem;
+}
+
+.bank-card__lesson a {
+    color: var(--color-primary);
+    font-weight: 600;
+}
+
 .bank-card__adjustments {
     display: flex;
     flex-wrap: wrap;

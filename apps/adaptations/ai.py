@@ -3,15 +3,15 @@ Google Gemini client (REST API) and the three prompts of the system:
 
 1. analyze_material: reads the worksheet ONCE (page images and/or text) with the multimodal
    model and returns its text, a description and location of every figure and the barriers detected.
-2. adapt_worksheet: restructures that content for one SEN condition following the
-   UDL rules of udl_rules.py. It only receives text, never the original file again.
+2. adapt_worksheet: restructures that content for one student, following the UDL rules of
+   udl_rules.py for all their SEN conditions. It only receives text, never the original file again.
 3. recommend_next_steps: reads the teacher's classroom evaluation and advises how to adjust
    the next adaptation.
 4. analyze_lesson / adapt_lesson ("Adaptar clase"): read one session of the teacher's class plan
    (plus the teacher guide pages, if any) once, then adapt the whole class for each student.
 
 Privacy (LOPDP): the model never receives the student's name, notes or birth date;
-only the grade, the condition and the UDL adjustments.
+only the grade, the conditions and the UDL adjustments.
 """
 import json
 import logging
@@ -64,6 +64,9 @@ ANALYSIS_SCHEMA = {
         # What the worksheet really is, to warn the teacher if it does not match the registered subject or grade
         'detected_subject': {'type': 'STRING', 'enum': ['MAT', 'LEN', 'CIE', 'SOC', 'ING', 'ART', 'OTRA']},
         'detected_level': {'type': 'STRING', 'enum': ['PREPARATORIA', 'ELEMENTAL', 'MEDIA', 'SUPERIOR', 'BACHILLERATO']},
+        # "Adaptar clase" only: whether the pages belong to the chosen session of the class plan
+        'matches_lesson': {'type': 'BOOLEAN'},
+        'lesson_mismatch': {'type': 'STRING'},
     },
     'required': ['readable', 'extracted_text', 'figures', 'detected_barriers', 'cognitive_load', 'summary',
                  'detected_subject', 'detected_level'],
@@ -303,8 +306,28 @@ def generate_json(system, parts, schema):
     raise AIError('La IA no está disponible en este momento. Inténtalo de nuevo en unos minutos.') from last_error
 
 
-def analyze_material(*, text='', image_parts=(), subject, topic):
-    """Reads the worksheet once: its page images (photo, PDF pages, Word pictures) and/or its text."""
+TOPIC_MISMATCH = 'Las páginas no corresponden a la clase elegida'
+
+
+def topic_note(session_text, images, ok_field, why_field):
+    """Asks the model to check that some images (the book pages, the guide) belong to the chosen session."""
+    return (
+        f'Esta es la clase (sesión) de la planificación que el docente eligió:\n{session_text[:1500]}\n'
+        f'Indica en "{ok_field}" si {images} corresponden a esa clase (true) o no (false). Compara con el '
+        'objetivo específico y las actividades de la sesión, no solo con la materia, el eje o la destreza '
+        'general (muchas planificaciones repiten la misma destreza en todas las sesiones). Responde false si '
+        'trabajan otro contenido, aunque sea de la misma materia: por ejemplo, la sesión trata el perímetro y '
+        'las imágenes, las fracciones. Responde true si '
+        'corresponden a esas actividades, aunque usen otras palabras. Si es false, explica en '
+        f'"{why_field}", en una frase corta para el docente, de qué tratan las imágenes y de qué trata la clase.'
+    )
+
+
+def analyze_material(*, text='', image_parts=(), subject, topic, session_text=''):
+    """
+    Reads the worksheet once: its page images (photo, PDF pages, Word pictures) and/or its text.
+    With session_text ("Adaptar clase") it also checks that the pages belong to that session.
+    """
     prompt = (
         f'Materia: {subject}. Tema: {topic}.\n'
         'Analiza esta guía escolar: extrae su contenido, describe y ubica cada figura, y señala las barreras '
@@ -315,6 +338,8 @@ def analyze_material(*, text='', image_parts=(), subject, topic):
         'en "detected_level" el subnivel del currículo ecuatoriano para el que está pensada: PREPARATORIA (1.º), '
         'ELEMENTAL (2.º a 4.º), MEDIA (5.º a 7.º), SUPERIOR (8.º a 10.º) o BACHILLERATO.'
     )
+    if session_text:
+        prompt += '\n' + topic_note(session_text, 'las páginas', 'matches_lesson', 'lesson_mismatch')
     parts = [{'text': prompt}]
     if text:
         parts.append({'text': f'Texto de la guía:\n{text}'})
@@ -325,15 +350,15 @@ def analyze_material(*, text='', image_parts=(), subject, topic):
     return data, model
 
 
-def adapt_worksheet(*, analysis, subject, topic, grade, condition, adjustments, simplify=False, feedback='',
+def adapt_worksheet(*, analysis, subject, topic, grade, conditions, adjustments, simplify=False, feedback='',
                     subject_code=None):
-    """Restructures the analyzed worksheet for ONE condition. Receives no personal data."""
+    """Restructures the analyzed worksheet for ONE student and all their conditions. No personal data."""
     figures = analysis.get('figures', [])
     figure_lines = '\n'.join(f'Figura {n}: {f["description"]}' for n, f in enumerate(figures, start=1))
     forbidden = handwritten_numbers(analysis)
     prompt = [
         f'Materia: {subject}. Tema: {topic}. Grado: {Grade(grade).label}.',
-        rules_for(condition, adjustments, subject_code, grade),
+        rules_for(conditions, adjustments, subject_code, grade),
         level_note(analysis, grade),
         f'Contenido de la guía original:\n{analysis["extracted_text"]}',
         f'Figuras de la guía original:\n{figure_lines or "(la guía no tiene figuras)"}',
@@ -376,10 +401,10 @@ RECOMMENDATION_SYSTEM = (
 )
 
 
-def recommend_next_steps(*, subject, topic, grade, condition, adjustments, summary, evaluation):
+def recommend_next_steps(*, subject, topic, grade, conditions, adjustments, summary, evaluation):
     """Pedagogical advice from the teacher's classroom evaluation. Receives no personal data."""
     prompt = '\n'.join([
-        f'Materia: {subject}. Tema: {topic}. Grado: {Grade(grade).label}. Condición: {condition_label(condition)}.',
+        f'Materia: {subject}. Tema: {topic}. Grado: {Grade(grade).label}. Condiciones: {conditions_label(conditions)}.',
         'Ajustes DUA aplicados: ' + (', '.join(adjustments) or 'ninguno'),
         f'Resumen de la guía adaptada: {summary or "(sin resumen)"}',
         'Resultado en el aula:',
@@ -414,6 +439,8 @@ LESSON_SCHEMA = {
         'metacognition': {'type': 'ARRAY', 'items': {'type': 'STRING'}},
         'guide_support': {'type': 'STRING'},
         'summary': {'type': 'STRING'},
+        'guide_matches': {'type': 'BOOLEAN'},
+        'guide_mismatch': {'type': 'STRING'},
     },
     'required': ['title', 'objective', 'moments', 'summary'],
 }
@@ -471,13 +498,15 @@ LESSON_ADAPTATION_SYSTEM = (
 )
 
 
-def analyze_lesson(*, session_text, guide_parts=(), book_summary='', subject, grade):
+def analyze_lesson(*, session_text, guide_parts=(), book_summary='', subject, grade, check_guide=False):
     """Reads one session of the class plan (and the teacher guide pages) once. No personal data."""
     prompt = '\n\n'.join(part for part in [
         f'Materia: {subject}. Grado de los estudiantes: {Grade(grade).label}.',
         f'Planificación de la sesión:\n{session_text}',
         f'Resumen de las páginas del libro del alumno: {book_summary}' if book_summary else '',
         'Imágenes de la guía del docente a continuación.' if guide_parts else '',
+        topic_note(session_text, 'las imágenes de la guía del docente', 'guide_matches', 'guide_mismatch')
+        if guide_parts and check_guide else '',
     ] if part)
     data, model = generate_json(LESSON_SYSTEM, [{'text': prompt}, *guide_parts], LESSON_SCHEMA)
     if not data.get('moments'):
@@ -485,13 +514,13 @@ def analyze_lesson(*, session_text, guide_parts=(), book_summary='', subject, gr
     return data, model
 
 
-def adapt_lesson(*, lesson, book_summary, subject, subject_code, grade, condition, adjustments, chosen_grade=''):
-    """Adapts the whole class for ONE condition. Receives no personal data."""
+def adapt_lesson(*, lesson, book_summary, subject, subject_code, grade, conditions, adjustments, chosen_grade=''):
+    """Adapts the whole class for ONE student and all their conditions. Receives no personal data."""
     moments = '\n'.join(f'- {m.get("name", "")} ({m.get("duration", "")}): {m.get("activities", "")}'
                          for m in lesson.get('moments', []))
     prompt = [
         f'Materia: {subject}. Grado: {Grade(grade).label}.',
-        rules_for(condition, adjustments, subject_code, grade),
+        rules_for(conditions, adjustments, subject_code, grade),
         f'Clase: {lesson.get("title", "")}. Destreza: {lesson.get("skill", "")}. '
         f'Indicador: {lesson.get("indicator", "")}. Objetivo: {lesson.get("objective", "")}.',
         f'Momentos de la clase:\n{moments}',
@@ -606,5 +635,5 @@ def normalize_adaptation(content, figure_count=0, forbidden=()):
     return content
 
 
-def condition_label(condition):
-    return Condition(condition).label
+def conditions_label(conditions):
+    return ' + '.join(Condition(value).label for value in conditions)

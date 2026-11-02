@@ -54,12 +54,6 @@
                             <small>{{ item.student.get_grade_display }} · {{ item.student.condition_labels|join:", " }}</small>
                         </span>
                     </label>
-                    {% if item.condition_field %}
-                        <div class="student-pick__condition">
-                            <label class="field__label" for="{{ item.condition_field.id_for_label }}">Condición a adaptar</label>
-                            {{ item.condition_field }}
-                        </div>
-                    {% endif %}
                 </div>
             {% endfor %}
         </div>

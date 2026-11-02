@@ -1,5 +1,7 @@
 import base64
 import logging
+import re
+import zipfile
 from io import BytesIO
 from pathlib import Path
 
@@ -13,6 +15,7 @@ from django.shortcuts import get_object_or_404, redirect
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.text import slugify
 from django.views import View
 from django.views.generic import FormView, TemplateView
 from PIL import Image
@@ -129,8 +132,7 @@ class AdaptView(LoginRequiredMixin, FormView):
         context.update({
             'accept_by_type': ACCEPT_BY_TYPE,
             'student_options': [
-                {'option': option, 'student': form.student_objects[option.data['value']],
-                 'condition_field': form.condition_fields().get(option.data['value'])}
+                {'option': option, 'student': form.student_objects[option.data['value']]}
                 for option in form['students']
             ],
             'recommended_by_student': {
@@ -196,6 +198,48 @@ class MaterialDetailView(LoginRequiredMixin, TemplateView):
         return context
 
 
+def bank_cards(teacher):
+    """The bank's cards: the newest version of every worksheet, with its outcome and the class it came from."""
+    adaptations = (CurricularAdaptation.objects
+                   .filter(material__teacher=teacher, record_status=RecordStatus.ACTIVE,
+                           material__record_status=RecordStatus.ACTIVE, student__record_status=RecordStatus.ACTIVE)
+                   .select_related('material__subject', 'student', 'evaluation')
+                   .prefetch_related('material__lessons')
+                   .order_by('-updated_at'))
+    # One card per worksheet and student: only its newest version
+    newest = {}
+    for adaptation in adaptations:
+        key = (adaptation.material_id, adaptation.student_id, adaptation.condition)
+        if key not in newest or adaptation.version > newest[key].version:
+            newest[key] = adaptation
+    cards = sorted(newest.values(), key=lambda a: a.updated_at, reverse=True)
+    for card in cards:
+        evaluation = evaluation_of(card)
+        card.outcome = evaluation.outcome
+        card.has_draft = evaluation.status == EvaluationStatus.DRAFT and not evaluation._state.adding
+        # Made in "Adaptar clase": link back to the class, its guide and its Excel
+        card.lesson = next((lesson for lesson in card.material.lessons.all()
+                            if lesson.record_status == RecordStatus.ACTIVE), None)
+    return cards
+
+
+def bank_filters(params):
+    return {'student': params.get('alumno', ''), 'subject': params.get('materia', ''),
+            'outcome': params.get('resultado', ''), 'query': params.get('q', '').strip()}
+
+
+def filter_cards(cards, filters):
+    """The cards that match the bank's filters (student, subject, classroom outcome, text)."""
+    query = filters['query'].lower()
+    return [
+        card for card in cards
+        if (not filters['student'] or str(card.student_id) == filters['student'])
+        and (not filters['subject'] or card.material.subject.code == filters['subject'])
+        and (not filters['outcome'] or card.outcome == filters['outcome'])
+        and (not query or query in f'{card.title} {card.material.topic} {card.code}'.lower())
+    ]
+
+
 class BankView(LoginRequiredMixin, TemplateView):
     """Banco de adaptaciones: the newest version of every worksheet, its classroom outcome and filters."""
     template_name = 'adaptations/bank.html'
@@ -203,39 +247,17 @@ class BankView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         teacher = self.request.user
-        adaptations = (CurricularAdaptation.objects
-                       .filter(material__teacher=teacher, record_status=RecordStatus.ACTIVE,
-                               material__record_status=RecordStatus.ACTIVE, student__record_status=RecordStatus.ACTIVE)
-                       .select_related('material__subject', 'student', 'evaluation')
-                       .order_by('-updated_at'))
-        # One card per worksheet, student and condition: only its newest version
-        newest = {}
-        for adaptation in adaptations:
-            key = (adaptation.material_id, adaptation.student_id, adaptation.condition)
-            if key not in newest or adaptation.version > newest[key].version:
-                newest[key] = adaptation
-        cards = sorted(newest.values(), key=lambda a: a.updated_at, reverse=True)
-        for card in cards:
-            evaluation = evaluation_of(card)
-            card.outcome = evaluation.outcome
-            card.has_draft = evaluation.status == EvaluationStatus.DRAFT and not evaluation._state.adding
+        cards = bank_cards(teacher)
 
         students = list(teacher.students.filter(record_status=RecordStatus.ACTIVE).order_by('created_at'))
         for student in students:
             student.card_count = sum(1 for card in cards if card.student_id == student.pk)
         subjects = sorted({card.material.subject for card in cards}, key=lambda subject: subject.name)
 
-        selected_student = self.request.GET.get('alumno', '')
-        selected_subject = self.request.GET.get('materia', '')
-        selected_outcome = self.request.GET.get('resultado', '')
-        query = self.request.GET.get('q', '').strip()
-        shown = [
-            card for card in cards
-            if (not selected_student or str(card.student_id) == selected_student)
-            and (not selected_subject or card.material.subject.code == selected_subject)
-            and (not selected_outcome or card.outcome == selected_outcome)
-            and (not query or query.lower() in f'{card.title} {card.material.topic} {card.code}'.lower())
-        ]
+        filters = bank_filters(self.request.GET)
+        selected_student, selected_subject = filters['student'], filters['subject']
+        selected_outcome, query = filters['outcome'], filters['query']
+        shown = filter_cards(cards, filters)
         # The latest AI advice for the chosen student (or for any student)
         advised = [card.evaluation for card in cards
                    if (not selected_student or str(card.student_id) == selected_student)
@@ -243,11 +265,28 @@ class BankView(LoginRequiredMixin, TemplateView):
         advice = max(advised, key=lambda evaluation: evaluation.recommended_at, default=None)
         context.update({
             'cards': shown, 'total': len(cards), 'students': students, 'subjects': subjects,
+            'zip_query': self.request.GET.urlencode(),
             'outcomes': Outcome.choices, 'advice': advice, 'query': query,
             'selected_student': selected_student, 'selected_subject': selected_subject,
             'selected_outcome': selected_outcome,
         })
         return context
+
+
+class BankZipView(LoginRequiredMixin, View):
+    """"Descargar todo" in the bank: the worksheets shown with the current filters, in a folder per student."""
+
+    def get(self, request):
+        shown = filter_cards(bank_cards(request.user), bank_filters(request.GET))
+        if not shown:
+            messages.error(request, 'No hay adaptaciones para descargar con estos filtros.')
+            return redirect('bank')
+        buffer = BytesIO()
+        with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as archive:
+            for card in shown:
+                add_worksheet(archive, file_name(card.student.name), card)
+        logger.info('Bank downloaded as ZIP (%s worksheets) by teacher=%s', len(shown), request.user.pk)
+        return zip_response(buffer.getvalue(), f'banco-de-adaptaciones-{timezone.localdate():%Y-%m-%d}.zip')
 
 
 def evaluation_of(adaptation):
@@ -393,6 +432,58 @@ def register_pdf_fonts():
     pisa_default.DEFAULT_FONT['atkinson'] = 'Atkinson'
 
 
+def worksheet_pdf(adaptation):
+    """The printable worksheet as PDF bytes (None if it could not be built); marks it as exported."""
+    html = render_to_string('adaptations/adaptation_pdf.html', {
+        'adaptation': adaptation,
+        'content': adaptation.content,
+        'steps': steps_with_images(adaptation, embed=True),
+        'concepts': concepts_with_images(adaptation, embed=True),
+        'background': PDF_BACKGROUNDS[adaptation.color_filter],
+        'high_contrast': UdlAdjustment.HIGH_CONTRAST in adaptation.applied_adjustments,
+    })
+    register_pdf_fonts()
+    pdf = BytesIO()
+    if pisa.CreatePDF(html, dest=pdf, encoding='utf-8').err:
+        logger.error('PDF failed for adaptation %s', adaptation.code)
+        return None
+    if adaptation.status != AdaptationStatus.EXPORTED:
+        adaptation.status = AdaptationStatus.EXPORTED
+        adaptation.save(update_fields=['status', 'updated_at'])
+    return pdf.getvalue()
+
+
+FILE_NAME_FORBIDDEN = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+
+
+def file_name(text):
+    """Text usable as a file or folder name on Windows, macOS and Linux."""
+    return ' '.join(FILE_NAME_FORBIDDEN.sub(' ', text).split()).strip(' .')[:80] or 'archivo'
+
+
+PENDING_NOTE = ('La ficha de {name} ({code}) todavía está en revisión. Ábrela en Maestro Sombra, revísala y '
+                'apruébala; después vuelve a descargar todo para que aparezca aquí en PDF.\n')
+
+
+def add_worksheet(archive, folder, adaptation):
+    """The approved worksheet as PDF in the student's folder, or a note if it still needs approval."""
+    name = adaptation.student.name
+    if adaptation.status == AdaptationStatus.IN_REVIEW:
+        archive.writestr(f'{folder}/Ficha pendiente de aprobar - {file_name(adaptation.title)}.txt',
+                         PENDING_NOTE.format(name=name, code=adaptation.code))
+        return
+    pdf = worksheet_pdf(adaptation)
+    if pdf:
+        archive.writestr(f'{folder}/Ficha {adaptation.code} - {file_name(adaptation.title)}.pdf', pdf)
+
+
+def zip_response(archive_bytes, name):
+    response = HttpResponse(archive_bytes, content_type='application/zip')
+    response['Content-Disposition'] = f'attachment; filename="{name}"'
+    response['Cache-Control'] = 'private, no-store'
+    return response
+
+
 class AdaptationPdfView(LoginRequiredMixin, View):
     """Accessible printable worksheet. Only available after the teacher approves it."""
 
@@ -401,25 +492,12 @@ class AdaptationPdfView(LoginRequiredMixin, View):
         if adaptation.status == AdaptationStatus.IN_REVIEW:
             messages.error(request, 'Revisa y aprueba la adaptación antes de descargarla.')
             return redirect(f"{reverse('material_detail', args=[adaptation.material_id])}?a={adaptation.pk}")
-        html = render_to_string('adaptations/adaptation_pdf.html', {
-            'adaptation': adaptation,
-            'content': adaptation.content,
-            'steps': steps_with_images(adaptation, embed=True),
-            'concepts': concepts_with_images(adaptation, embed=True),
-            'background': PDF_BACKGROUNDS[adaptation.color_filter],
-            'high_contrast': UdlAdjustment.HIGH_CONTRAST in adaptation.applied_adjustments,
-        })
-        register_pdf_fonts()
-        pdf = BytesIO()
-        if pisa.CreatePDF(html, dest=pdf, encoding='utf-8').err:
-            logger.error('PDF failed for adaptation %s', adaptation.code)
+        pdf = worksheet_pdf(adaptation)
+        if pdf is None:
             messages.error(request, 'No se pudo generar el PDF. Inténtalo de nuevo.')
             return redirect('material_detail', pk=adaptation.material_id)
-        if adaptation.status != AdaptationStatus.EXPORTED:
-            adaptation.status = AdaptationStatus.EXPORTED
-            adaptation.save(update_fields=['status', 'updated_at'])
         logger.info('Adaptation %s exported to PDF by teacher=%s', adaptation.code, request.user.pk)
-        response = HttpResponse(pdf.getvalue(), content_type='application/pdf')
+        response = HttpResponse(pdf, content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="{adaptation.code}-v{adaptation.version}.pdf"'
         return response
 
@@ -471,9 +549,9 @@ class LessonSetupView(LoginRequiredMixin, FormView):
         form = context['form']
         context.update({
             'lesson': self.lesson,
+            'topic_mismatch': self.lesson.ai_error.startswith(ai.TOPIC_MISMATCH),
             'student_options': [
-                {'option': option, 'student': form.student_objects[option.data['value']],
-                 'condition_field': form.condition_fields().get(option.data['value'])}
+                {'option': option, 'student': form.student_objects[option.data['value']]}
                 for option in form['students']
             ],
             'recommended_by_student': {
@@ -497,6 +575,10 @@ class LessonSetupView(LoginRequiredMixin, FormView):
         material.size_kb = max(1, round(material.file.size / 1024))
         material.full_clean()
         material.save()
+        if lesson.material_id:
+            services.discard_material(lesson.material)  # a retry: the pages of the failed attempt go
+        if lesson.guide_file:
+            lesson.guide_file.delete(save=False)
         if data['guide_files']:
             lesson.guide_file.save('guia.pdf', ContentFile(figures.to_pdf(data['guide_files'])), save=False)
         lesson.subject = data['subject']
@@ -508,7 +590,7 @@ class LessonSetupView(LoginRequiredMixin, FormView):
         lesson.save()
         logger.info('Lesson %s (%s) sent to the AI by teacher=%s', lesson.pk, lesson.session_label, self.request.user.pk)
         services.start_lesson_processing(lesson, form.requests(), form.chosen_adjustments(),
-                                         data.get('adaptation_grade') or '')
+                                         data.get('adaptation_grade') or '', not data.get('skip_topic_check'))
         return redirect('lesson_detail', pk=lesson.pk)
 
 
@@ -555,6 +637,20 @@ def plan_row_text(adaptation):
     return f'Para el estudiante {adaptation.student.pseudonym} (Grado {grade}) {actions}'
 
 
+def class_sheet(adaptation):
+    """(sheet name, data) of one student's adapted class, for lesson_plan.adapted_workbook."""
+    lesson = adaptation.lesson
+    return adaptation.student.name, {
+        'analysis': lesson.analysis or {}, 'content': adaptation.content, 'subject': lesson.subject.name,
+        'grade': adaptation.student.get_grade_display(), 'pseudonym': adaptation.student.pseudonym,
+        'condition': adaptation.conditions_label, 'adaptation_grade': adaptation.get_grade_display(),
+        'plan_row': plan_row_text(adaptation),
+    }
+
+
+XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
+
 class LessonExcelView(LoginRequiredMixin, View):
     """Only the chosen session, adapted for the student, as a new Excel without personal or school data."""
 
@@ -562,18 +658,40 @@ class LessonExcelView(LoginRequiredMixin, View):
         adaptation = get_object_or_404(
             LessonAdaptation.objects.select_related('lesson__subject', 'student'), pk=pk,
             lesson__teacher=request.user, lesson__record_status=RecordStatus.ACTIVE,
+            record_status=RecordStatus.ACTIVE,
         )
         lesson = adaptation.lesson
-        content = lesson_plan.adapted_workbook(
-            analysis=lesson.analysis or {}, content=adaptation.content, subject=lesson.subject.name,
-            grade=adaptation.student.get_grade_display(), pseudonym=adaptation.student.pseudonym,
-            condition=adaptation.get_condition_display(), adaptation_grade=adaptation.get_grade_display(),
-            plan_row=plan_row_text(adaptation),
-        )
+        content = lesson_plan.adapted_workbook([class_sheet(adaptation)])
         logger.info('Lesson %s exported to Excel by teacher=%s', lesson.pk, request.user.pk)
-        response = HttpResponse(
-            content, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response = HttpResponse(content, content_type=XLSX)
         name = f'clase-adaptada-{lesson.session_label}-{adaptation.student.pseudonym}.xlsx'.replace(' ', '-').lower()
         response['Content-Disposition'] = f'attachment; filename="{name}"'
         response['Cache-Control'] = 'private, no-store'
         return response
+
+
+class LessonZipView(LoginRequiredMixin, View):
+    """
+    "Descargar todo": one ZIP with a folder per student (their worksheet PDF) and a single Excel with
+    one independent sheet per student. Built in memory for the class's teacher only; nothing is stored.
+    """
+
+    def get(self, request, pk):
+        lesson = own_lesson(request, pk)
+        adaptations = list(lesson.adaptations.filter(record_status=RecordStatus.ACTIVE)
+                           .select_related('student', 'worksheet__material__subject', 'worksheet__student'))
+        if not adaptations:
+            messages.error(request, 'Esta clase todavía no tiene adaptaciones para descargar.')
+            return redirect('lesson_detail', pk=lesson.pk)
+        session = file_name(lesson.session_label or 'Clase')
+        buffer = BytesIO()
+        with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as archive:
+            for adaptation in adaptations:
+                worksheet = adaptation.worksheet
+                if worksheet and worksheet.record_status == RecordStatus.ACTIVE:
+                    add_worksheet(archive, file_name(adaptation.student.name), worksheet)
+            archive.writestr(f'Clase adaptada - {session}.xlsx',
+                             lesson_plan.adapted_workbook([class_sheet(a) for a in adaptations]))
+        logger.info('Lesson %s downloaded as ZIP by teacher=%s', lesson.pk, request.user.pk)
+        return zip_response(buffer.getvalue(), f'clase-adaptada-{slugify(session)}.zip')
+

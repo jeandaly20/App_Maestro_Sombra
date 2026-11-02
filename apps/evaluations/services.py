@@ -26,7 +26,7 @@ def recommend(evaluation):
                         adaptation_services.scrub_personal_data(evaluation.observation, student)))
     text, _simplify, model = ai.recommend_next_steps(
         subject=adaptation.material.subject.name, topic=adaptation.material.topic, grade=student.grade,
-        condition=adaptation.condition, adjustments=adaptation.adjustment_labels,
+        conditions=adaptation.conditions or [adaptation.condition], adjustments=adaptation.adjustment_labels,
         summary=adaptation.description, evaluation=answers,
     )
     evaluation.ai_recommendation = text

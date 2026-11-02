@@ -80,10 +80,6 @@
     color: var(--color-text-soft);
 }
 
-.student-pick__condition {
-    padding: 0 var(--space-md) var(--space-md);
-}
-
 .input-tabs {
     display: flex;
     flex-wrap: wrap;
@@ -981,4 +977,19 @@
 .lesson-shortcut__text span {
     color: var(--color-text-soft);
     font-size: 0.9375rem;
+}
+
+/* ---------- "Adaptar clase": the pages were of another topic in the previous attempt ---------- */
+
+.topic-mismatch p {
+    margin: 0 0 var(--space-xs);
+}
+
+.topic-mismatch__check {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-top: var(--space-xs);
+    font-weight: 600;
+    cursor: pointer;
 }

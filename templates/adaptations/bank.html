@@ -12,7 +12,13 @@
         <h1>Banco de adaptaciones y seguimiento</h1>
         <p class="page-header__intro">Historial de materiales adaptados, verificación del aprendizaje en el aula y regeneración simplificada.</p>
     </div>
-    <a class="button button--primary" href="{% url 'adapt' %}"><span class="icon" aria-hidden="true">add_circle</span>Nueva adaptación</a>
+    <div class="page-header__actions">
+        {% if cards %}
+        <a class="button button--secondary" href="{% url 'bank_zip' %}{% if zip_query %}?{{ zip_query }}{% endif %}">
+            <span class="icon" aria-hidden="true">folder_zip</span>Descargar {% if cards|length < total %}las {{ cards|length }} mostradas{% else %}todo{% endif %} (ZIP)</a>
+        {% endif %}
+        <a class="button button--primary" href="{% url 'adapt' %}"><span class="icon" aria-hidden="true">add_circle</span>Nueva adaptación</a>
+    </div>
 </div>
 
 {% if students %}
@@ -76,8 +82,14 @@
             <h2 class="bank-card__title" id="card-{{ card.pk }}">{{ card.title }}</h2>
             {% if card.description %}<p class="bank-card__summary">{{ card.description }}</p>{% endif %}
             <p class="bank-card__student">
-                <span class="icon" aria-hidden="true">person</span>{{ card.student.name }} · {{ card.get_condition_display }}
+                <span class="icon" aria-hidden="true">person</span>{{ card.student.name }} · {{ card.conditions_label }}
             </p>
+            {% if card.lesson %}
+            <p class="bank-card__lesson">
+                <span class="icon" aria-hidden="true">school</span>De la clase
+                <a href="{% url 'lesson_detail' card.lesson.pk %}">{{ card.lesson.session_label }}{% if card.lesson.title and card.lesson.title != card.lesson.session_label %} · {{ card.lesson.title }}{% endif %}</a>
+            </p>
+            {% endif %}
             {% if card.adjustment_labels %}
             <ul class="bank-card__adjustments" aria-label="Ajustes DUA aplicados">
                 {% for label in card.adjustment_labels|slice:":3" %}<li>{{ label }}</li>{% endfor %}

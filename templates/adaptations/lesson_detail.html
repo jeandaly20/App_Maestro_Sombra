@@ -12,6 +12,9 @@
         {% if analysis.objective %}<p class="page-header__intro"><strong>Objetivo de la clase:</strong> {{ analysis.objective }}</p>{% endif %}
     </div>
     <div class="page-header__actions">
+        {% if adaptations and not is_working %}
+        <a class="button button--primary" href="{% url 'lesson_zip' lesson.pk %}"><span class="icon" aria-hidden="true">folder_zip</span>Descargar todo (ZIP)</a>
+        {% endif %}
         <a class="button button--secondary" href="{% url 'lesson_upload' %}"><span class="icon" aria-hidden="true">add</span>Adaptar otra clase</a>
         {% if not is_working %}
         <form method="post" action="{% url 'lesson_delete' lesson.pk %}"
@@ -48,7 +51,7 @@
 <nav class="adaptation-tabs" aria-label="Estudiantes">
     {% for item in adaptations %}
         <a class="adaptation-tab" href="?a={{ item.pk }}" {% if item.pk == selected.pk %}aria-current="page"{% endif %}>
-            <span class="avatar avatar--sm" aria-hidden="true">{{ item.student.initials }}</span>{{ item.student.name }} · {{ item.get_condition_display }}
+            <span class="avatar avatar--sm" aria-hidden="true">{{ item.student.initials }}</span>{{ item.student.name }} · {{ item.conditions_label }}
         </a>
     {% endfor %}
 </nav>
