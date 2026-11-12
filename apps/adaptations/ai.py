@@ -46,8 +46,10 @@ ANALYSIS_SCHEMA = {
     'properties': {
         'readable': {'type': 'BOOLEAN'},
         'problem': {'type': 'STRING'},
-        # What another student wrote by hand on the photo: kept apart so it never reaches the worksheet
+        # The answers already solved on the photo (by hand, marked, underlined...): kept apart so they never
+        # reach the worksheet. An activity the teacher wrote by hand (a notebook) is NOT here: it is the content.
         'handwritten': {'type': 'ARRAY', 'items': {'type': 'STRING'}},
+        'source_kind': {'type': 'STRING', 'enum': ['IMPRESA', 'ESCRITA_A_MANO', 'MIXTA']},
         'extracted_text': {'type': 'STRING'},
         'figures': {'type': 'ARRAY', 'items': {
             'type': 'OBJECT',
@@ -165,10 +167,16 @@ ANALYSIS_SYSTEM = (
     'en escala de 0 a 1000, que encierre solo la figura y no el texto que la rodea. Cuenta también como '
     'figura todo material de actividad que el estudiante necesita ver o completar: tablas para llenar, sopas '
     'de letras, crucigramas, plantillas para recortar o armar, esquemas para completar y líneas de tiempo. '
-    'Ignora todo lo escrito a mano por un estudiante en las fotos (respuestas, cálculos, números o '
-    'dibujos hechos con lápiz o esfero): anótalo en "handwritten" (por ejemplo "99", "8100" o '
-    '"55 x 55 = 3025"), extrae solo el contenido impreso de la guía, y describe las tablas '
-    'o cuadrículas como vacías si su contenido impreso está vacío. Señala además las barreras '
+    'Separa la ACTIVIDAD de lo que YA ESTÁ RESUELTO. La actividad (consignas, preguntas, ejercicios, datos, '
+    'textos para leer y tablas por llenar) va en "extracted_text", esté impresa o escrita a mano: la guía puede '
+    'venir de un libro, de una hoja impresa, o de un cuaderno o pizarra donde el docente la escribió a mano, y '
+    'entonces lo escrito a mano ES la actividad. Lo que un estudiante ya resolvió no es parte de la actividad: '
+    'resultados escritos, espacios o tablas llenados, opciones marcadas, palabras subrayadas, encerradas o '
+    'unidas con líneas, dibujos o colores hechos como respuesta y tachones. Anota cada respuesta en "handwritten" '
+    '(por ejemplo "99" o "55 x 55 = 3025" en una operación, "perro" escrito en un espacio, "opción b marcada" o '
+    '"Quito subrayado") y extrae la actividad como si estuviera en blanco: espacios, tablas y opciones vacíos. '
+    'Si nada está resuelto, como en un libro nuevo, "handwritten" queda vacío. En "source_kind" indica si la '
+    'actividad está IMPRESA, ESCRITA_A_MANO o MIXTA. Señala además las barreras '
     'de aprendizaje que el material presenta para estudiantes con necesidades educativas especiales. '
     'Si la imagen está borrosa, cortada o no contiene una guía escolar, responde readable=false y explica '
     'el problema en "problem". Escribe siempre en español.'
@@ -190,8 +198,8 @@ ADAPTATION_SYSTEM = (
 # The same for every subject and condition; the subject (curriculum.worksheet_rules) and the student's
 # conditions (udl_rules + nee_modules) add their own parts
 PEDAGOGY_RULES = (
-    'Lo escrito a mano en las fotos (respuestas, cálculos, palabras o dibujos con lápiz o esfero) es de otro '
-    'estudiante: nunca lo uses ni lo menciones; trabaja solo con lo impreso.\n'
+    'Las respuestas que ya estaban resueltas en la foto (la lista "Respuestas ya escritas") son de otro '
+    'estudiante: nunca las uses, menciones ni des como pista; la actividad empieza en blanco.\n'
     'Estructura obligatoria de la guía adaptada:\n'
     '- "learning_goal": una frase corta que empiece con "Vas a aprender…".\n'
     '- "concepts" (APRENDE): de 2 a 5 conceptos esenciales que el estudiante necesita para hacer la tarea, '
@@ -388,7 +396,8 @@ def analyze_material(*, text='', image_parts=(), subject, topic, session_text=''
             f'\nEl docente dice que esta guía trabaja el tema "{topic}". Indica en "matches_topic" si su contenido '
             'trabaja ese tema (true) o no (false). Responde true si es el mismo tema aunque use otras palabras, o '
             'si es una parte de ese tema; false si trata otro contenido, aunque sea de la misma materia (por '
-            'ejemplo, el tema dice fracciones y la guía trabaja la multiplicación). Si es false, explica en '
+            'ejemplo, el tema dice fracciones y la guía trabaja la multiplicación, o el tema dice el sustantivo y '
+            'la guía trabaja los verbos). Si es false, explica en '
             '"topic_mismatch", en una frase corta para el docente, de qué trata la guía.'
         )
     parts = [{'text': prompt}]
@@ -411,6 +420,9 @@ def adapt_worksheet(*, analysis, subject, topic, grade, conditions, adjustments,
     """
     figures = analysis.get('figures', [])
     figure_lines = '\n'.join(f'Figura {n}: {f["description"]}' for n, f in enumerate(figures, start=1))
+    # What was already solved on the photo: the AI is told not to use it, and the code drops any step that
+    # still carries one of those numbers (normalize_adaptation)
+    solved = [item for item in (analysis.get('handwritten') or []) if str(item).strip()]
     forbidden = handwritten_numbers(analysis)
     prompt = [
         f'Materia: {subject}. Tema: {topic}. Grado: {Grade(grade).label}.',
@@ -419,8 +431,8 @@ def adapt_worksheet(*, analysis, subject, topic, grade, conditions, adjustments,
         f'Contenido de la guía original:\n{analysis["extracted_text"]}',
         f'Figuras de la guía original:\n{figure_lines or "(la guía no tiene figuras)"}',
         'Barreras detectadas: ' + '; '.join(analysis.get('detected_barriers', [])),
-        (f'Números escritos a mano por otro estudiante, que no debes usar: {", ".join(sorted(forbidden))}.'
-         if forbidden else ''),
+        (f'Respuestas ya escritas en la foto por otro estudiante, que no debes usar ni dar como pista: '
+         f'{"; ".join(str(item) for item in solved[:20])}.' if solved else ''),
         PEDAGOGY_RULES,
         worksheet_rules(subject_code),
         image_rules(subject_code),

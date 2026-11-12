@@ -33,7 +33,9 @@ MODULES = {
         'instructions': (
             'Dislexia: cada paso lleva su "keyword" (la palabra clave de la consigna). En "reading_words" pon de 3 a '
             '6 palabras largas o difíciles de la guía con sus sílabas separadas por guiones (por ejemplo '
-            '{"word": "membrana", "syllables": "mem-bra-na"}).'
+            '{"word": "membrana", "syllables": "mem-bra-na"}), según las reglas del español: los grupos pr, pl, br, '
+            'bl, tr, dr, cr, cl, gr, gl, fr y fl van en la misma sílaba (Ka-pre-kar, ta-bla, cua-dri-cu-la) y ch, '
+            'll y rr nunca se separan (co-che, ca-lle, pe-rro).'
         ),
         'sentence_limit': 15,
     },
@@ -45,8 +47,10 @@ MODULES = {
         'instructions': (
             'Discalculia: en cada paso que tiene números o cantidades, "concrete_support" dice con qué material '
             'concreto o dibujo se representa esa cantidad (por ejemplo "12 tapas repartidas en 3 vasos"); en los '
-            'pasos sin números déjalo vacío. Un solo cálculo por paso.'
+            'pasos sin números déjalo vacío. El material representa la cantidad real del paso (para 35 × 35 no '
+            'sirven 35 círculos: usa la cuadrícula con decenas y unidades).'
         ),
+        'one_operation': True,
     },
     Condition.ADHD: {
         'step_fields': {'minutes': INTEGER},
@@ -60,6 +64,7 @@ MODULES = {
             'la ficha. En "intro" di cuántos pasos tiene la ficha.'
         ),
         'max_minutes': 8,
+        'one_operation': True,
     },
     Condition.ASD: {
         'step_fields': {},
@@ -87,6 +92,7 @@ MODULES = {
             'de la semana). El "glossary" explica con palabras de uso diario de 2 a 5 palabras difíciles.'
         ),
         'sentence_limit': 15,
+        'one_operation': True,
     },
     Condition.ID_MODERATE: {
         'step_fields': {'worked_example': STRING},
@@ -102,8 +108,18 @@ MODULES = {
         'sentence_limit': 10,
         'max_steps': 4,
         'closed_answers': True,
+        'one_operation': True,
     },
 }
+
+# Discalculia, TDAH and intellectual disability: a step asks for ONE operation (only steps with numbers)
+ONE_OPERATION_RULE = ('Cada paso con números pide UNA sola operación (multiplicar, sumar, restar o dividir): si la '
+                      'actividad de la guía tiene dos (por ejemplo "multiplica 55 por 55 y suma las partes"), '
+                      'divídela en dos pasos seguidos.')
+# For every student, whatever the condition
+GENERAL_RULES = ('Las preguntas de comprobación nunca son de sí o no ni tienen opciones como "Tal vez", "No sé" o '
+                 '"Ninguna", y no preguntan algo que la ficha ya responde tal cual. La pista de un paso que pide '
+                 'buscar o descubrir algo no menciona números ni la respuesta: da una estrategia.')
 
 
 def total_minutes(content):
@@ -130,6 +146,10 @@ def schema_for(base_schema, conditions):
     return schema
 
 
+def needs_one_operation(conditions):
+    return any(module.get('one_operation') for module in modules_for(conditions))
+
+
 def sentence_limit(conditions):
     """The strictest words-per-sentence limit of the student's conditions, or None."""
     limits = [m['sentence_limit'] for m in modules_for(conditions) if m.get('sentence_limit')]
@@ -139,6 +159,9 @@ def sentence_limit(conditions):
 def instructions_for(conditions):
     """How to fill the condition fields, for the prompt."""
     lines = [module['instructions'] for module in modules_for(conditions)]
+    if needs_one_operation(conditions):
+        lines.append(ONE_OPERATION_RULE)
+    lines.append(GENERAL_RULES)
     limit = sentence_limit(conditions)
     if limit:
         lines.append(f'Cada frase que lee el estudiante tiene como máximo {limit} palabras, también las de '
@@ -205,7 +228,9 @@ ALWAYS_ACCENTED = re.compile(
     r'pais|paises|arbol|arboles|facil|dificil|rapido|rapida|musica|matematica|matematicas|geografia|energia|dia|'
     r'dias|raiz|maiz|ingles|pagina|paginas|caracteristica|caracteristicas|sabado|miercoles|telefono|simbolo|'
     r'publico|economia|biologia|tecnologia|fisica|quimica|organo|organos|celula|celulas|oceano|oceanos|'
-    r'region)\b')
+    r'region|articulo|articulos|silaba|silabas|parrafo|parrafos|pajaro|pajaros|lapiz|util|utiles|angulo|'
+    r'angulos|triangulo|triangulos|rectangulo|circulo|circulos|cuadricula|metodo|heroe|heroes|historico|'
+    r'mamifero|mamiferos)\b')
 
 
 def missing_accents(content):
@@ -218,14 +243,80 @@ def missing_accents(content):
     return found
 
 
+# The four operations, as they are written in a step ("multiplica", "55 x 55", "súmalas", "reparte"...)
+OPERATIONS = {
+    'multiplicar': re.compile(r'\bmultiplic\w*|\d\s*(?:x|×|\*|por)\s*\d', re.IGNORECASE),
+    'sumar': re.compile(r'\bsum(?:a|as|ar|en|amos|alas|alos|ando|e)\b|\bsúm\w*|\d\s*\+\s*\d', re.IGNORECASE),
+    'restar': re.compile(r'\brest(?:a|as|ar|en|amos|ando|e)\b|\brést\w*|\d\s*[−-]\s*\d', re.IGNORECASE),
+    'dividir': re.compile(r'\bdivid\w*|\breparte\w*|\brepartir\b|\d\s*[÷/:]\s*\d', re.IGNORECASE),
+}
+SEARCH_STEP = re.compile(r'\b(busca|encuentra|descubre|averigua|adivina|halla)\w*', re.IGNORECASE)
+GIVES_ANSWER = re.compile(r'\b(la respuesta es|el resultado es|la solución es|es igual a)\b|=\s*\d', re.IGNORECASE)
+WEAK_OPTIONS = {'si', 'no', 'tal vez', 'no se', 'ninguna', 'quizas', 'a veces', 'todas', 'ninguna de las anteriores'}
+# Consonant groups that stay in one syllable, and pairs that are never split
+SPLIT_GROUP = re.compile(r'[pbtdcgf]-[rl]|c-h|l-l|r-r', re.IGNORECASE)
+
+
+# "el resultado de 35 por 35" names an operation done in an earlier step; it is not asked again
+EARLIER_RESULT = re.compile(r'\b(?:resultado|producto|cuadrado|total)\s+(?:anterior\s+)?(?:de|del)\s+'
+                            r'(?:\d+\s*(?:x|×|\*|por|\+|[−-])\s*\d+|la\s+\w+)', re.IGNORECASE)
+
+
+def operations_in(text):
+    """The operations a step asks for (references to an earlier result do not count)."""
+    text = EARLIER_RESULT.sub('', str(text or ''))
+    return [name for name, pattern in OPERATIONS.items() if pattern.search(text)]
+
+
+def weak_question(question):
+    """A yes/no question, or one with throwaway options ("Tal vez", "No sé"), checks nothing."""
+    options = {_plain(option).strip(' .¿?¡!') for option in question.get('options', [])}
+    return bool(options & WEAK_OPTIONS)
+
+
+def answer_in_question(question):
+    answer = _plain(question.get('answer', '')).strip(' .')
+    return len(answer) > 3 and answer in _plain(question.get('question', ''))
+
+
+def general_problems(content):
+    """Rules for every student: hints and questions must not give the answer away."""
+    found = []
+    steps = content.get('steps', [])
+    revealing = []
+    for number, step in enumerate(steps, 1):
+        hint = str(step.get('hint', ''))
+        new_numbers = _digits(hint) - _digits(step.get('instruction', ''))
+        if GIVES_ANSWER.search(hint) or (SEARCH_STEP.search(str(step.get('instruction', ''))) and new_numbers):
+            revealing.append(number)
+    if revealing:
+        found.append(f'la pista de los pasos {", ".join(map(str, revealing))} da números o la respuesta; '
+                     'cámbiala por una estrategia sin números')
+    weak = [n for n, q in enumerate(content.get('check_questions', []), 1) if weak_question(q) or answer_in_question(q)]
+    if weak:
+        found.append(f'las preguntas de comprobación {", ".join(map(str, weak))} son de sí/no, tienen opciones de '
+                     'relleno o traen la respuesta en la pregunta; usa 3 opciones con errores creíbles')
+    return found
+
+
+def _digits(text):
+    return set(re.findall(r'\d+', str(text or '')))
+
+
 def problems(content, conditions):
     """What the answer misses of the student's condition modules ([] when it complies)."""
     found = []
     steps = content.get('steps', [])
     present = set(conditions)
-    # For every student: the worksheet is a reading model
+    # For every student: the worksheet is a reading model, and nothing gives the answer away
     if unaccented := missing_accents(content):
         found.append(f'faltan tildes en: {", ".join(unaccented[:8])}; escribe todas las palabras con sus tildes')
+    found += general_problems(content)
+    if needs_one_operation(conditions):
+        double = [n for n, s in enumerate(steps, 1) if len(operations_in(s.get('instruction', ''))) >= 2]
+        if double:
+            found.append(f'los pasos {", ".join(map(str, double))} piden dos operaciones; divide cada uno en dos '
+                         'pasos con una sola operación')
     limit = sentence_limit(conditions)
     if limit:
         long = long_sentences(content, limit)
@@ -239,6 +330,10 @@ def problems(content, conditions):
         words = content.get('reading_words') or []
         if not (2 <= len(words) <= 8) or any('-' not in str(w.get('syllables', '')) for w in words):
             found.append('"reading_words" debe tener de 3 a 6 palabras con sus sílabas separadas por guiones')
+        badly_split = [str(w.get('syllables')) for w in words if SPLIT_GROUP.search(str(w.get('syllables', '')))]
+        if badly_split:
+            found.append(f'sílabas mal separadas: {", ".join(badly_split)} (pr, bl, tr… van juntos; ch, ll y rr no se '
+                         'separan)')
     if Condition.DYSCALCULIA in present:
         missing = [n for n, s in enumerate(steps, 1)
                    if DIGIT.search(str(s.get('instruction', ''))) and not str(s.get('concrete_support', '')).strip()]
