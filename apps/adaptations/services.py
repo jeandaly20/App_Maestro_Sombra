@@ -80,13 +80,15 @@ def material_mismatch(material, analysis):
 
 
 def process_material(material_id, requests, adjustments, *, session_text='', before_adapting=None,
-                     check_topic=False, title_from_ai=False, progress=None):
+                     check_topic=False, title_from_ai=False, progress=None, resume=False):
     """
     Analyzes the worksheet and creates one adaptation per (student_id, conditions) request, each with the UDL
     rules chosen for that student ({student id: rules}). The material ends PROCESSED, or ERROR with a message.
     "Adaptar clase" passes the chosen session (session_text) so pages of another topic are rejected before
     adapting, and before_adapting(analysis), a step that may still stop the process. "Adaptar material" passes
     check_topic, so a worksheet of another subject or topic than the teacher wrote is stopped the same way.
+    Every worksheet is saved as soon as it is ready: with resume, what was already done (the reading of the
+    material, the worksheets of some students) is kept and only the rest is asked to the AI.
     """
     material = OriginalMaterial.objects.select_related('subject').get(pk=material_id)
     material.status = MaterialStatus.PROCESSING
@@ -95,37 +97,19 @@ def process_material(material_id, requests, adjustments, *, session_text='', bef
     say = progress or (lambda text: report(material, text))
     rules = rules_by_student(adjustments)
     try:
-        started = time.monotonic()
-        text, images = figures.load_sources(material)
-        if not text.strip() and not images:
-            raise ai.AIError('El archivo no tiene texto ni imágenes que leer. Revisa el archivo o pega el texto.')
-        say('La IA está leyendo el material' + (f' ({len(images)} página{"s" if len(images) > 1 else ""})'
-                                                 if len(images) > 1 else '') + '…')
-        analysis, model = ai.analyze_material(text=text, image_parts=figures.image_parts(images),
-                                              subject=material.subject.name, topic=material.topic,
-                                              session_text=session_text, check_topic=check_topic)
-        if session_text and analysis.get('matches_lesson') is False:
-            raise ai.AIError(f'{ai.TOPIC_MISMATCH}: las páginas del libro son de otro tema. '
-                             f'{analysis.get("lesson_mismatch", "")}'.strip())
-        if check_topic and (mismatch := material_mismatch(material, analysis)):
-            raise ai.AIError(f'{ai.MATERIAL_MISMATCH}: {mismatch}.')
-        figures.crop_figures(material, images, analysis.get('figures', []))
-        analysis['model'] = model
-        analysis['seconds'] = round(time.monotonic() - started)
-        material.ai_analysis = analysis
-        fields = ['ai_analysis', 'updated_at']
-        if title_from_ai and (analysis.get('title') or '').strip():
-            material.title = analysis['title'].strip()[:150]
-            fields.append('title')
-        material.save(update_fields=fields)
+        if resume and (material.ai_analysis or {}).get('extracted_text'):
+            analysis = material.ai_analysis  # already read in the attempt that stopped
+        else:
+            analysis = read_material(material, say, session_text, check_topic, title_from_ai)
         if before_adapting:
             before_adapting(analysis)
         students = {s.pk: s for s in Student.objects.filter(teacher=material.teacher, pk__in=[r[0] for r in requests])}
-        with transaction.atomic():
-            for number, (student_id, conditions) in enumerate(requests, start=1):
-                say(f'Adaptando la ficha {number} de {len(requests)}…' if len(requests) > 1
-                    else 'Adaptando la ficha…')
-                _create_adaptation(material, students[student_id], conditions, rules.get(str(student_id), []))
+        done = set(material.adaptations.filter(record_status=RecordStatus.ACTIVE).values_list('student_id', flat=True))
+        for number, (student_id, conditions) in enumerate(requests, start=1):
+            if student_id in done:
+                continue
+            say(f'Adaptando la ficha {number} de {len(requests)}…' if len(requests) > 1 else 'Adaptando la ficha…')
+            _create_adaptation(material, students[student_id], conditions, rules.get(str(student_id), []))
         material.status = MaterialStatus.PROCESSED
         logger.info('Material %s processed: %s adaptation(s)', material.pk, len(requests))
     except ai.AIError as error:
@@ -141,19 +125,57 @@ def process_material(material_id, requests, adjustments, *, session_text='', bef
     return material
 
 
-def start_processing(material, requests, adjustments, *, check_topic=True):
+def read_material(material, say, session_text, check_topic, title_from_ai):
+    """The AI reads the worksheet once; it is saved at once, so a later failure does not lose it."""
+    started = time.monotonic()
+    text, images = figures.load_sources(material)
+    if not text.strip() and not images:
+        raise ai.AIError('El archivo no tiene texto ni imágenes que leer. Revisa el archivo o pega el texto.')
+    say('La IA está leyendo el material' + (f' ({len(images)} página{"s" if len(images) > 1 else ""})'
+                                             if len(images) > 1 else '') + '…')
+    analysis, model = ai.analyze_material(text=text, image_parts=figures.image_parts(images),
+                                          subject=material.subject.name, topic=material.topic,
+                                          session_text=session_text, check_topic=check_topic)
+    if session_text and analysis.get('matches_lesson') is False:
+        raise ai.AIError(f'{ai.TOPIC_MISMATCH}: las páginas del libro son de otro tema. '
+                         f'{analysis.get("lesson_mismatch", "")}'.strip())
+    if check_topic and (mismatch := material_mismatch(material, analysis)):
+        raise ai.AIError(f'{ai.MATERIAL_MISMATCH}: {mismatch}.')
+    figures.crop_figures(material, images, analysis.get('figures', []))
+    analysis['model'] = model
+    analysis['seconds'] = round(time.monotonic() - started)
+    material.ai_analysis = analysis
+    fields = ['ai_analysis', 'updated_at']
+    if title_from_ai and (analysis.get('title') or '').strip():
+        material.title = analysis['title'].strip()[:150]
+        fields.append('title')
+    material.save(update_fields=fields)
+    return analysis
+
+
+def job(requests, adjustments, **options):
+    """The request kept with the material (student ids, NEE and rules: no personal data) to resume it later."""
+    return {'requests': [[str(student_id), list(conditions)] for student_id, conditions in requests],
+            'adjustments': rules_by_student(adjustments), **options}
+
+
+def job_requests(saved):
+    return [(uuid.UUID(student_id), conditions) for student_id, conditions in (saved or {}).get('requests', [])]
+
+
+def start_processing(material, requests, adjustments, *, check_topic=True, resume=False):
     """
     Runs the processing in the background so the page can show the material status. The request is kept
     (student ids and rules, no personal data) so the teacher can run it again after a mismatch warning.
     """
-    material.job = {'requests': [[str(student_id), list(conditions)] for student_id, conditions in requests],
-                    'adjustments': rules_by_student(adjustments)}
+    material.job = job(requests, adjustments, check_topic=check_topic)
     material.progress = 'Preparando el material…'
     material.save(update_fields=['job', 'progress', 'updated_at'])
 
     def run():
         try:
-            process_material(material.pk, requests, adjustments, check_topic=check_topic, title_from_ai=True)
+            process_material(material.pk, requests, adjustments, check_topic=check_topic, title_from_ai=True,
+                             resume=resume)
         finally:
             close_old_connections()
 
@@ -163,14 +185,26 @@ def start_processing(material, requests, adjustments, *, check_topic=True):
 
 def retry_without_topic_check(material):
     """The teacher says the worksheet is right after a mismatch warning: adapt it as it was requested."""
-    job = material.job or {}
-    requests = [(uuid.UUID(student_id), conditions) for student_id, conditions in job.get('requests', [])]
+    requests = job_requests(material.job)
     if not requests:
         return False
     material.status = MaterialStatus.PENDING
     material.ai_error = ''
     material.save(update_fields=['status', 'ai_error', 'updated_at'])
-    start_processing(material, requests, job.get('adjustments', {}), check_topic=False)
+    start_processing(material, requests, material.job.get('adjustments', {}), check_topic=False)
+    return True
+
+
+def resume_material(material):
+    """'Reintentar' after the AI failed: keeps what was done and asks the AI only for what is missing."""
+    requests = job_requests(material.job)
+    if not requests:
+        return False
+    material.status = MaterialStatus.PENDING
+    material.ai_error = ''
+    material.save(update_fields=['status', 'ai_error', 'updated_at'])
+    start_processing(material, requests, material.job.get('adjustments', {}),
+                     check_topic=material.job.get('check_topic', True), resume=True)
     return True
 
 
@@ -186,12 +220,13 @@ def regenerate(adaptation, *, simplify=True, feedback=''):
     return target
 
 
-def process_lesson(lesson_id, requests, adjustments, chosen_grade='', check_topic=True):
+def process_lesson(lesson_id, requests, adjustments, chosen_grade='', check_topic=True, resume=False):
     """
     "Adaptar clase": reads the student book pages and checks they belong to the chosen session, reads
     the session (plus the teacher guide, also checked) once, and only then adapts the worksheet and the
     whole class for each student and all their conditions. check_topic=False when the teacher confirmed
-    that the pages are right after a mismatch warning.
+    that the pages are right after a mismatch warning. Each step is saved when it is done; with resume, a class
+    that stopped (Google overloaded) continues from the step that failed.
     """
     lesson = LessonPlan.objects.select_related('subject').get(pk=lesson_id)
     lesson.status = MaterialStatus.PROCESSING
@@ -201,6 +236,8 @@ def process_lesson(lesson_id, requests, adjustments, chosen_grade='', check_topi
 
     def read_lesson(book_analysis):
         # Runs after the book is read and before anything is adapted: a guide of another topic stops here
+        if resume and lesson.analysis:
+            return
         guide_parts = []
         report(lesson, 'La IA está leyendo la planificación' + (' y la guía del docente' if lesson.guide_file else '') + '…')
         if lesson.guide_file:
@@ -219,30 +256,33 @@ def process_lesson(lesson_id, requests, adjustments, chosen_grade='', check_topi
         students = {s.pk: s for s in Student.objects.filter(teacher=lesson.teacher, pk__in=[r[0] for r in requests])}
         class_grade = students[requests[0][0]].grade
         material = process_material(lesson.material_id, requests, adjustments, before_adapting=read_lesson,
-                                    session_text=lesson.session_text if check_topic else '',
+                                    session_text=lesson.session_text if check_topic else '', resume=resume,
                                     progress=lambda text: report(lesson, text.replace('el material', 'las páginas del libro')))
         if material.status == MaterialStatus.ERROR:
             raise ai.AIError(material.ai_error)
         book_summary = (material.ai_analysis or {}).get('summary', '')
         analysis = lesson.analysis
-        with transaction.atomic():
-            for number, (student_id, conditions) in enumerate(requests, start=1):
-                student = students[student_id]
-                report(lesson, f'Adaptando la clase {number} de {len(requests)}…' if len(requests) > 1
-                       else 'Adaptando la clase…')
-                content, model = ai.adapt_lesson(
-                    lesson=analysis, book_summary=book_summary, subject=lesson.subject.name,
-                    subject_code=lesson.subject.code, grade=student.grade, conditions=conditions,
-                    adjustments=rules.get(str(student_id), []), chosen_grade=chosen_grade, whole_week=lesson.is_week,
-                )
-                worksheet = (material.adaptations.filter(student=student, condition=conditions[0])
-                             .order_by('-version').first())
-                LessonAdaptation.objects.update_or_create(lesson=lesson, student=student, defaults={
-                    'condition': conditions[0], 'conditions': list(conditions),
-                    'grade': chosen_grade or content['suggested_grade'],
-                    'suggested_grade': content['suggested_grade'], 'worksheet': worksheet,
-                    'content': content, 'ai_model': model[:50],
-                })
+        done = set(lesson.adaptations.values_list('student_id', flat=True)) if resume else set()
+        for number, (student_id, conditions) in enumerate(requests, start=1):
+            if student_id in done:
+                continue
+            student = students[student_id]
+            report(lesson, f'Adaptando la clase {number} de {len(requests)}…' if len(requests) > 1
+                   else 'Adaptando la clase…')
+            content, model = ai.adapt_lesson(
+                lesson=analysis, book_summary=book_summary, subject=lesson.subject.name,
+                subject_code=lesson.subject.code, grade=student.grade, conditions=conditions,
+                adjustments=rules.get(str(student_id), []), chosen_grade=chosen_grade, whole_week=lesson.is_week,
+            )
+            worksheet = (material.adaptations.filter(student=student, condition=conditions[0])
+                         .order_by('-version').first())
+            # Saved at once: if the next student fails, this one is kept for the retry
+            LessonAdaptation.objects.update_or_create(lesson=lesson, student=student, defaults={
+                'condition': conditions[0], 'conditions': list(conditions),
+                'grade': chosen_grade or content['suggested_grade'],
+                'suggested_grade': content['suggested_grade'], 'worksheet': worksheet,
+                'content': content, 'ai_model': model[:50],
+            })
         lesson.status = MaterialStatus.PROCESSED
         # The teacher's file (with the school's and people's names) is no longer needed: only its
         # anonymized session text and the adaptation are kept
@@ -261,17 +301,34 @@ def process_lesson(lesson_id, requests, adjustments, chosen_grade='', check_topi
     return lesson
 
 
-def start_lesson_processing(lesson, requests, adjustments, chosen_grade='', check_topic=True):
-    report(lesson, 'Preparando la clase…')
+def start_lesson_processing(lesson, requests, adjustments, chosen_grade='', check_topic=True, resume=False):
+    # The request is kept with the book pages' material, so "Reintentar" can continue it
+    OriginalMaterial.objects.filter(pk=lesson.material_id).update(
+        job=job(requests, adjustments, chosen_grade=chosen_grade, check_topic=check_topic))
+    report(lesson, 'Retomando la clase…' if resume else 'Preparando la clase…')
 
     def run():
         try:
-            process_lesson(lesson.pk, requests, adjustments, chosen_grade, check_topic)
+            process_lesson(lesson.pk, requests, adjustments, chosen_grade, check_topic, resume)
         finally:
             close_old_connections()
 
     threading.Thread(target=run, daemon=True).start()
     return lesson
+
+
+def resume_lesson(lesson):
+    """'Reintentar' a class that stopped: the pages, the plan and the students already done are kept."""
+    saved = lesson.material.job if lesson.material else None
+    requests = job_requests(saved)
+    if not requests or not lesson.plan_file:
+        return False
+    lesson.status = MaterialStatus.PENDING
+    lesson.ai_error = ''
+    lesson.save(update_fields=['status', 'ai_error', 'updated_at'])
+    start_lesson_processing(lesson, requests, saved.get('adjustments', {}), saved.get('chosen_grade', ''),
+                            saved.get('check_topic', True), resume=True)
+    return True
 
 
 def _release_material(material, keep_lessons=True):

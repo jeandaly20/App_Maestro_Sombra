@@ -42,7 +42,17 @@
         {% elif lesson.status == 'ERROR' %}
             <div class="alert alert--error" role="alert"><span class="icon" aria-hidden="true">error</span>
                 <div><p><strong>No se pudo adaptar la clase.</strong> {{ lesson.ai_error }}</p>
-                <a class="button button--primary" href="{% url 'lesson_setup' lesson.pk %}">Intentar de nuevo</a></div></div>
+                {% if can_resume %}
+                    <p>Lo que ya se hizo está guardado: al reintentar, la IA continúa desde el paso que falló.</p>
+                    <div class="alert__actions">
+                        <form method="post" action="{% url 'lesson_resume' lesson.pk %}">{% csrf_token %}
+                            <button type="submit" class="button button--primary"><span class="icon" aria-hidden="true">refresh</span>Reintentar</button>
+                        </form>
+                        <a class="button button--secondary" href="{% url 'lesson_setup' lesson.pk %}">Cambiar páginas o estudiantes</a>
+                    </div>
+                {% else %}
+                    <a class="button button--primary" href="{% url 'lesson_setup' lesson.pk %}">Intentar de nuevo</a>
+                {% endif %}</div></div>
         {% endif %}
     </div>
 </section>

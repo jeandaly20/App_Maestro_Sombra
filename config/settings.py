@@ -25,14 +25,15 @@ ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split('
 FIELD_ENCRYPTION_KEY = os.environ['FIELD_ENCRYPTION_KEY']
 
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
-# The proposal named gemini-1.5-flash, which Google retired. The "latest" aliases follow Google's current
-# models. The Flash-Lite model is the main one: every adaptation reviewed in the pilot came from it (the full
-# Flash model was usually overloaded or past its time), and it answers in seconds. Flash is the fallback.
+# The proposal named gemini-1.5-flash, which Google retired. The Flash-Lite model is the main one: every
+# adaptation reviewed in the pilot came from it, and it answers in seconds. When Google overloads it (503),
+# the fallbacks are other models, each with its own capacity: an older Flash-Lite, then the full Flash.
+# Both can be changed in .env (GEMINI_FALLBACK_MODELS: names separated by commas).
 GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-flash-lite-latest')
-GEMINI_FALLBACK_MODEL = os.getenv('GEMINI_FALLBACK_MODEL', 'gemini-flash-latest')
-GEMINI_TIMEOUT_SECONDS = 60
-# The main model: reading several book pages can take it some 30 s, more than that means it is overloaded
-GEMINI_PRIMARY_TIMEOUT_SECONDS = 45
+GEMINI_FALLBACK_MODELS = [name.strip() for name in os.getenv(
+    'GEMINI_FALLBACK_MODELS', 'gemini-3.1-flash-lite,gemini-3.5-flash').split(',') if name.strip()]
+
+GEMINI_TIMEOUT_SECONDS = 60  # a whole week can take Flash about 30 s; more than 60 s means overloaded
 
 
 # Applications

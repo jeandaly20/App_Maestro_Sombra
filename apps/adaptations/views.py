@@ -199,6 +199,7 @@ class MaterialDetailView(LoginRequiredMixin, TemplateView):
             'color_filters': ColorFilter.choices,
             'is_working': material.status in (MaterialStatus.PENDING, MaterialStatus.PROCESSING),
             'material_mismatch': material.status == MaterialStatus.ERROR and material.ai_error.startswith(ai.MATERIAL_MISMATCH),
+            'can_resume': material.status == MaterialStatus.ERROR and bool(material.job),
             # Our own PDFs carry this footer: an adapted worksheet has no original drawings to reuse
             'is_already_adapted': 'Adaptación DUA revisada por el docente' in (material.ai_analysis or {}).get('extracted_text', ''),
         })
@@ -339,6 +340,27 @@ class MaterialStatusView(LoginRequiredMixin, View):
         material = own_material(request, pk)
         return JsonResponse({'status': material.status, 'label': material.get_status_display(), 'error': material.ai_error,
                              'progress': material.progress})
+
+
+class MaterialResumeView(LoginRequiredMixin, View):
+    """'Reintentar' after the AI failed (Google overloaded): keeps what was done and continues."""
+
+    def post(self, request, pk):
+        material = own_material(request, pk)
+        if material.status == MaterialStatus.ERROR and services.resume_material(material):
+            logger.info('Material %s resumed by teacher=%s', material.pk, request.user.pk)
+        return redirect('material_detail', pk=material.pk)
+
+
+class LessonResumeView(LoginRequiredMixin, View):
+    """'Reintentar' a class that stopped: the pages, the plan and the students already done are kept."""
+
+    def post(self, request, pk):
+        lesson = own_lesson(request, pk)
+        if lesson.status == MaterialStatus.ERROR and services.resume_lesson(lesson):
+            logger.info('Lesson %s resumed by teacher=%s', lesson.pk, request.user.pk)
+            return redirect('lesson_detail', pk=lesson.pk)
+        return redirect('lesson_setup', pk=lesson.pk)
 
 
 class MaterialRetryView(LoginRequiredMixin, View):
@@ -688,6 +710,7 @@ class LessonSetupView(LoginRequiredMixin, FormView):
         lesson.status = MaterialStatus.PENDING
         lesson.save()
         logger.info('Lesson %s (%s) sent to the AI by teacher=%s', lesson.pk, lesson.session_label, self.request.user.pk)
+        lesson.adaptations.all().delete()  # a new attempt from this form starts clean
         services.start_lesson_processing(lesson, form.requests(), form.chosen_adjustments(),
                                          data.get('adaptation_grade') or '', not data.get('skip_topic_check'))
         return redirect('lesson_detail', pk=lesson.pk)
@@ -742,6 +765,10 @@ class LessonDetailView(LoginRequiredMixin, TemplateView):
             'lesson': lesson, 'analysis': lesson.analysis or {}, 'adaptations': adaptations, 'selected': selected,
             'step': step if selected else 'listo', 'all_ready': all_ready,
             'is_working': lesson.status in (MaterialStatus.PENDING, MaterialStatus.PROCESSING),
+            # Google overloaded (not pages of another topic): the class can continue from where it stopped
+            'can_resume': (lesson.status == MaterialStatus.ERROR and bool(lesson.plan_file)
+                           and not lesson.ai_error.startswith(ai.TOPIC_MISMATCH)
+                           and bool(lesson.material and lesson.material.job)),
             'plan_row': plan_row_text(selected) if selected else '',
             'moments': class_moments(lesson, selected) if selected else [],
             'plan_row_text': '\n'.join(selected.content.get('plan_row', [])) if selected else '',

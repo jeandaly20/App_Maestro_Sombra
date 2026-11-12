@@ -260,32 +260,49 @@ def _call(model, system, parts, schema, timeout):
         return json.load(response)
 
 
-# When the main model times out or is overloaded, it is skipped for a few minutes: the next calls of
-# the same job (a class makes four) go straight to the fallback instead of waiting for it again.
-PRIMARY_PAUSE_SECONDS = 300
-_primary_paused_until = 0.0
+# Google overloads one model at a time (503), and its spikes often last seconds: each model gets a second try
+# after a short wait, and then the next model of the chain, which has its own capacity. A model that does not
+# answer in time is skipped for a minute, so the next calls of the same job do not wait for it again.
+RETRY_WAIT_SECONDS = 3
+PAUSE_SECONDS = 60
+_paused_until = {}
+
+OVERLOADED = ('Los servidores de la IA de Google (Gemini) están saturados en este momento. No es un problema de '
+              'tu material ni de la aplicación: vuelve a intentarlo en unos minutos.')
+QUOTA = ('Se alcanzó el límite de uso de la IA de Google (cuota de Gemini). Espera un minuto y vuelve a intentarlo; '
+         'si se repite, se agotó la cuota del día o hay que revisar el plan de Gemini.')
+NO_CONNECTION = 'No hay conexión con la IA de Google. Revisa la conexión a internet y vuelve a intentarlo.'
 
 
-def _pause_primary():
-    global _primary_paused_until
-    _primary_paused_until = time.monotonic() + PRIMARY_PAUSE_SECONDS
+def _is_timeout(error):
+    return isinstance(error, TimeoutError) or isinstance(getattr(error, 'reason', None), TimeoutError)
+
+
+def model_chain():
+    """The main model and then its fallbacks, without repeats; the ones that just timed out go last."""
+    chain = list(dict.fromkeys([settings.GEMINI_MODEL, *settings.GEMINI_FALLBACK_MODELS]))
+    now = time.monotonic()
+    return sorted(chain, key=lambda model: _paused_until.get(model, 0) > now)
 
 
 def generate_json(system, parts, schema):
-    """Calls Gemini and returns (data, model_version). Falls back to the other model if overloaded."""
+    """
+    Calls Gemini and returns (data, model_version). Each model of the chain gets two tries (the last one, one),
+    so an overloaded model is replaced by the next one in seconds. The teacher's message says what really
+    happened: Google overloaded, quota used up or no internet.
+    """
     if not settings.GEMINI_API_KEY:
         raise AIError('Falta configurar la clave de la API de Gemini (GEMINI_API_KEY en el archivo .env).')
     last_error = None
-    # One quick try with the main model; if it is overloaded go straight to the fallback,
-    # which gets a second chance. This keeps the wait for the teacher short.
-    plan = ((settings.GEMINI_MODEL, 1, settings.GEMINI_PRIMARY_TIMEOUT_SECONDS),
-            (settings.GEMINI_FALLBACK_MODEL, 2, settings.GEMINI_TIMEOUT_SECONDS))
-    if time.monotonic() < _primary_paused_until:
-        plan = plan[1:]
-    for model, attempts, timeout in plan:
+    statuses = []
+    chain = model_chain()
+    for position, model in enumerate(chain):
+        attempts = 1 if position == len(chain) - 1 else 2
         for attempt in range(attempts):
+            if attempt:
+                time.sleep(RETRY_WAIT_SECONDS)
             try:
-                answer = _call(model, system, parts, schema, timeout)
+                answer = _call(model, system, parts, schema, settings.GEMINI_TIMEOUT_SECONDS)
                 candidate = answer['candidates'][0]
                 # The answer may come split in several parts (and "thought" parts carry no answer)
                 text = ''.join(p.get('text', '') for p in candidate.get('content', {}).get('parts', [])
@@ -297,22 +314,36 @@ def generate_json(system, parts, schema):
                 return json.loads(text), answer.get('modelVersion', model)
             except urllib.error.HTTPError as error:
                 last_error = error
+                statuses.append(error.code)
                 logger.warning('Gemini HTTP %s with model %s (attempt %s)', error.code, model, attempt + 1)
+                if error.code == 404:
+                    break  # this model is not offered to this key (retired or renamed): try the next one
                 if error.code not in RETRYABLE_STATUS:
                     raise AIError('La IA rechazó la solicitud. Revisa la clave de Gemini o el archivo enviado.') from error
-                if model == settings.GEMINI_MODEL:
-                    _pause_primary()
-                if attempts > 1:
-                    time.sleep(2)
             except (urllib.error.URLError, TimeoutError) as error:
                 last_error = error
+                statuses.append('timeout' if _is_timeout(error) else 'offline')
                 logger.warning('Gemini connection error with model %s: %s', model, error)
-                if model == settings.GEMINI_MODEL:
-                    _pause_primary()
+                break  # no answer in time (or no internet): retrying the same model would only add waiting
             except (KeyError, IndexError, json.JSONDecodeError) as error:
                 last_error = error
                 logger.warning('Gemini returned an unexpected answer with model %s: %s', model, repr(error)[:200])
-    raise AIError('La IA no está disponible en este momento. Inténtalo de nuevo en unos minutos.') from last_error
+        # This model failed (overloaded, too slow or retired): for a minute the next calls of the same class or
+        # worksheet try the other models first instead of losing seconds on it again
+        if statuses and statuses[-1] != 'offline':
+            _paused_until[model] = time.monotonic() + PAUSE_SECONDS
+    if statuses and all(status == 'offline' for status in statuses):
+        message = NO_CONNECTION
+    elif statuses and all(status == 404 for status in statuses):
+        message = ('Los modelos de IA configurados ya no están disponibles en Google. Revisa GEMINI_MODEL y '
+                   'GEMINI_FALLBACK_MODELS en el archivo .env.')
+    elif 429 in statuses and not ({500, 503, 'timeout'} & set(statuses)):
+        message = QUOTA
+    elif statuses:
+        message = OVERLOADED
+    else:
+        message = 'La IA no devolvió una respuesta válida. Inténtalo de nuevo en unos minutos.'
+    raise AIError(message) from last_error
 
 
 TOPIC_MISMATCH = 'Las páginas no corresponden a la clase elegida'
@@ -421,9 +452,13 @@ def adapt_worksheet(*, analysis, subject, topic, grade, conditions, adjustments,
         correction = ('\n\nTu respuesta anterior no cumplió estas reglas obligatorias de las condiciones del '
                       'estudiante. Devuelve la guía completa otra vez, corrigiendo exactamente esto:\n'
                       + '\n'.join(f'- {item}' for item in missing) + '\n\n' + SPELLING_RULE)
-        second, second_model, second_missing = ask(correction)
-        if len(second_missing) <= len(missing):
-            content, model, missing = second, second_model, second_missing
+        try:
+            second, second_model, second_missing = ask(correction)
+            if len(second_missing) <= len(missing):
+                content, model, missing = second, second_model, second_missing
+        except AIError:
+            # Google overloaded right then: the first version is kept, with its notes for the teacher
+            logger.warning('The correction call failed; the first version of the worksheet is kept')
     content['nee_check'] = {'passed': not missing, 'problems': missing}
     content['total_minutes'] = nee_modules.total_minutes(content)
     return content, model

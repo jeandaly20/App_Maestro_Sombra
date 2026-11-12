@@ -42,6 +42,14 @@
                                 <button type="submit" class="button button--primary">El material es correcto: adaptar de todas formas</button>
                             </form>
                         </div>
+                    {% elif can_resume %}
+                        <p>Lo que ya se hizo está guardado: al reintentar, la IA continúa desde el paso que falló.</p>
+                        <div class="alert__actions">
+                            <form method="post" action="{% url 'material_resume' material.pk %}">{% csrf_token %}
+                                <button type="submit" class="button button--primary"><span class="icon" aria-hidden="true">refresh</span>Reintentar</button>
+                            </form>
+                            <a class="button button--secondary" href="{% url 'adapt' %}">Volver a cargar</a>
+                        </div>
                     {% else %}
                         <p>Si es una foto, tómala de nuevo con buena luz, o elige "Escribir o pegar texto".</p>
                         <a class="button button--primary" href="{% url 'adapt' %}">Volver a cargar</a>
