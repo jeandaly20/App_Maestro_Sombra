@@ -14,6 +14,7 @@
 </div>
 
 <form method="post" class="card edit-form">
+    {% if back_url %}<input type="hidden" name="next" value="{{ back_url }}">{% endif %}
     {% csrf_token %}
     <div class="field">
         <label class="field__label" for="id_title">Título</label>
@@ -97,7 +98,7 @@
     </div>
 
     <div class="adapt-actions">
-        <a class="button button--secondary" href="{% url 'material_detail' adaptation.material_id %}?a={{ adaptation.pk }}">Cancelar</a>
+        <a class="button button--secondary" href="{{ back_url }}">Cancelar</a>
         <button type="submit" class="button button--primary"><span class="icon" aria-hidden="true">save</span>Guardar cambios</button>
     </div>
 </form>

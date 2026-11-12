@@ -2,7 +2,7 @@
 <html lang="es-EC">
 <head>
 <meta charset="utf-8">
-<title>Expedientes de estudiantes</title>
+<title>{{ title }}</title>
 <style>
     @page { size: A4; margin: 2cm 1.8cm; @frame footer { -pdf-frame-content: footer; bottom: 1cm; margin-left: 1.8cm; margin-right: 1.8cm; height: 1cm; } }
     body { font-family: Helvetica; font-size: 10.5pt; color: #111c2d; }
@@ -17,7 +17,7 @@
 </style>
 </head>
 <body>
-    <h1>Expedientes de estudiantes con NEE</h1>
+    <h1>{{ title }}</h1>
     <p class="meta">Docente: {{ teacher.full_name }} · {{ teacher.email }}</p>
     <p class="meta">Generado: {{ generated_at|date:"d/m/Y H:i" }} · Maestro Sombra</p>
     <p class="confidential">Documento confidencial. Contiene datos personales de menores de edad protegidos por la Ley Orgánica de Protección de Datos Personales (LOPDP). No compartir fuera de la institución.</p>
@@ -30,6 +30,8 @@
             <tr><th>Grado</th><td>{{ student.get_grade_display }}</td></tr>
             <tr><th>Condiciones NEE</th><td>{{ student.condition_labels|join:", " }}</td></tr>
             <tr><th>Respaldo del diagnóstico</th><td>{{ student.get_diagnosis_source_display }}{% if student.diagnosis_date %} ({{ student.diagnosis_date|date:"d/m/Y" }}){% endif %} · {{ student.diagnosis_status }}</td></tr>
+            <tr><th>Revisión automática del documento</th><td>{% if student.has_document %}{{ student.document_check.1 }}{% else %}Sin documento adjunto.{% endif %}</td></tr>
+            <tr><th>Autorización del representante</th><td>{% if student.has_signed_consent %}Firmada y adjunta ({{ student.diagnosis_consent_at|date:"d/m/Y" }}){% elif student.has_document %}Falta la autorización firmada{% else %}No aplica (sin documento){% endif %}</td></tr>
             <tr><th>Pautas de adaptación DUA</th><td>{{ student.recommended_adjustments|join:", " }}</td></tr>
             <tr><th>Observaciones</th><td>{{ student.notes|default:"Sin observaciones."|linebreaksbr }}</td></tr>
             <tr><th>Adaptaciones realizadas</th><td>{{ student.adaptation_count }}</td></tr>

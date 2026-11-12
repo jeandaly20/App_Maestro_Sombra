@@ -1,0 +1,95 @@
+{% comment %}The adapted worksheet with its review actions. "worksheet" is a CurricularAdaptation; with next_url the
+actions return to that page (the class in "Adaptar clase") instead of the material page.{% endcomment %}
+    {% with content=worksheet.content %}
+    <section class="card adapted adapted--{{ worksheet.color_filter|lower }}" aria-labelledby="adapted-title" data-adapted data-scale-target>
+        <header class="adapted__header">
+            <span class="icon" aria-hidden="true">auto_fix_high</span>
+            <div>
+                <h3 id="adapted-title">Adaptación Maestro Sombra</h3>
+                <p>Personalizada para {{ worksheet.student.name }} · {{ worksheet.conditions_label }} · {{ worksheet.code }} v{{ worksheet.version }}</p>
+                {% if content.udl_principle %}<span class="chip">DUA: {{ content.udl_principle }}</span>{% endif %}
+            </div>
+        </header>
+        <div class="worksheet" data-worksheet>
+            <h4 class="worksheet__title">{{ content.title }}</h4>
+            {% if content.subtitle %}<p class="worksheet__subtitle">{{ content.subtitle }}</p>{% endif %}
+            {% if content.intro %}<p class="worksheet__intro" data-reading-line>{{ content.intro }}</p>{% endif %}
+            {% if content.learning_goal %}
+                <p class="learning-goal" data-reading-line><span class="icon" aria-hidden="true">flag</span>{{ content.learning_goal }}</p>
+            {% endif %}
+
+            {% if concepts %}
+                <h5 class="worksheet__section"><span class="icon" aria-hidden="true">lightbulb</span>Aprende</h5>
+                <div class="concepts">
+                    {% for concept in concepts %}
+                        <article class="concept" data-reading-line>
+                            <p class="concept__title">{{ concept.title }}</p>
+                            <p>{{ concept.explanation }}</p>
+                            {% if concept.example %}<p class="concept__example"><span class="icon" aria-hidden="true">home</span><span><strong>Ejemplo:</strong> {{ concept.example }}</span></p>{% endif %}
+                            {% include "adaptations/_item_image.html" with item=concept %}
+                        </article>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <h5 class="worksheet__section"><span class="icon" aria-hidden="true">edit_note</span>Ahora practica</h5>
+            <ol class="worksheet__steps">
+                {% for step in steps %}
+                    <li class="step" data-reading-line>
+                        <p class="step__title"><span class="step__number" aria-hidden="true">{{ forloop.counter }}</span>{{ step.title }}</p>
+                        <p class="step__instruction">{{ step.instruction }}</p>
+                        {% if step.keyword %}<p class="step__keyword">Palabra clave: <mark>{{ step.keyword }}</mark></p>{% endif %}
+                        {% include "adaptations/_item_image.html" with item=step %}
+                        {% if step.hint %}<p class="step__hint"><span class="icon" aria-hidden="true">tips_and_updates</span><span><strong>Pista:</strong> {{ step.hint }}</span></p>{% endif %}
+                        {% if step.visual_support %}<p class="step__support"><span class="icon" aria-hidden="true">image</span><span><strong>Apoyo visual:</strong> {{ step.visual_support }}</span></p>{% endif %}
+                        {% if step.options %}<ul class="step__options">{% for option in step.options %}<li><span class="box" aria-hidden="true"></span>{{ option }}</li>{% endfor %}</ul>{% endif %}
+                        {% if step.answer_type == 'ESPACIO' %}<div class="step__answer" aria-hidden="true"></div>{% endif %}
+                    </li>
+                {% endfor %}
+            </ol>
+
+            {% if content.check_questions %}
+                <h5 class="worksheet__section"><span class="icon" aria-hidden="true">fact_check</span>Comprueba lo que aprendiste</h5>
+                <ol class="check-questions">
+                    {% for question in content.check_questions %}
+                        <li data-reading-line>
+                            <p>{{ question.question }}</p>
+                            <ul class="step__options">{% for option in question.options %}<li><span class="box" aria-hidden="true"></span>{{ option }}</li>{% endfor %}</ul>
+                            <p class="check-questions__answer">Respuesta (para el docente): {{ question.answer }}</p>
+                        </li>
+                    {% endfor %}
+                </ol>
+            {% endif %}
+
+            {% if content.glossary %}
+                <div class="glossary" data-reading-line>
+                    <p class="adapt-section__subtitle">Glosario</p>
+                    <dl>{% for item in content.glossary %}<dt>{{ item.term }}</dt><dd>{{ item.meaning }}</dd>{% endfor %}</dl>
+                </div>
+            {% endif %}
+            {% if content.closing_message %}<p class="worksheet__closing" data-reading-line><span class="icon" aria-hidden="true">thumb_up</span>{{ content.closing_message }}</p>{% endif %}
+        </div>
+        {% if content.udl_justification %}
+            <div class="udl-box"><span class="icon" aria-hidden="true">psychology</span><p><strong>Justificación DUA:</strong> {{ content.udl_justification }}</p></div>
+        {% endif %}
+        <p class="adapted__meta">Ajustes DUA: {{ worksheet.adjustment_labels|join:", "|default:"ninguno" }} · Modelo: {{ worksheet.ai_model }} · Generada en {{ worksheet.generation_time_sec }} s</p>
+
+        {# ---------- Actions ---------- #}
+        <div class="adapted__actions">
+            {% if worksheet.status == 'IN_REVIEW' %}
+                <form method="post" action="{% url 'adaptation_action' worksheet.pk %}">{% csrf_token %}{% if next_url %}<input type="hidden" name="next" value="{{ approve_next_url|default:next_url }}">{% endif %}
+                    <button type="submit" name="action" value="approve" class="button button--primary"><span class="icon" aria-hidden="true">check_circle</span>{% if next_url %}Aprobar la ficha y continuar{% else %}Aprobar adaptación{% endif %}</button>
+                </form>
+                {% if not next_url %}<span class="button button--secondary" aria-disabled="true" title="Aprueba la adaptación para descargarla"><span class="icon" aria-hidden="true">download</span>Descargar PDF</span>{% endif %}
+            {% elif next_url %}
+                <a class="button button--primary" href="{{ approve_next_url }}"><span class="icon" aria-hidden="true">arrow_forward</span>Continuar</a>
+            {% else %}
+                <a class="button button--primary" href="{% url 'adaptation_pdf' worksheet.pk %}"><span class="icon" aria-hidden="true">download</span>Descargar PDF</a>
+            {% endif %}
+            <a class="button button--secondary" href="{% url 'adaptation_edit' worksheet.pk %}{% if next_url %}?next={{ next_url|urlencode }}{% endif %}"><span class="icon" aria-hidden="true">edit</span>Ajustar manualmente</a>
+            <form method="post" action="{% url 'adaptation_action' worksheet.pk %}" data-regenerate>{% csrf_token %}{% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+                <button type="submit" name="action" value="regenerate" class="button button--secondary"><span class="icon" aria-hidden="true">restart_alt</span>Regenerar más simple</button>
+            </form>
+        </div>
+    </section>
+    {% endwith %}

@@ -13,6 +13,7 @@ urlpatterns = [
     path('clase/<uuid:pk>/eliminar/', views.LessonDeleteView.as_view(), name='lesson_delete'),
     path('clase/<uuid:pk>/descargar/', views.LessonZipView.as_view(), name='lesson_zip'),
     path('clase/adaptacion/<uuid:pk>/excel/', views.LessonExcelView.as_view(), name='lesson_excel'),
+    path('clase/adaptacion/<uuid:pk>/guardar/', views.LessonSaveView.as_view(), name='lesson_save'),
     path('material/<uuid:pk>/', views.MaterialDetailView.as_view(), name='material_detail'),
     path('material/<uuid:pk>/estado/', views.MaterialStatusView.as_view(), name='material_status'),
     path('material/<uuid:pk>/archivo/', views.MaterialFileView.as_view(), name='material_file'),

@@ -1,4 +1,5 @@
 import logging
+import smtplib
 
 from django.contrib import messages
 from django.contrib.auth import login, views as auth_views
@@ -66,6 +67,15 @@ class PasswordResetView(GuestOnlyMixin, auth_views.PasswordResetView):
     email_template_name = 'accounts/password_reset_email.txt'
     subject_template_name = 'accounts/password_reset_subject.txt'
     success_url = reverse_lazy('password_reset_sent')
+
+    def form_valid(self, form):
+        try:
+            return super().form_valid(form)
+        except (smtplib.SMTPException, OSError):
+            # Wrong mail settings or the mail server is down: tell the teacher instead of a server error
+            logger.exception('Password reset email could not be sent')
+            form.add_error(None, 'No pudimos enviar el correo en este momento. Inténtalo de nuevo en unos minutos.')
+            return self.form_invalid(form)
 
 
 class PasswordResetSentView(auth_views.PasswordResetDoneView):

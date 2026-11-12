@@ -8,15 +8,39 @@
     <div>
         <p class="badge-line"><span class="icon" aria-hidden="true">school</span>Paso 1 de 2 · Planificación</p>
         <h1>Adaptar una clase completa</h1>
-        <p class="page-header__intro">Sube tu planificación en Excel. En el siguiente paso eliges la clase (sesión), subes las páginas del libro del alumno y, si la tienes, la guía del docente. La IA adapta toda la clase para cada estudiante.</p>
+        <p class="page-header__intro">Sube tu planificación en Excel, Word o PDF. En el siguiente paso eliges la semana, subes las páginas del libro del alumno de esa semana y, si la tienes, la guía del docente. La IA adapta toda la semana para cada estudiante.</p>
     </div>
 </div>
+
+{% if open_lessons %}
+<section class="card open-lessons" aria-labelledby="open-lessons-title">
+    <h2 id="open-lessons-title" class="adapt-section__title"><span class="icon" aria-hidden="true">pending_actions</span>Mis clases en curso</h2>
+    <p class="field__help">Clases que empezaste y todavía no terminas. Continúa donde te quedaste.</p>
+    <ul class="open-lessons__list">
+        {% for lesson in open_lessons %}
+        <li class="open-lesson">
+            <div class="open-lesson__text">
+                <strong>{% if lesson.session_label %}{{ lesson.session_label }}{% if lesson.title and lesson.title != lesson.session_label %} · {{ lesson.title }}{% endif %}{% else %}{{ lesson.plan_file_name|default:"Planificación" }}{% endif %}</strong>
+                <span>{% if lesson.subject %}{{ lesson.subject.name }} · {% endif %}{{ lesson.created_at|date:"j M Y, H:i" }}{% if lesson.active_adaptations %} · {% for a in lesson.active_adaptations %}{{ a.student.name }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}</span>
+            </div>
+            <span class="open-lesson__state open-lesson__state--{{ lesson.state }}">{{ lesson.state_label }}</span>
+            <a class="button button--primary" href="{{ lesson.continue_url }}"><span class="icon" aria-hidden="true">arrow_forward</span>Continuar</a>
+            <form method="post" action="{% url 'lesson_delete' lesson.pk %}" data-confirm="¿Eliminar esta clase? Se quitan la clase, sus fichas y los archivos subidos.">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{% url 'lesson_upload' %}">
+                <button type="submit" class="button button--ghost" aria-label="Eliminar la clase {{ lesson.session_label|default:lesson.plan_file_name }}"><span class="icon" aria-hidden="true">delete</span></button>
+            </form>
+        </li>
+        {% endfor %}
+    </ul>
+</section>
+{% endif %}
 
 <form method="post" enctype="multipart/form-data" novalidate class="card adapt-section">
     {% csrf_token %}
     <h2 class="adapt-section__title"><span class="icon" aria-hidden="true">table_view</span>Planificación de la clase</h2>
     {% include "includes/field.html" with field=form.plan_file icon="upload_file" %}
-    <p class="field__help">Puede tener una hoja por semana y varias sesiones por hoja. Del archivo solo se usan los datos pedagógicos de la clase que elijas: los nombres de la institución, de los docentes y de los estudiantes no se envían a la IA.</p>
+    <p class="field__help">Acepta Excel (.xlsx o .xls), Word (.docx) y PDF hecho desde la computadora; un PDF escaneado no se puede leer. Si la tienes en Excel o Word, súbela así: un PDF desordena las tablas y la IA recibe la clase menos completa. Puede tener varias semanas y varias sesiones. Del archivo solo se usan los datos pedagógicos de la clase que elijas: los nombres de la institución, de los docentes y de los estudiantes no se envían a la IA.</p>
     <div class="adapt-actions">
         <p><span class="icon" aria-hidden="true">lock</span>El archivo se guarda solo para ti, para devolverte tu planificación con la adaptación.</p>
         <button type="submit" class="button button--primary button--large"><span class="icon" aria-hidden="true">arrow_forward</span>Continuar</button>

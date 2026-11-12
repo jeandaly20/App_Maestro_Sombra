@@ -95,7 +95,8 @@ def rules_for(conditions, adjustments, subject_code=None, grade=None):
     if len(conditions) > 1:
         lines.append('El estudiante tiene varias condiciones: una sola guía debe cumplir las reglas de TODAS a la '
                      'vez. Si dos reglas se contradicen, aplica la de la condición que aparece primero (la que '
-                     'más protege al estudiante).')
+                     'más protege al estudiante). En las justificaciones ("grade_reason", "udl_justification") '
+                     f'explica en una frase cómo atiendes cada una: {labels}.')
     for condition in conditions:
         lines.append(f'Reglas obligatorias para {Condition(condition).label}:')
         lines += [f'- {rule}' for rule in CONDITION_RULES[condition]]

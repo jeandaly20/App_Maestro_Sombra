@@ -41,7 +41,9 @@ INTELLECTUAL_DISABILITY = [Condition.ID_MILD, Condition.ID_MODERATE]
 class DiagnosisSource(models.TextChoices):
     """Document that backs the student's SEN (the file itself is not uploaded: LOPDP, data minimization)."""
     UDAI_REPORT = 'UDAI_REPORT', 'Informe psicopedagógico de la UDAI'
-    MSP_CERTIFICATE = 'MSP_CERTIFICATE', 'Certificado o carné de discapacidad del MSP'
+    # Since January 2025 the MSP no longer issues the disability card: it issues the assessment certificate
+    # and the cédula records the type and percentage of disability
+    MSP_CERTIFICATE = 'MSP_CERTIFICATE', 'Certificado de calificación de discapacidad del MSP o cédula con la discapacidad registrada'
     DECE_REPORT = 'DECE_REPORT', 'Informe del DECE de la institución'
     CLINICAL_REPORT = 'CLINICAL_REPORT', 'Diagnóstico clínico (neurólogo, psicólogo o psiquiatra)'
     # Only offered while the document is optional (settings.DIAGNOSIS_DOCUMENT_REQUIRED = False)

@@ -8,32 +8,43 @@
 {% block content %}
 <div class="page-header">
     <div>
-        <p class="badge-line"><span class="icon" aria-hidden="true">folder_special</span>{{ total }} adaptaci{{ total|pluralize:"ón,ones" }} guardada{{ total|pluralize }}</p>
+        <p class="badge-line"><span class="icon" aria-hidden="true">folder_special</span>{{ lesson_total }} clase{{ lesson_total|pluralize }} · {{ total }} material{{ total|pluralize:"es" }} suelto{{ total|pluralize }}</p>
         <h1>Banco de adaptaciones y seguimiento</h1>
         <p class="page-header__intro">Historial de materiales adaptados, verificación del aprendizaje en el aula y regeneración simplificada.</p>
     </div>
     <div class="page-header__actions">
-        {% if cards %}
+        {% if tab == 'materiales' and cards %}
         <a class="button button--secondary" href="{% url 'bank_zip' %}{% if zip_query %}?{{ zip_query }}{% endif %}">
             <span class="icon" aria-hidden="true">folder_zip</span>Descargar {% if cards|length < total %}las {{ cards|length }} mostradas{% else %}todo{% endif %} (ZIP)</a>
         {% endif %}
+        {% if tab == 'clases' %}
+        <a class="button button--primary" href="{% url 'lesson_upload' %}"><span class="icon" aria-hidden="true">add_circle</span>Adaptar una clase</a>
+        {% else %}
         <a class="button button--primary" href="{% url 'adapt' %}"><span class="icon" aria-hidden="true">add_circle</span>Nueva adaptación</a>
+        {% endif %}
     </div>
 </div>
 
+<nav class="bank-tabs" aria-label="Tipo de adaptación">
+    <a class="bank-tab" href="?vista=clases{% if selected_student %}&amp;alumno={{ selected_student }}{% endif %}" {% if tab == 'clases' %}aria-current="page"{% endif %}>
+        <span class="icon" aria-hidden="true">school</span>Clases adaptadas <span class="bank-tab__count">{{ lesson_total }}</span></a>
+    <a class="bank-tab" href="?vista=materiales{% if selected_student %}&amp;alumno={{ selected_student }}{% endif %}" {% if tab == 'materiales' %}aria-current="page"{% endif %}>
+        <span class="icon" aria-hidden="true">description</span>Materiales sueltos <span class="bank-tab__count">{{ total }}</span></a>
+</nav>
+
 {% if students %}
 <nav class="card bank-students" aria-label="Filtrar por estudiante">
-    <a class="bank-student" href="?{% if selected_subject %}materia={{ selected_subject }}{% endif %}" {% if not selected_student %}aria-current="true"{% endif %}>
+    <a class="bank-student" href="?vista={{ tab }}{% if selected_subject %}&amp;materia={{ selected_subject }}{% endif %}" {% if not selected_student %}aria-current="true"{% endif %}>
         <span class="avatar avatar--neuro" aria-hidden="true"><span class="icon">groups</span></span>
-        <span class="bank-student__text"><strong>Todos</strong><span>{{ total }} adaptaci{{ total|pluralize:"ón,ones" }}</span></span>
+        <span class="bank-student__text"><strong>Todos</strong><span>{% if tab == 'clases' %}{{ lesson_total }} clase{{ lesson_total|pluralize }}{% else %}{{ total }} material{{ total|pluralize:"es" }}{% endif %}</span></span>
     </a>
     {% for student in students %}
-        <a class="bank-student" href="?alumno={{ student.pk }}{% if selected_subject %}&amp;materia={{ selected_subject }}{% endif %}"
+        <a class="bank-student" href="?vista={{ tab }}&amp;alumno={{ student.pk }}{% if selected_subject %}&amp;materia={{ selected_subject }}{% endif %}"
            {% if selected_student == student.pk|stringformat:"s" %}aria-current="true"{% endif %}>
             <span class="avatar avatar--{{ student.groups.0.key }}" aria-hidden="true">{{ student.initials }}</span>
             <span class="bank-student__text">
                 <strong>{{ student.name }}</strong>
-                <span>{{ student.get_grade_display }} · {{ student.card_count }} adaptaci{{ student.card_count|pluralize:"ón,ones" }}</span>
+                <span>{{ student.get_grade_display }} · {{ student.card_count }} {% if tab == 'clases' %}clase{{ student.card_count|pluralize }}{% else %}material{{ student.card_count|pluralize:"es" }}{% endif %}</span>
             </span>
         </a>
     {% endfor %}
@@ -41,6 +52,7 @@
 {% endif %}
 
 <form class="bank-filters" method="get" role="search" aria-label="Filtrar adaptaciones">
+    <input type="hidden" name="vista" value="{{ tab }}">
     {% if selected_student %}<input type="hidden" name="alumno" value="{{ selected_student }}">{% endif %}
     <div class="filter-chips" role="group" aria-label="Materia">
         <span class="bank-filters__label">Materia:</span>
@@ -51,6 +63,7 @@
         {% endfor %}
     </div>
     <div class="bank-filters__row">
+        {% if tab == 'materiales' %}
         <label class="sr-only" for="bank-outcome">Resultado en el aula</label>
         <select class="field__control" id="bank-outcome" name="resultado" data-autosubmit>
             <option value="">Todos los resultados</option>
@@ -58,17 +71,74 @@
                 <option value="{{ value }}" {% if selected_outcome == value %}selected{% endif %}>{{ label }}</option>
             {% endfor %}
         </select>
+        {% endif %}
         {% if selected_subject %}<input type="hidden" name="materia" value="{{ selected_subject }}">{% endif %}
         <label class="sr-only" for="bank-search">Buscar por título, tema o código</label>
         <div class="field__wrapper bank-filters__search">
             <span class="icon field__icon" aria-hidden="true">search</span>
-            <input class="field__control" type="search" id="bank-search" name="q" value="{{ query }}" placeholder="Buscar por título, tema o código...">
+            <input class="field__control" type="search" id="bank-search" name="q" value="{{ query }}" placeholder="{% if tab == 'clases' %}Buscar por sesión o título de la clase...{% else %}Buscar por título, tema o código...{% endif %}">
         </div>
         <button type="submit" class="button button--secondary">Buscar</button>
     </div>
 </form>
 
-{% if cards %}
+{% if tab == 'clases' %}
+{% if lessons %}
+<div class="bank-grid">
+    {% for lesson in lessons %}
+    <article class="card bank-card lesson-card" aria-labelledby="lesson-{{ lesson.pk }}">
+        <div class="bank-card__body">
+            <p class="bank-card__tags">
+                {% if lesson.subject %}<span class="chip chip--secondary">{{ lesson.subject.name }}</span>{% endif %}
+                <span class="chip chip--{% if lesson.state == 'ready' %}primary{% else %}warning{% endif %}">{{ lesson.state_label }}</span>
+            </p>
+            <h2 class="bank-card__title" id="lesson-{{ lesson.pk }}">{{ lesson.session_label }}{% if lesson.title and lesson.title != lesson.session_label %} · {{ lesson.title }}{% endif %}</h2>
+            <p class="bank-card__summary">Adaptada el {{ lesson.created_at|date:"j M Y" }} para {{ lesson.active_adaptations|length }} estudiante{{ lesson.active_adaptations|length|pluralize }}.</p>
+            <ul class="lesson-card__students">
+                {% for adaptation in lesson.active_adaptations %}
+                <li>
+                    <span class="icon" aria-hidden="true">{% if adaptation.is_ready %}check_circle{% else %}pending{% endif %}</span>
+                    <span><strong>{{ adaptation.student.name }}</strong> · {{ adaptation.conditions_label }} · {{ adaptation.get_grade_display }}</span>
+                    {% if adaptation.active_worksheet and adaptation.is_ready %}
+                        <a href="{% url 'evaluation' adaptation.active_worksheet.pk %}">{% if adaptation.evaluation_outcome == 'PENDING' %}Evaluar en aula{% else %}Ver evaluación{% endif %}</a>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        <footer class="bank-card__footer">
+            <div class="bank-card__actions">
+                <a class="button button--{% if lesson.state == 'ready' %}secondary{% else %}primary{% endif %}" href="{{ lesson.continue_url }}">
+                    <span class="icon" aria-hidden="true">{% if lesson.state == 'ready' %}visibility{% else %}arrow_forward{% endif %}</span>{% if lesson.state == 'ready' %}Ver la clase{% else %}Continuar revisión{% endif %}</a>
+                {% if lesson.state == 'ready' %}
+                <a class="button button--primary" href="{% url 'lesson_zip' lesson.pk %}"><span class="icon" aria-hidden="true">folder_zip</span>Descargar clase completa</a>
+                {% endif %}
+                <form method="post" action="{% url 'lesson_delete' lesson.pk %}"
+                      data-confirm="¿Eliminar la clase {{ lesson.session_label }}? Se quitan la clase y las fichas de sus estudiantes, y no se puede deshacer desde la app.">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button type="submit" class="button button--danger"><span class="icon" aria-hidden="true">delete</span>Eliminar</button>
+                </form>
+            </div>
+        </footer>
+    </article>
+    {% endfor %}
+</div>
+{% elif lesson_total %}
+<div class="card bank-empty">
+    <span class="icon" aria-hidden="true">filter_alt_off</span>
+    <p>Ninguna clase coincide con los filtros.</p>
+    <a class="button button--secondary" href="?vista=clases">Quitar filtros</a>
+</div>
+{% else %}
+<div class="card bank-empty">
+    <span class="icon" aria-hidden="true">school</span>
+    <p>Todavía no tienes clases adaptadas.</p>
+    <a class="button button--primary" href="{% url 'lesson_upload' %}">Adaptar mi primera clase</a>
+</div>
+{% endif %}
+
+{% elif cards %}
 <div class="bank-grid">
     {% for card in cards %}
     <article class="card bank-card" aria-labelledby="card-{{ card.pk }}">
@@ -84,12 +154,6 @@
             <p class="bank-card__student">
                 <span class="icon" aria-hidden="true">person</span>{{ card.student.name }} · {{ card.conditions_label }}
             </p>
-            {% if card.lesson %}
-            <p class="bank-card__lesson">
-                <span class="icon" aria-hidden="true">school</span>De la clase
-                <a href="{% url 'lesson_detail' card.lesson.pk %}">{{ card.lesson.session_label }}{% if card.lesson.title and card.lesson.title != card.lesson.session_label %} · {{ card.lesson.title }}{% endif %}</a>
-            </p>
-            {% endif %}
             {% if card.adjustment_labels %}
             <ul class="bank-card__adjustments" aria-label="Ajustes DUA aplicados">
                 {% for label in card.adjustment_labels|slice:":3" %}<li>{{ label }}</li>{% endfor %}
@@ -134,13 +198,13 @@
 {% elif total %}
 <div class="card bank-empty">
     <span class="icon" aria-hidden="true">filter_alt_off</span>
-    <p>Ninguna adaptación coincide con los filtros.</p>
-    <a class="button button--secondary" href="{% url 'bank' %}">Quitar filtros</a>
+    <p>Ningún material coincide con los filtros.</p>
+    <a class="button button--secondary" href="?vista=materiales">Quitar filtros</a>
 </div>
 {% else %}
 <div class="card bank-empty">
     <span class="icon" aria-hidden="true">folder_open</span>
-    <p>Todavía no tienes adaptaciones guardadas.</p>
+    <p>Todavía no tienes materiales sueltos adaptados.</p>
     <a class="button button--primary" href="{% url 'adapt' %}">Adaptar mi primera guía</a>
 </div>
 {% endif %}

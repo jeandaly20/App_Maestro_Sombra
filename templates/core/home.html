@@ -20,7 +20,7 @@
             {% endif %}
         </p>
     </div>
-    <a class="button button--primary button--large" href="{% if student_count %}{% url 'adapt' %}{% else %}{% url 'student_list' %}{% endif %}">
+    <a class="button button--primary button--large" href="{% if student_count %}{% url 'adapt' %}{% else %}{% url 'student_create' %}{% endif %}">
         <span class="icon" aria-hidden="true">add_circle</span>{% if student_count %}Nueva adaptación{% else %}Registrar estudiante{% endif %}</a>
 </section>
 

@@ -73,6 +73,25 @@ document.addEventListener('DOMContentLoaded', () => {
         blockConflicts();
     }
 
+    // The authorization is printed with the student's name and grade: they are copied from the record form
+    // into the small download form (POST), and asked for first when empty
+    const consentForm = document.querySelector('[data-consent-form]');
+    const consentMissing = document.querySelector('[data-consent-missing]');
+    if (consentForm) {
+        consentForm.addEventListener('submit', (event) => {
+            const name = document.getElementById('id_name').value.trim();
+            const grade = document.getElementById('id_grade').value;
+            consentForm.elements.name.value = name;
+            consentForm.elements.grade.value = grade;
+            const missing = name.length < 3 || !grade;
+            consentMissing.hidden = !missing;
+            if (missing) {
+                event.preventDefault();
+                document.getElementById(name.length < 3 ? 'id_name' : 'id_grade').focus();
+            }
+        });
+    }
+
     // Directory: search box + group chips
     const cards = [...document.querySelectorAll('[data-student]')];
     const search = document.querySelector('[data-directory-search]');

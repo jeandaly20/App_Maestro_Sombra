@@ -1,0 +1,115 @@
+{% extends "app_base.html" %}
+{% load static %}
+
+{% block title %}Gestión de estudiantes{% endblock %}
+{% block styles %}{{ block.super }}<link rel="stylesheet" href="{% asset 'css/students.css' %}">{% endblock %}
+{% block scripts %}<script src="{% asset 'js/students.js' %}" defer></script>{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <p class="badge-line"><span class="icon" aria-hidden="true">verified_user</span>Expediente pedagógico confidencial · LOPDP</p>
+        <h1>Gestión de estudiantes con NEE</h1>
+        <p class="page-header__intro">Todo lo registrado de cada estudiante: sus NEE, el respaldo del diagnóstico, la autorización del representante y las pautas de adaptación. Desde aquí descargas su expediente completo.</p>
+    </div>
+    <div class="page-header__actions">
+        {% if students %}
+            <a class="button button--secondary" href="{% url 'student_records_pdf' %}">
+                <span class="icon" aria-hidden="true">picture_as_pdf</span>Exportar todas las fichas (PDF)
+            </a>
+        {% endif %}
+        {% if not is_full %}
+            <a class="button button--primary" href="{% url 'student_create' %}">
+                <span class="icon" aria-hidden="true">person_add</span>Registrar estudiante
+            </a>
+        {% endif %}
+    </div>
+</div>
+
+<section class="directory" aria-labelledby="directory-title">
+    <div class="card directory__header">
+        <div class="directory__title-row">
+            <h2 id="directory-title"><span class="icon" aria-hidden="true">groups</span>Estudiantes registrados</h2>
+            <span class="chip chip--primary">{{ students|length }}/{{ max_students }} cupos usados</span>
+        </div>
+        {% if is_full %}
+            <p class="directory__full"><span class="icon" aria-hidden="true">info</span>Ya usaste los {{ max_students }} cupos. Para registrar a otro estudiante, da de baja a uno desde su ficha (su historial se conserva).</p>
+        {% endif %}
+        {% if students %}
+            <label class="sr-only" for="directory-search">Filtrar por nombre o condición</label>
+            <div class="field__wrapper">
+                <span class="icon field__icon" aria-hidden="true">search</span>
+                <input class="field__control" type="search" id="directory-search" placeholder="Filtrar por nombre o condición..." data-directory-search>
+            </div>
+            <div class="filter-chips" role="group" aria-label="Filtrar por grupo">
+                <button type="button" class="filter-chip" data-filter="all" aria-pressed="true">Todos</button>
+                <button type="button" class="filter-chip" data-filter="dea" aria-pressed="false">DEA</button>
+                <button type="button" class="filter-chip" data-filter="neuro" aria-pressed="false">Neurodesarrollo</button>
+                <button type="button" class="filter-chip" data-filter="id" aria-pressed="false">Discapacidad intelectual</button>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="student-grid">
+    {% for student in students %}
+        <article class="card student-card" data-student data-groups="{{ student.group_keys }}"
+                 data-search="{{ student.name|lower }} {{ student.condition_labels|join:' '|lower }}">
+            <header class="student-card__header">
+                <span class="avatar avatar--{{ student.groups.0.key }}" aria-hidden="true">{{ student.initials }}</span>
+                <div class="student-card__identity">
+                    <h3>{{ student.name }}</h3>
+                    <p>{{ student.get_grade_display }} · {{ student.age }} años · {{ student.pseudonym }}</p>
+                </div>
+                <span class="student-card__count"><span class="icon" aria-hidden="true">auto_fix_high</span>{{ student.adaptation_count }} adaptada{{ student.adaptation_count|pluralize }}</span>
+            </header>
+
+            <ul class="chip-list" aria-label="Condiciones NEE">
+                {% for label, group_key in student.condition_badges %}<li><span class="chip chip--{{ group_key }}">{{ label }}</span></li>{% endfor %}
+            </ul>
+
+            <dl class="student-facts">
+                <div><dt>Fecha de nacimiento</dt><dd>{{ student.birth_date|date:"d/m/Y" }}</dd></div>
+                <div><dt>Respaldo del diagnóstico</dt>
+                    <dd>{{ student.get_diagnosis_source_display }}{% if student.diagnosis_date %} · {{ student.diagnosis_date|date:"d/m/Y" }}{% endif %}</dd></div>
+                <div><dt>Documento</dt>
+                    <dd>{% if student.has_document %}
+                        <span>{{ student.get_diagnosis_file_type_display }} · <a href="{% url 'student_document' student.pk %}" target="_blank" rel="noopener">Ver documento</a></span>
+                        {% with check=student.document_check %}<span class="document-check document-check--{{ check.0 }}">{{ check.1 }}</span>{% endwith %}
+                    {% else %}<span class="student-facts__missing">{{ student.diagnosis_status }}</span>{% endif %}</dd></div>
+                <div><dt>Autorización del representante</dt>
+                    <dd>{% if student.has_signed_consent %}
+                        <span>Firmada el {{ student.diagnosis_consent_at|date:"d/m/Y" }} · <a href="{% url 'student_consent' student.pk %}" target="_blank" rel="noopener">Ver autorización</a></span>
+                    {% elif student.has_document %}<span class="student-facts__missing">Falta subirla firmada</span>
+                    {% else %}<span class="student-facts__missing">No aplica (sin documento)</span>{% endif %}</dd></div>
+                <div><dt>Observaciones</dt><dd>{{ student.notes|default:"Sin observaciones."|linebreaksbr }}</dd></div>
+            </dl>
+
+            <div class="student-card__guidelines">
+                <p class="condition-group__subtitle">Pautas de adaptación automáticas:</p>
+                <p>{{ student.recommended_adjustments|join:", " }}.</p>
+            </div>
+
+            <footer class="student-card__footer">
+                <span class="student-card__updated"><span class="icon" aria-hidden="true">schedule</span>Actualizado hace {{ student.updated_at|timesince }}</span>
+                <a class="button button--secondary" href="{% url 'student_file' student.pk %}">
+                    <span class="icon" aria-hidden="true">folder_zip</span>Descargar expediente
+                </a>
+                <a class="button button--secondary" href="{% url 'student_edit' student.pk %}">
+                    <span class="icon" aria-hidden="true">edit</span>Editar
+                </a>
+                <a class="button button--primary" href="{% url 'adapt' %}?alumno={{ student.pk }}">
+                    <span class="icon" aria-hidden="true">add_task</span>Adaptar tarea
+                </a>
+            </footer>
+        </article>
+    {% empty %}
+        <div class="card directory__empty">
+            <span class="icon" aria-hidden="true">person_add</span>
+            <p>Aún no registras estudiantes.</p>
+            <a class="button button--primary" href="{% url 'student_create' %}">Registrar al primero</a>
+        </div>
+    {% endfor %}
+    </div>
+    <p class="directory__no-results" data-no-results hidden>Ningún estudiante coincide con el filtro.</p>
+</section>
+{% endblock %}

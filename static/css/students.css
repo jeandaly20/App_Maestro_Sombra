@@ -1,10 +1,11 @@
-/* Student registry: SEN record form + student directory */
+/* Student registry: the list of students and the SEN record form (separate pages) */
 
 .students-layout {
-    display: grid;
-    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
-    gap: var(--space-lg);
-    align-items: start;
+    max-width: 920px;
+}
+
+.student-back {
+    margin-bottom: var(--space-md);
 }
 
 /* ---------- Form ---------- */
@@ -331,12 +332,6 @@
     text-align: center;
 }
 
-@media (max-width: 1100px) {
-    .students-layout {
-        grid-template-columns: 1fr;
-    }
-}
-
 @media (max-width: 600px) {
     .condition-options {
         grid-template-columns: 1fr;
@@ -460,4 +455,87 @@
 
 .age-hint--invalid {
     color: var(--color-error);
+}
+
+/* ---------- The representative's signed authorization, inside the document box ---------- */
+
+.consent-box {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-sm);
+    margin-top: var(--space-sm);
+    padding-top: var(--space-md);
+    border-top: 1px solid var(--color-border);
+}
+
+.consent-box > .field,
+.consent-box > p {
+    width: 100%;
+    margin: 0;
+}
+
+.consent-box__title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    color: var(--color-primary);
+    font-weight: 600;
+}
+/* ---------- The list of students ---------- */
+
+.student-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
+    gap: var(--space-md);
+    align-items: start;
+}
+
+.student-facts {
+    display: grid;
+    gap: var(--space-sm);
+    margin: 0;
+    font-size: 0.875rem;
+}
+
+.student-facts > div {
+    display: grid;
+    grid-template-columns: minmax(0, 11rem) minmax(0, 1fr);
+    gap: var(--space-sm);
+    padding-bottom: var(--space-sm);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.student-facts dt {
+    color: var(--color-text-soft);
+    font-weight: 600;
+}
+
+.student-facts dd {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.student-facts__missing {
+    color: var(--color-tertiary);
+    font-weight: 600;
+}
+
+.directory__full {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    margin: 0;
+    color: var(--color-text-soft);
+    font-size: 0.875rem;
+}
+
+@media (max-width: 600px) {
+    .student-facts > div {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
 }

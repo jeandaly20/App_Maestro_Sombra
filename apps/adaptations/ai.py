@@ -498,10 +498,19 @@ LESSON_ADAPTATION_SYSTEM = (
 )
 
 
-def analyze_lesson(*, session_text, guide_parts=(), book_summary='', subject, grade, check_guide=False):
-    """Reads one session of the class plan (and the teacher guide pages) once. No personal data."""
+WEEK_NOTE = (
+    'Esta planificación es una SEMANA completa: sus sesiones son los días de clase del mismo tema. Incluye los '
+    'momentos de TODAS las sesiones, en orden; si hay más de una, empieza el nombre de cada momento con su sesión '
+    '(por ejemplo "Sesión 30 · Calentemos", "Sesión 31 · Calentemos").'
+)
+
+
+def analyze_lesson(*, session_text, guide_parts=(), book_summary='', subject, grade, check_guide=False,
+                   whole_week=False):
+    """Reads one session (or a whole week) of the class plan and the teacher guide pages once. No personal data."""
     prompt = '\n\n'.join(part for part in [
         f'Materia: {subject}. Grado de los estudiantes: {Grade(grade).label}.',
+        WEEK_NOTE if whole_week else '',
         f'Planificación de la sesión:\n{session_text}',
         f'Resumen de las páginas del libro del alumno: {book_summary}' if book_summary else '',
         'Imágenes de la guía del docente a continuación.' if guide_parts else '',
@@ -514,8 +523,9 @@ def analyze_lesson(*, session_text, guide_parts=(), book_summary='', subject, gr
     return data, model
 
 
-def adapt_lesson(*, lesson, book_summary, subject, subject_code, grade, conditions, adjustments, chosen_grade=''):
-    """Adapts the whole class for ONE student and all their conditions. Receives no personal data."""
+def adapt_lesson(*, lesson, book_summary, subject, subject_code, grade, conditions, adjustments, chosen_grade='',
+                 whole_week=False):
+    """Adapts the whole class (or week) for ONE student and all their conditions. Receives no personal data."""
     moments = '\n'.join(f'- {m.get("name", "")} ({m.get("duration", "")}): {m.get("activities", "")}'
                          for m in lesson.get('moments', []))
     prompt = [
@@ -530,6 +540,8 @@ def adapt_lesson(*, lesson, book_summary, subject, subject_code, grade, conditio
         f'Preguntas de metacognición de la clase: {"; ".join(lesson.get("metacognition", []))}',
         (f'El docente decidió una adaptación de {AdaptationGrade(chosen_grade).label}: aplícala.' if chosen_grade
          else 'Sugiere el grado de adaptación más adecuado y aplícalo.'),
+        ('Es una semana completa: adapta los momentos de todas sus sesiones y conserva en el nombre de cada '
+         'momento la sesión a la que pertenece.' if whole_week else ''),
         'Adapta todos los momentos, en el mismo orden. En "evaluation" explica cómo evaluar al estudiante con el '
         'indicador de la clase. En "metacognition" no copies las preguntas de la clase: reescríbelas para este '
         'estudiante, con palabras sencillas y de máximo 10 palabras cada una (por ejemplo "¿Qué te ayudó a '

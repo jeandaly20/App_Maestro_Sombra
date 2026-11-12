@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 from django import forms
@@ -76,7 +77,7 @@ class AdaptMaterialForm(AccessibleFormMixin, forms.Form):
 
 
 MAX_PLAN_MB = 10
-MAX_PAGE_FILES = 6
+MAX_PAGE_FILES = 10  # a whole week can use several pages of the book
 PAGE_TYPES = {b'%PDF-': 'pdf', b'\x89PNG': 'png', b'\xff\xd8\xff': 'jpg', b'RIFF': 'webp'}
 
 
@@ -114,22 +115,22 @@ class MultipleFileField(forms.FileField):
 
 
 class LessonUploadForm(AccessibleFormMixin, forms.Form):
-    """Step 1 of "Adaptar clase": the teacher's class plan in Excel."""
-    plan_file = forms.FileField(label='Planificación en Excel (.xlsx)',
-                                widget=forms.ClearableFileInput(attrs={'accept': '.xlsx'}))
+    """Step 1 of "Adaptar clase": the teacher's class plan in Excel, Word or a digital PDF."""
+    plan_file = forms.FileField(label='Planificación (Excel, Word o PDF)',
+                                widget=forms.ClearableFileInput(attrs={'accept': '.xlsx,.xls,.docx,.pdf'}))
 
     def clean_plan_file(self):
         upload = self.cleaned_data['plan_file']
-        if Path(upload.name).suffix.lower() != '.xlsx':
-            raise forms.ValidationError('Sube la planificación en formato Excel (.xlsx).')
+        if Path(upload.name).suffix.lower() not in lesson_plan.EXTENSIONS.values():
+            raise forms.ValidationError('Sube la planificación en Excel (.xlsx o .xls), Word (.docx) o PDF.')
         if upload.size > MAX_PLAN_MB * 1024 * 1024:
             raise forms.ValidationError(f'El archivo supera los {MAX_PLAN_MB} MB.')
         content = upload.read()
         upload.seek(0)
         try:
             found = lesson_plan.sessions(content)
-        except Exception as error:  # noqa: BLE001 - a damaged or non-Excel file
-            raise forms.ValidationError('No se pudo leer el archivo. Verifica que sea un Excel (.xlsx) válido.') from error
+        except lesson_plan.PlanError as error:
+            raise forms.ValidationError(str(error)) from error
         if not found:
             raise forms.ValidationError('No se encontró ninguna clase en el archivo.')
         return upload
@@ -137,7 +138,7 @@ class LessonUploadForm(AccessibleFormMixin, forms.Form):
 
 class LessonSetupForm(AdaptMaterialForm):
     """Step 2: the session to adapt, its student book pages, the optional teacher guide and the students."""
-    session = forms.ChoiceField(label='Clase (sesión) a adaptar')
+    session = forms.ChoiceField(label='Semana a adaptar')
     book_files = MultipleFileField(label='Páginas del libro del alumno', required=True)
     guide_files = MultipleFileField(label='Páginas de la guía del docente (opcional)', required=False)
     adaptation_grade = forms.ChoiceField(
@@ -152,11 +153,15 @@ class LessonSetupForm(AdaptMaterialForm):
         super().__init__(*args, **kwargs)
         for name in ('title', 'topic', 'input_type', 'file', 'input_text'):
             del self.fields[name]  # they come from the chosen session and the book pages
-        self.sessions = {s['key']: s for s in sessions}
-        self.fields['session'].choices = [('', 'Selecciona la clase')] + [
-            (key, f"{s['sheet'].strip()} · {s['label']}{' · ' + s['title'] if s['title'] else ''}")
-            for key, s in self.sessions.items()
-        ]
+        # One class per week, "Semana 19 · its topic": the week is adapted whole (a week has one topic and
+        # its sessions are the class days). Weeks in order; sheets that are not a week (e.g. PCA) last.
+        weeks = sorted(lesson_plan.weeks(sessions), key=lambda week: (
+            int(week['week'].split()[-1]) if re.fullmatch(r'Semana \d+', week['week']) else 10 ** 6))
+        # A sheet that is neither a week nor has sessions (the yearly plan, "PCA") is not a class to adapt
+        weeks = [week for week in weeks if week['sessions'] or re.fullmatch(r'Semana \d+', week['week'])] or weeks
+        self.sessions = {week['key']: week for week in weeks}
+        self.fields['session'].choices = [('', 'Selecciona la semana')] + [
+            (week['key'], f"{week['week']} · {week['title']}") for week in weeks]
 
     def chosen_session(self):
         return self.sessions[self.cleaned_data['session']]

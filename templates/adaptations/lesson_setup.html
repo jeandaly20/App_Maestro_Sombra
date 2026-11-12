@@ -21,7 +21,7 @@
         <span class="icon" aria-hidden="true">person_add</span>
         <div>
             <h2>Primero registra a tus estudiantes</h2>
-            <a class="button button--primary" href="{% url 'student_list' %}">Ir al registro de alumnos</a>
+            <a class="button button--primary" href="{% url 'student_create' %}">Registrar un estudiante</a>
         </div>
     </div>
 {% else %}
@@ -52,11 +52,11 @@
         <h2 id="pages-title" class="adapt-section__title"><span class="icon" aria-hidden="true">auto_stories</span>2. Páginas de la clase</h2>
         <div class="upload-zone">
             {% include "includes/field.html" with field=form.book_files icon="photo_camera" %}
-            <p class="field__help">Fotos de las páginas del libro del alumno (hasta 6) o un PDF. Obligatorio.</p>
+            <p class="field__help">Fotos de las páginas del libro del alumno (hasta 10) o un PDF. Si eliges la semana completa, sube las páginas de todas sus sesiones. Obligatorio.</p>
         </div>
         <div class="upload-zone lesson-guide">
             {% include "includes/field.html" with field=form.guide_files icon="menu_book" %}
-            <p class="field__help">Fotos de la guía del docente para esta clase (hasta 6) o un PDF. Si trae una sección de "Apoyo", la IA la usa.</p>
+            <p class="field__help">Fotos de la guía del docente para esta clase (hasta 10) o un PDF. Si trae una sección de "Apoyo", la IA la usa.</p>
         </div>
     </section>
 

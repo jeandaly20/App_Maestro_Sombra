@@ -15,6 +15,7 @@ from django.shortcuts import get_object_or_404, redirect
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.text import slugify
 from django.views import View
 from django.views.generic import FormView, TemplateView
@@ -25,7 +26,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from xhtml2pdf import default as pisa_default
 from xhtml2pdf import pisa
 
-from apps.core.choices import GRADE_NUMBERS, ColorFilter, RecordStatus, UdlAdjustment
+from apps.core.choices import GRADE_NUMBERS, AdaptationGrade, ColorFilter, RecordStatus, UdlAdjustment
 from apps.evaluations.models import Evaluation, EvaluationStatus, Outcome
 from apps.materials.models import InputType, MaterialStatus, OriginalMaterial
 
@@ -52,6 +53,15 @@ def own_adaptation(request, pk):
         CurricularAdaptation.objects.select_related('material__subject', 'student'),
         pk=pk, material__teacher=request.user, record_status=RecordStatus.ACTIVE,
     )
+
+
+def back_to(request, fallback):
+    """Where to return after a worksheet action: the page that sent it (e.g. its class), if it is ours."""
+    target = request.POST.get('next') or request.GET.get('next') or ''
+    if url_has_allowed_host_and_scheme(target, allowed_hosts={request.get_host()},
+                                       require_https=request.is_secure()):
+        return target
+    return fallback
 
 
 def figure_image_path(material, number):
@@ -240,31 +250,58 @@ def filter_cards(cards, filters):
     ]
 
 
+def filter_lessons(lessons, filters):
+    """The bank's classes that match its filters (student, subject, text)."""
+    query = filters['query'].lower()
+    return [
+        lesson for lesson in lessons
+        if (not filters['student'] or any(str(a.student_id) == filters['student'] for a in lesson.active_adaptations))
+        and (not filters['subject'] or (lesson.subject and lesson.subject.code == filters['subject']))
+        and (not query or query in f'{lesson.session_label} {lesson.title}'.lower())
+    ]
+
+
 class BankView(LoginRequiredMixin, TemplateView):
-    """Banco de adaptaciones: the newest version of every worksheet, its classroom outcome and filters."""
+    """
+    Banco de adaptaciones, in two tabs: the adapted classes (each with its students' class and worksheet)
+    and the loose worksheets made in "Adaptar material", with their classroom outcome and filters.
+    """
     template_name = 'adaptations/bank.html'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         teacher = self.request.user
-        cards = bank_cards(teacher)
+        all_cards = bank_cards(teacher)
+        cards = [card for card in all_cards if card.lesson is None]  # worksheets of a class live in the class
+        lessons = [lesson for lesson in teacher_lessons(teacher) if lesson.state in ('review', 'ready')]
+        tab = self.request.GET.get('vista') or ('clases' if lessons or not cards else 'materiales')
 
         students = list(teacher.students.filter(record_status=RecordStatus.ACTIVE).order_by('created_at'))
         for student in students:
-            student.card_count = sum(1 for card in cards if card.student_id == student.pk)
-        subjects = sorted({card.material.subject for card in cards}, key=lambda subject: subject.name)
+            student.card_count = (sum(1 for lesson in lessons if any(a.student_id == student.pk
+                                                                     for a in lesson.active_adaptations))
+                                  if tab == 'clases' else sum(1 for card in cards if card.student_id == student.pk))
+        subjects = sorted({card.material.subject for card in cards} | {lesson.subject for lesson in lessons
+                                                                       if lesson.subject},
+                          key=lambda subject: subject.name)
 
         filters = bank_filters(self.request.GET)
         selected_student, selected_subject = filters['student'], filters['subject']
         selected_outcome, query = filters['outcome'], filters['query']
         shown = filter_cards(cards, filters)
+        shown_lessons = filter_lessons(lessons, filters)
+        for lesson in shown_lessons:
+            for adaptation in lesson.active_adaptations:
+                worksheet = adaptation.active_worksheet
+                adaptation.evaluation_outcome = evaluation_of(worksheet).outcome if worksheet else None
         # The latest AI advice for the chosen student (or for any student)
-        advised = [card.evaluation for card in cards
+        advised = [card.evaluation for card in all_cards
                    if (not selected_student or str(card.student_id) == selected_student)
                    and hasattr(card, 'evaluation') and card.evaluation.ai_recommendation]
         advice = max(advised, key=lambda evaluation: evaluation.recommended_at, default=None)
         context.update({
             'cards': shown, 'total': len(cards), 'students': students, 'subjects': subjects,
+            'tab': tab, 'lessons': shown_lessons, 'lesson_total': len(lessons),
             'zip_query': self.request.GET.urlencode(),
             'outcomes': Outcome.choices, 'advice': advice, 'query': query,
             'selected_student': selected_student, 'selected_subject': selected_subject,
@@ -274,10 +311,11 @@ class BankView(LoginRequiredMixin, TemplateView):
 
 
 class BankZipView(LoginRequiredMixin, View):
-    """"Descargar todo" in the bank: the worksheets shown with the current filters, in a folder per student."""
+    """"Descargar todo" in the bank's loose materials: the worksheets shown with its filters, a folder per student."""
 
     def get(self, request):
-        shown = filter_cards(bank_cards(request.user), bank_filters(request.GET))
+        loose = [card for card in bank_cards(request.user) if card.lesson is None]
+        shown = filter_cards(loose, bank_filters(request.GET))
         if not shown:
             messages.error(request, 'No hay adaptaciones para descargar con estos filtros.')
             return redirect('bank')
@@ -340,7 +378,8 @@ class AdaptationActionView(LoginRequiredMixin, View):
         if action == 'approve':
             adaptation.status = AdaptationStatus.APPROVED
             adaptation.save(update_fields=['status', 'updated_at'])
-            messages.success(request, 'Adaptación aprobada. Ya puedes descargar el PDF.')
+            messages.success(request, 'Ficha aprobada.' if request.POST.get('next')
+                             else 'Adaptación aprobada. Ya puedes descargar el PDF.')
         elif action == 'color_filter' and request.POST.get('color_filter') in ColorFilter.values:
             adaptation.color_filter = request.POST['color_filter']
             adaptation.save(update_fields=['color_filter', 'updated_at'])
@@ -352,7 +391,7 @@ class AdaptationActionView(LoginRequiredMixin, View):
                 messages.success(request, f'Se generó la versión {target.version}, más simplificada.')
             except ai.AIError as error:
                 messages.error(request, str(error))
-        return redirect(f"{reverse('material_detail', args=[adaptation.material_id])}?a={target.pk}")
+        return redirect(back_to(request, f"{reverse('material_detail', args=[adaptation.material_id])}?a={target.pk}"))
 
 
 class AdaptationDeleteView(LoginRequiredMixin, View):
@@ -377,6 +416,8 @@ class AdaptationEditView(LoginRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         context['adaptation'] = own_adaptation(self.request, kwargs['pk'])
         context['content'] = context['adaptation'].content
+        context['back_url'] = back_to(self.request, f"{reverse('material_detail', args=[context['adaptation'].material_id])}"
+                                                    f"?a={context['adaptation'].pk}")
         return context
 
     def post(self, request, pk):
@@ -412,7 +453,7 @@ class AdaptationEditView(LoginRequiredMixin, TemplateView):
         adaptation.save()
         logger.info('Adaptation %s edited by teacher=%s', adaptation.code, request.user.pk)
         messages.success(request, 'Cambios guardados. Revisa la guía y apruébala para descargarla.')
-        return redirect(f"{reverse('material_detail', args=[adaptation.material_id])}?a={adaptation.pk}")
+        return redirect(back_to(request, f"{reverse('material_detail', args=[adaptation.material_id])}?a={adaptation.pk}"))
 
 
 def register_pdf_fonts():
@@ -509,14 +550,56 @@ def own_lesson(request, pk):
                              teacher=request.user, record_status=RecordStatus.ACTIVE)
 
 
+def teacher_lessons(teacher):
+    """
+    The teacher's classes, newest first, each with: the students it was adapted for (active_adaptations),
+    how many are fully reviewed (ready_count), its state (state, state_label, is_finished) and the page
+    where the teacher continues (continue_url).
+    """
+    lessons = list(LessonPlan.objects.filter(teacher=teacher, record_status=RecordStatus.ACTIVE)
+                   .select_related('subject')
+                   .prefetch_related('adaptations__student', 'adaptations__worksheet'))
+    for lesson in lessons:
+        lesson.active_adaptations = [a for a in lesson.adaptations.all() if a.record_status == RecordStatus.ACTIVE]
+        lesson.ready_count = sum(1 for a in lesson.active_adaptations if a.is_ready)
+        detail = reverse('lesson_detail', args=[lesson.pk])
+        if not lesson.material_id and lesson.status == MaterialStatus.PENDING:
+            lesson.state, lesson.state_label = 'setup', 'Falta configurar'
+            lesson.continue_url = reverse('lesson_setup', args=[lesson.pk])
+        elif lesson.status in (MaterialStatus.PENDING, MaterialStatus.PROCESSING):
+            lesson.state, lesson.state_label, lesson.continue_url = 'working', 'La IA está trabajando', detail
+        elif lesson.status == MaterialStatus.ERROR:
+            lesson.state, lesson.state_label, lesson.continue_url = 'error', 'No se pudo adaptar', detail
+        elif lesson.active_adaptations and lesson.ready_count == len(lesson.active_adaptations):
+            lesson.state, lesson.state_label = 'ready', 'Lista'
+            lesson.continue_url = f'{detail}?paso=listo'
+        else:
+            lesson.state = 'review'
+            lesson.state_label = f'En revisión ({lesson.ready_count} de {len(lesson.active_adaptations)} listos)'
+            lesson.continue_url = f'{detail}?siguiente=1'
+        lesson.is_finished = lesson.state == 'ready'
+    return lessons
+
+
 class LessonUploadView(LoginRequiredMixin, FormView):
-    """Step 1: the class plan in Excel."""
+    """Step 1: the class plan in Excel. Above it, the classes not finished yet, to continue them."""
     template_name = 'adaptations/lesson_upload.html'
     form_class = LessonUploadForm
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['open_lessons'] = [lesson for lesson in teacher_lessons(self.request.user) if not lesson.is_finished]
+        return context
+
     def form_valid(self, form):
         upload = form.cleaned_data['plan_file']
-        lesson = LessonPlan(teacher=self.request.user, plan_file_name=Path(upload.name).name[:255])
+        name = Path(upload.name).name[:255]
+        # Uploading the same plan again replaces the earlier uploads never configured (nothing was done
+        # with them), so "Mis clases en curso" does not show the same file twice
+        for earlier in LessonPlan.objects.filter(teacher=self.request.user, plan_file_name=name, material__isnull=True,
+                                                 status=MaterialStatus.PENDING, record_status=RecordStatus.ACTIVE):
+            services.delete_lesson(earlier)
+        lesson = LessonPlan(teacher=self.request.user, plan_file_name=name)
         lesson.plan_file = upload
         lesson.save()
         logger.info('Lesson plan %s uploaded by teacher=%s', lesson.pk, self.request.user.pk)
@@ -585,7 +668,8 @@ class LessonSetupView(LoginRequiredMixin, FormView):
         lesson.material = material
         lesson.sheet, lesson.session_row = session['sheet'], session['row']
         lesson.session_label, lesson.title = session['label'][:100], title
-        lesson.session_text = lesson_plan.session_text(self.plan_content, session['sheet'], session['row'])
+        lesson.session_text = lesson_plan.session_text(self.plan_content, session['sheet'], session['row'],
+                                                       session.get('last_row'))
         lesson.status = MaterialStatus.PENDING
         lesson.save()
         logger.info('Lesson %s (%s) sent to the AI by teacher=%s', lesson.pk, lesson.session_label, self.request.user.pk)
@@ -594,23 +678,127 @@ class LessonSetupView(LoginRequiredMixin, FormView):
         return redirect('lesson_detail', pk=lesson.pk)
 
 
+def lesson_step_url(lesson_id, adaptation_id, step):
+    return f"{reverse('lesson_detail', args=[lesson_id])}?a={adaptation_id}&paso={step}"
+
+
 class LessonDetailView(LoginRequiredMixin, TemplateView):
-    """The adapted class for each student: plan row, shadow-teacher guide, worksheet and Excel."""
+    """
+    The class review, one screen at a time for each student: step 1, the adapted class as it will be in
+    the Excel (editable); step 2, the worksheet; then the next student. When all are approved, the
+    final screen offers the whole class as a ZIP. ?siguiente=1 jumps to the first thing still pending.
+    """
     template_name = 'adaptations/lesson_detail.html'
+
+    def adaptations(self, lesson):
+        return list(lesson.adaptations.filter(record_status=RecordStatus.ACTIVE)
+                    .select_related('student', 'worksheet__material__subject', 'worksheet__student'))
+
+    def get(self, request, *args, **kwargs):
+        if request.GET.get('siguiente'):
+            lesson = own_lesson(request, kwargs['pk'])
+            adaptations = self.adaptations(lesson)
+            pending = next((a for a in adaptations if not a.is_ready), None)
+            if pending is None:
+                return redirect(f"{reverse('lesson_detail', args=[lesson.pk])}?paso=listo")
+            done = request.GET.get('de')
+            if done and done != str(pending.pk):
+                messages.info(request, f'Ahora revisa la clase y la ficha de {pending.student.name}.')
+            return redirect(lesson_step_url(lesson.pk, pending.pk, 1 if not pending.is_class_approved else 2))
+        return super().get(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         lesson = own_lesson(self.request, kwargs['pk'])
-        adaptations = list(lesson.adaptations.filter(record_status=RecordStatus.ACTIVE)
-                           .select_related('student', 'worksheet'))
-        wanted = self.request.GET.get('a')
-        selected = next((a for a in adaptations if str(a.pk) == wanted), adaptations[0] if adaptations else None)
+        adaptations = self.adaptations(lesson)
+        all_ready = bool(adaptations) and all(a.is_ready for a in adaptations)
+        wanted, step = self.request.GET.get('a'), self.request.GET.get('paso', '')
+        selected = next((a for a in adaptations if str(a.pk) == wanted), None)
+        if step == 'listo' and all_ready:
+            selected = None
+        else:
+            selected = selected or next((a for a in adaptations if not a.is_ready), adaptations[0] if adaptations else None)
+            if step not in ('1', '2'):
+                step = '2' if selected and selected.is_class_approved else '1'
+            if step == '2' and selected and not selected.is_class_approved:
+                step = '1'  # the worksheet comes after the class
+        worksheet = selected.active_worksheet if selected else None
         context.update({
             'lesson': lesson, 'analysis': lesson.analysis or {}, 'adaptations': adaptations, 'selected': selected,
+            'step': step if selected else 'listo', 'all_ready': all_ready,
             'is_working': lesson.status in (MaterialStatus.PENDING, MaterialStatus.PROCESSING),
             'plan_row': plan_row_text(selected) if selected else '',
+            'moments': class_moments(lesson, selected) if selected else [],
+            'plan_row_text': '\n'.join(selected.content.get('plan_row', [])) if selected else '',
+            'metacognition_text': '\n'.join(selected.content.get('metacognition', [])) if selected else '',
+            'grade_choices': AdaptationGrade.choices,
+            'worksheet': worksheet,
+            'concepts': concepts_with_images(worksheet) if worksheet and step == '2' else [],
+            'steps': steps_with_images(worksheet) if worksheet and step == '2' else [],
+            # Worksheet actions come back to step 2; approving it moves on to whatever is pending
+            'next_url': lesson_step_url(lesson.pk, selected.pk, 2) if selected else '',
+            'approve_next_url': (f"{reverse('lesson_detail', args=[lesson.pk])}?siguiente=1&de={selected.pk}"
+                                 if selected else ''),
         })
         return context
+
+
+def class_moments(lesson, adaptation):
+    """The adapted moments next to what the whole class does in each one (as in the Excel)."""
+    originals = {lesson_plan.plain(m.get('name')): m.get('activities', '')
+                 for m in (lesson.analysis or {}).get('moments', [])}
+    return [dict(moment, class_activities=originals.get(lesson_plan.plain(moment.get('name')), ''),
+                 teacher_actions_text='\n'.join(moment.get('teacher_actions', [])),
+                 supports_text='\n'.join(moment.get('supports', [])))
+            for moment in adaptation.content.get('moments', [])]
+
+
+def lines(text):
+    return [line.strip(' •-\t') for line in (text or '').splitlines() if line.strip(' •-\t')]
+
+
+class LessonSaveView(LoginRequiredMixin, View):
+    """Step 1: the teacher's corrections to the adapted class (what goes in the Excel), and its approval."""
+
+    def post(self, request, pk):
+        adaptation = get_object_or_404(
+            LessonAdaptation, pk=pk, lesson__teacher=request.user, lesson__record_status=RecordStatus.ACTIVE,
+            record_status=RecordStatus.ACTIVE,
+        )
+        data = request.POST
+        content = dict(adaptation.content)
+        for field in ('grade_reason', 'adapted_objective', 'evaluation'):
+            if field in data:
+                content[field] = data[field].strip()
+        for field in ('plan_row', 'metacognition'):
+            if field in data:
+                content[field] = lines(data[field])
+        moments = []
+        for index, moment in enumerate(content.get('moments', [])):
+            moment = dict(moment)
+            for field in ('duration', 'student_task', 'watch_for'):
+                if f'moment_{index}_{field}' in data:
+                    moment[field] = data[f'moment_{index}_{field}'].strip()
+            for field in ('teacher_actions', 'supports'):
+                if f'moment_{index}_{field}' in data:
+                    moment[field] = lines(data[f'moment_{index}_{field}'])
+            moments.append(moment)
+        content['moments'] = moments
+        if not content.get('plan_row'):
+            messages.error(request, 'La fila de adaptación curricular no puede quedar vacía.')
+            return redirect(lesson_step_url(adaptation.lesson_id, adaptation.pk, 1))
+        adaptation.content = content
+        if data.get('grade') in AdaptationGrade.values:
+            adaptation.grade = data['grade']
+        approve = data.get('action') == 'approve'
+        adaptation.status = AdaptationStatus.APPROVED if approve else AdaptationStatus.IN_REVIEW
+        adaptation.save(update_fields=['content', 'grade', 'status', 'updated_at'])
+        logger.info('Lesson adaptation %s saved (approved=%s) by teacher=%s', adaptation.pk, approve, request.user.pk)
+        if approve:
+            messages.success(request, f'Clase de {adaptation.student.name} aprobada. Ahora revisa su ficha.')
+            return redirect(lesson_step_url(adaptation.lesson_id, adaptation.pk, 2))
+        messages.success(request, 'Cambios guardados. Cuando esté lista, apruébala.')
+        return redirect(lesson_step_url(adaptation.lesson_id, adaptation.pk, 1))
 
 
 class LessonDeleteView(LoginRequiredMixin, View):
@@ -621,7 +809,9 @@ class LessonDeleteView(LoginRequiredMixin, View):
         services.delete_lesson(lesson)
         logger.info('Lesson %s deleted by teacher=%s', lesson.pk, request.user.pk)
         messages.success(request, 'Se eliminó la clase adaptada y sus fichas.')
-        return redirect('bank')
+        # Back to the screen it was deleted from ("Mis clases en curso", the bank); from the class itself,
+        # whose page no longer exists, to "Adaptar clase"
+        return redirect(back_to(request, reverse('lesson_upload')))
 
 
 class LessonStatusView(LoginRequiredMixin, View):
@@ -638,7 +828,7 @@ def plan_row_text(adaptation):
 
 
 def class_sheet(adaptation):
-    """(sheet name, data) of one student's adapted class, for lesson_plan.adapted_workbook."""
+    """(student name, data) of one student's adapted class, for lesson_plan.adapted_class."""
     lesson = adaptation.lesson
     return adaptation.student.name, {
         'analysis': lesson.analysis or {}, 'content': adaptation.content, 'subject': lesson.subject.name,
@@ -648,11 +838,11 @@ def class_sheet(adaptation):
     }
 
 
-XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-
-
 class LessonExcelView(LoginRequiredMixin, View):
-    """Only the chosen session, adapted for the student, as a new Excel without personal or school data."""
+    """
+    Only the chosen session, adapted for the student, as a new file without personal or school data, in the
+    format the teacher uploaded the plan in: Excel, PDF or Word.
+    """
 
     def get(self, request, pk):
         adaptation = get_object_or_404(
@@ -661,10 +851,10 @@ class LessonExcelView(LoginRequiredMixin, View):
             record_status=RecordStatus.ACTIVE,
         )
         lesson = adaptation.lesson
-        content = lesson_plan.adapted_workbook([class_sheet(adaptation)])
-        logger.info('Lesson %s exported to Excel by teacher=%s', lesson.pk, request.user.pk)
-        response = HttpResponse(content, content_type=XLSX)
-        name = f'clase-adaptada-{lesson.session_label}-{adaptation.student.pseudonym}.xlsx'.replace(' ', '-').lower()
+        content, extension, content_type = lesson_plan.adapted_class([class_sheet(adaptation)], lesson.plan_format)
+        logger.info('Lesson %s exported (%s) by teacher=%s', lesson.pk, extension, request.user.pk)
+        response = HttpResponse(content, content_type=content_type)
+        name = f'clase-adaptada-{slugify(lesson.session_label)}-{adaptation.student.pseudonym.lower()}{extension}'
         response['Content-Disposition'] = f'attachment; filename="{name}"'
         response['Cache-Control'] = 'private, no-store'
         return response
@@ -672,26 +862,35 @@ class LessonExcelView(LoginRequiredMixin, View):
 
 class LessonZipView(LoginRequiredMixin, View):
     """
-    "Descargar todo": one ZIP with a folder per student (their worksheet PDF) and a single Excel with
-    one independent sheet per student. Built in memory for the class's teacher only; nothing is stored.
+    "Descargar todo": one folder per student with their adapted class (in the plan's format: Excel, PDF or
+    Word) and their worksheet (PDF).
+    Only once every class and worksheet is approved. Built in memory for the class's teacher; nothing is stored.
     """
 
     def get(self, request, pk):
         lesson = own_lesson(request, pk)
         adaptations = list(lesson.adaptations.filter(record_status=RecordStatus.ACTIVE)
-                           .select_related('student', 'worksheet__material__subject', 'worksheet__student'))
+                           .select_related('lesson__subject', 'student', 'worksheet__material__subject',
+                                           'worksheet__student'))
         if not adaptations:
             messages.error(request, 'Esta clase todavía no tiene adaptaciones para descargar.')
+            return redirect('lesson_detail', pk=lesson.pk)
+        pending = [a.student.name for a in adaptations if not a.is_ready]
+        if pending:
+            messages.error(request, f'Falta aprobar la clase o la ficha de: {", ".join(pending)}.')
             return redirect('lesson_detail', pk=lesson.pk)
         session = file_name(lesson.session_label or 'Clase')
         buffer = BytesIO()
         with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as archive:
             for adaptation in adaptations:
-                worksheet = adaptation.worksheet
-                if worksheet and worksheet.record_status == RecordStatus.ACTIVE:
-                    add_worksheet(archive, file_name(adaptation.student.name), worksheet)
-            archive.writestr(f'Clase adaptada - {session}.xlsx',
-                             lesson_plan.adapted_workbook([class_sheet(a) for a in adaptations]))
+                name = file_name(adaptation.student.name)
+                content, extension, _type = lesson_plan.adapted_class([class_sheet(adaptation)], lesson.plan_format)
+                archive.writestr(f'{name}/Clase adaptada - {name}{extension}', content)
+                worksheet = adaptation.active_worksheet
+                if worksheet:
+                    pdf = worksheet_pdf(worksheet)
+                    if pdf:
+                        archive.writestr(f'{name}/Ficha - {name}.pdf', pdf)
         logger.info('Lesson %s downloaded as ZIP by teacher=%s', lesson.pk, request.user.pk)
         return zip_response(buffer.getvalue(), f'clase-adaptada-{slugify(session)}.zip')
 

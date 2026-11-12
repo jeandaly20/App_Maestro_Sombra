@@ -1,22 +1,18 @@
 {% extends "app_base.html" %}
 {% load static %}
 
-{% block title %}Registro de alumnos{% endblock %}
+{% block title %}{% if object %}Editar ficha{% else %}Registrar estudiante{% endif %}{% endblock %}
 {% block styles %}{{ block.super }}<link rel="stylesheet" href="{% asset 'css/students.css' %}">{% endblock %}
 {% block scripts %}<script src="{% asset 'js/students.js' %}" defer></script>{% endblock %}
 
 {% block content %}
+<a class="button button--ghost student-back" href="{% url 'student_list' %}"><span class="icon" aria-hidden="true">arrow_back</span>Gestión de estudiantes</a>
 <div class="page-header">
     <div>
         <p class="badge-line"><span class="icon" aria-hidden="true">verified_user</span>Expediente pedagógico confidencial · LOPDP</p>
-        <h1>Registro y ficha pedagógica del alumno con NEE</h1>
+        <h1>{% if object %}Editar la ficha de {{ object.name }}{% else %}Registrar un estudiante con NEE{% endif %}</h1>
         <p class="page-header__intro">Registra las necesidades del estudiante para que el sistema adapte la tipografía, los apoyos visuales y la carga cognitiva de cada ficha de trabajo.</p>
     </div>
-    {% if students %}
-        <a class="button button--primary" href="{% url 'student_records_pdf' %}">
-            <span class="icon" aria-hidden="true">picture_as_pdf</span>Exportar expedientes (PDF)
-        </a>
-    {% endif %}
 </div>
 
 <div class="students-layout">
@@ -25,18 +21,12 @@
         <header class="student-form__header">
             <span class="student-form__icon"><span class="icon" aria-hidden="true">badge</span></span>
             <div>
-                <h2 id="form-title">{% if object %}Editar ficha de {{ object.name }}{% else %}Ficha de inclusión y adaptación{% endif %}</h2>
+                <h2 id="form-title">{% if object %}Ficha de {{ object.name }}{% else %}Ficha de inclusión y adaptación{% endif %}</h2>
                 <p>{% if object %}Seudónimo {{ object.pseudonym }}{% else %}Educación General Básica{% endif %}</p>
             </div>
         </header>
 
-        {% if is_full and not object %}
-            <div class="alert alert--info" role="status">
-                <span class="icon" aria-hidden="true">groups</span>
-                <p>Ya registraste el máximo de {{ max_students }} estudiantes. Puedes editar sus fichas desde el directorio.</p>
-            </div>
-        {% else %}
-        <form method="post" enctype="multipart/form-data" novalidate>
+        <form method="post" enctype="multipart/form-data" novalidate id="student-form">
             {% csrf_token %}
 
             <h3 class="form-section"><span class="icon" aria-hidden="true">id_card</span>1. Identificación del estudiante</h3>
@@ -101,9 +91,20 @@
                 {% endif %}
                 {% include "includes/field.html" with field=form.diagnosis_document icon="upload_file" %}
                 <p class="field__help">PDF, JPG o PNG de máximo 5 MB.{% if object.has_document %} Si subes otro, reemplaza al guardado.{% elif form.document_required %} Obligatorio.{% else %} Opcional.{% endif %}</p>
-                <div class="field">
-                    <label class="checkbox" for="{{ form.diagnosis_consent.id_for_label }}">{{ form.diagnosis_consent }}<span>{{ form.diagnosis_consent.label }} Se usa solo para respaldar la adaptación y se borra si el estudiante se da de baja (LOPDP).</span></label>
-                    {% for error in form.diagnosis_consent.errors %}<p class="field__error" id="{{ form.diagnosis_consent.auto_id }}_error"><span class="icon" aria-hidden="true">error</span>{{ error }}</p>{% endfor %}
+
+                <div class="consent-box">
+                    <p class="consent-box__title"><span class="icon" aria-hidden="true">draw</span>Autorización del representante legal</p>
+                    <p class="field__help">Para guardar el documento, el representante del estudiante debe firmar la autorización (LOPDP). El formato sale con el nombre y el grado que escribiste arriba: llénalos primero, descárgalo, que el representante escriba su nombre y firme, y sube una foto o un escaneo.</p>
+                    <button type="submit" form="consent-download" class="button button--secondary" data-consent-download><span class="icon" aria-hidden="true">download</span>Descargar formato de autorización</button>
+                    <p class="field__error" data-consent-missing role="alert" hidden><span class="icon" aria-hidden="true">error</span>Escribe el nombre y elige el grado del estudiante: el formato sale con esos datos.</p>
+                    {% if object.has_signed_consent %}
+                        <p class="document-box__current"><span class="icon" aria-hidden="true">verified</span>Autorización firmada adjunta ({{ object.get_consent_file_type_display }}) · {{ object.diagnosis_consent_at|date:"j M Y" }}
+                            <a href="{% url 'student_consent' object.pk %}" target="_blank" rel="noopener">Ver autorización</a></p>
+                    {% elif object.has_document %}
+                        <p class="document-check document-check--warn"><span class="icon" aria-hidden="true">warning</span>Este documento se guardó antes de pedir la autorización firmada. Súbela para completar el respaldo.</p>
+                    {% endif %}
+                    {% include "includes/field.html" with field=form.consent_document icon="upload_file" %}
+                    <p class="field__help">Al guardar, el sistema revisa que sea el formato de este estudiante (nombre y grado) y que tenga la firma y el nombre del representante; si falta algo, no se guarda. No puede comprobar que la firma sea auténtica: eso lo revisas tú.</p>
                 </div>
             </div>
 
@@ -113,12 +114,18 @@
             <div class="student-form__footer">
                 <p><span class="icon" aria-hidden="true">lock</span>El nombre y las observaciones se guardan cifrados y nunca se envían a la IA (LOPDP).</p>
                 <div class="student-form__actions">
-                    {% if object %}<a class="button button--secondary" href="{% url 'student_list' %}">Cancelar</a>{% endif %}
+                    <a class="button button--secondary" href="{% url 'student_list' %}">Cancelar</a>
                     <button type="submit" class="button button--primary button--large">
                         <span class="icon" aria-hidden="true">save</span>{% if object %}Guardar cambios{% else %}Guardar ficha del alumno{% endif %}
                     </button>
                 </div>
             </div>
+        </form>
+        {# The authorization is downloaded with the name and grade typed above (POST: they never go in a URL) #}
+        <form method="post" action="{% url 'consent_form' %}" id="consent-download" data-consent-form hidden>
+            {% csrf_token %}
+            <input type="hidden" name="name"><input type="hidden" name="grade">
+            <input type="hidden" name="back" value="{{ request.path }}">
         </form>
         {% if object %}
         <form method="post" action="{% url 'student_deactivate' object.pk %}" class="student-deactivate"
@@ -128,77 +135,6 @@
             <button type="submit" class="button button--danger"><span class="icon" aria-hidden="true">person_remove</span>Dar de baja</button>
         </form>
         {% endif %}
-        {% endif %}
-    </section>
-
-    {# ---------- Directory ---------- #}
-    <section class="directory" aria-labelledby="directory-title">
-        <div class="card directory__header">
-            <div class="directory__title-row">
-                <h2 id="directory-title"><span class="icon" aria-hidden="true">groups</span>Directorio de alumnos</h2>
-                <span class="chip chip--primary">{{ students|length }}/{{ max_students }} (máximo {{ max_students }})</span>
-            </div>
-            {% if students %}
-                <label class="sr-only" for="directory-search">Filtrar por nombre o condición</label>
-                <div class="field__wrapper">
-                    <span class="icon field__icon" aria-hidden="true">search</span>
-                    <input class="field__control" type="search" id="directory-search" placeholder="Filtrar por nombre o condición..." data-directory-search>
-                </div>
-                <div class="filter-chips" role="group" aria-label="Filtrar por grupo">
-                    <button type="button" class="filter-chip" data-filter="all" aria-pressed="true">Todos</button>
-                    <button type="button" class="filter-chip" data-filter="dea" aria-pressed="false">DEA</button>
-                    <button type="button" class="filter-chip" data-filter="neuro" aria-pressed="false">Neurodesarrollo</button>
-                    <button type="button" class="filter-chip" data-filter="id" aria-pressed="false">Discapacidad intelectual</button>
-                </div>
-            {% endif %}
-        </div>
-
-        {% for student in students %}
-            <article class="card student-card{% if object.pk == student.pk %} student-card--editing{% endif %}"
-                     data-student data-groups="{{ student.group_keys }}"
-                     data-search="{{ student.name|lower }} {{ student.condition_labels|join:' '|lower }}">
-                <header class="student-card__header">
-                    <span class="avatar avatar--{{ student.groups.0.key }}" aria-hidden="true">{{ student.initials }}</span>
-                    <div class="student-card__identity">
-                        <h3>{{ student.name }}</h3>
-                        <p>{{ student.get_grade_display }} · {{ student.age }} años · {{ student.pseudonym }}</p>
-                    </div>
-                    <span class="student-card__count"><span class="icon" aria-hidden="true">auto_fix_high</span>{{ student.adaptation_count }} adaptada{{ student.adaptation_count|pluralize }}</span>
-                </header>
-                <div class="student-card__backing">
-                <p class="student-card__diagnosis{% if student.is_diagnosis_pending %} student-card__diagnosis--pending{% endif %}">
-                    <span class="icon" aria-hidden="true">{% if student.has_document %}attach_file{% else %}warning{% endif %}</span>{{ student.diagnosis_status }}{% if student.has_document %}: {{ student.get_diagnosis_source_display }}{% endif %}{% if student.diagnosis_date %} · {{ student.diagnosis_date|date:"M Y" }}{% endif %}
-                </p>
-                {% with check=student.document_check %}{% if check %}
-                <p class="document-check document-check--{{ check.0 }}">{{ check.1 }}</p>
-                {% endif %}{% endwith %}
-                </div>
-                <ul class="chip-list">
-                    {% for label, group_key in student.condition_badges %}<li><span class="chip chip--{{ group_key }}">{{ label }}</span></li>{% endfor %}
-                </ul>
-                <div class="student-card__guidelines">
-                    <p class="condition-group__subtitle">Pautas de adaptación automáticas:</p>
-                    <p>{{ student.recommended_adjustments|join:", " }}.</p>
-                </div>
-                <footer class="student-card__footer">
-                    {% if object.pk == student.pk %}
-                        <span class="student-card__updated student-card__updated--editing"><span class="icon" aria-hidden="true">edit_note</span>Editando ahora</span>
-                    {% else %}
-                        <span class="student-card__updated"><span class="icon" aria-hidden="true">schedule</span>Actualizado hace {{ student.updated_at|timesince }}</span>
-                    {% endif %}
-                    <a class="button button--secondary" href="{% url 'student_edit' student.pk %}">Editar</a>
-                    <a class="button button--primary" href="{% url 'adapt' %}?alumno={{ student.pk }}">
-                        <span class="icon" aria-hidden="true">add_task</span>Adaptar tarea
-                    </a>
-                </footer>
-            </article>
-        {% empty %}
-            <div class="card directory__empty">
-                <span class="icon" aria-hidden="true">person_add</span>
-                <p>Aún no registras estudiantes. Completa la ficha para agregar al primero.</p>
-            </div>
-        {% endfor %}
-        <p class="directory__no-results" data-no-results hidden>Ningún estudiante coincide con el filtro.</p>
     </section>
 </div>
 {% endblock %}

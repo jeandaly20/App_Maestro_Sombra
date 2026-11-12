@@ -7,9 +7,31 @@ from apps.core.choices import RecordStatus
 from apps.core.fields import EncryptedTextField
 
 
+# The five questions of the classroom evaluation, each one backed by a source:
+# 1. Goal Attainment Scaling, the standard way to measure an individual goal in special education
+#    (Ruble et al., 2022): did the student reach the adapted objective, from -2 to +2.
+# 2. Intensity of the support the student needed (the support-needs model behind the SIS-C).
+# 3. Comprehension of the adapted instructions and material (UDL, principle of representation; CAST, 2024).
+# 4. Signs of cognitive overload or fatigue (cognitive load theory).
+# 5. Achievement in the official qualitative scale of Ecuador (Reglamento a la LOEI, 2023; Acuerdo
+#    MINEDUC-MINEDUC-2023-00063-A), assessed with the adapted indicators (Acuerdo MINEDUC-MINEDUC-2023-00084-A).
+
+class GoalAttainment(models.TextChoices):
+    MUCH_LESS = 'MUCH_LESS', 'Mucho menos de lo esperado (−2)'
+    LESS = 'LESS', 'Menos de lo esperado (−1)'
+    EXPECTED = 'EXPECTED', 'Lo esperado (0)'
+    MORE = 'MORE', 'Más de lo esperado (+1)'
+    MUCH_MORE = 'MUCH_MORE', 'Mucho más de lo esperado (+2)'
+
+
+GOAL_BELOW_EXPECTED = (GoalAttainment.MUCH_LESS, GoalAttainment.LESS)
+
+
 class AutonomyLevel(models.TextChoices):
-    AUTONOMOUS = 'AUTONOMOUS', 'Totalmente autónomo'
-    OCCASIONAL_SUPPORT = 'OCCASIONAL_SUPPORT', 'Con apoyo puntual'
+    """Intensity of the support the student needed during the class."""
+    AUTONOMOUS = 'AUTONOMOUS', 'Sin apoyo (autónomo)'
+    OCCASIONAL_SUPPORT = 'OCCASIONAL_SUPPORT', 'Apoyo puntual'
+    FREQUENT_SUPPORT = 'FREQUENT_SUPPORT', 'Apoyo frecuente'
     CONSTANT_SUPPORT = 'CONSTANT_SUPPORT', 'Apoyo constante'
 
 
@@ -25,10 +47,12 @@ class Overload(models.TextChoices):
     EVIDENT = 'EVIDENT', 'Evidente'
 
 
-class AccuracyRange(models.TextChoices):
-    BELOW_50 = 'BELOW_50', 'Menos del 50 %'
-    BETWEEN_50_75 = 'BETWEEN_50_75', 'Entre 50 % y 75 %'
-    ABOVE_75 = 'ABOVE_75', 'Más del 75 %'
+class AchievementLevel(models.TextChoices):
+    """Ecuador's qualitative scale of learning achievement."""
+    MASTERS = 'MASTERS', 'Domina los aprendizajes (9 a 10)'
+    ACHIEVES = 'ACHIEVES', 'Alcanza los aprendizajes (7 a 8)'
+    NEAR = 'NEAR', 'Está próximo a alcanzar (4 a 6)'
+    NOT_YET = 'NOT_YET', 'No alcanza los aprendizajes (4 o menos)'
 
 
 # Comprehension as a percentage, to average it on the dashboard
@@ -61,12 +85,14 @@ class Evaluation(models.Model):
         CurricularAdaptation, on_delete=models.CASCADE, related_name='evaluation',
         verbose_name='adaptación',
     )
-    autonomy_level = models.CharField('nivel de autonomía', max_length=18,
+    goal_attainment = models.CharField('logro del objetivo adaptado', max_length=10,
+                                       choices=GoalAttainment.choices, blank=True)
+    autonomy_level = models.CharField('nivel de apoyo', max_length=18,
                                       choices=AutonomyLevel.choices, blank=True)
     comprehension = models.CharField('comprensión', max_length=10, choices=Comprehension.choices, blank=True)
     overload = models.CharField('sobrecarga', max_length=8, choices=Overload.choices, blank=True)
-    accuracy_range = models.CharField('rango de acierto', max_length=13,
-                                      choices=AccuracyRange.choices, blank=True)
+    achievement_level = models.CharField('nivel de logro', max_length=8,
+                                         choices=AchievementLevel.choices, blank=True)
     observation = EncryptedTextField('observación', blank=True, help_text='Se guarda cifrada.')
     regeneration_requested = models.BooleanField('solicita regeneración', default=False)
     status = models.CharField('estado', max_length=5, choices=Status.choices, default=Status.DRAFT)
@@ -99,8 +125,12 @@ class Evaluation(models.Model):
                 name='evaluation_overload_valid',
             ),
             models.CheckConstraint(
-                check=models.Q(accuracy_range='') | models.Q(accuracy_range__in=AccuracyRange.values),
-                name='evaluation_accuracy_valid',
+                check=models.Q(goal_attainment='') | models.Q(goal_attainment__in=GoalAttainment.values),
+                name='evaluation_goal_valid',
+            ),
+            models.CheckConstraint(
+                check=models.Q(achievement_level='') | models.Q(achievement_level__in=AchievementLevel.values),
+                name='evaluation_achievement_valid',
             ),
             # A draft may be incomplete; a final evaluation may not
             models.CheckConstraint(
@@ -121,21 +151,23 @@ class Evaluation(models.Model):
     def outcome(self):
         if self.status != EvaluationStatus.FINAL:
             return Outcome.PENDING
-        if (self.comprehension == Comprehension.NO or self.overload == Overload.EVIDENT
-                or self.accuracy_range == AccuracyRange.BELOW_50
+        if (self.goal_attainment in GOAL_BELOW_EXPECTED or self.comprehension == Comprehension.NO
+                or self.overload == Overload.EVIDENT or self.achievement_level == AchievementLevel.NOT_YET
                 or self.autonomy_level == AutonomyLevel.CONSTANT_SUPPORT):
             return Outcome.NEEDS_SIMPLER
-        if self.comprehension == Comprehension.YES and self.autonomy_level == AutonomyLevel.AUTONOMOUS:
+        if (self.comprehension == Comprehension.YES and self.autonomy_level == AutonomyLevel.AUTONOMOUS
+                and self.goal_attainment not in GOAL_BELOW_EXPECTED):
             return Outcome.SUCCESS
         return Outcome.VERIFIED
 
     def answers(self):
         """(question, answer) pairs in Spanish, as the teacher filled them in."""
         rows = [
-            ('Autonomía', self.get_autonomy_level_display()),
-            ('Comprensión de la instrucción', self.get_comprehension_display()),
-            ('Sobrecarga o fatiga', self.get_overload_display()),
-            ('Ejercicios correctos', self.get_accuracy_range_display()),
+            ('Logro del objetivo adaptado', self.get_goal_attainment_display()),
+            ('Nivel de apoyo', self.get_autonomy_level_display()),
+            ('Comprensión de las instrucciones y del material', self.get_comprehension_display()),
+            ('Sobrecarga cognitiva o fatiga', self.get_overload_display()),
+            ('Nivel de logro (escala del Ministerio de Educación)', self.get_achievement_level_display()),
         ]
         return [(question, answer) for question, answer in rows if answer]
 

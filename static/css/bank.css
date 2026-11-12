@@ -163,18 +163,73 @@
     font-weight: 600;
 }
 
-.bank-card__lesson {
+/* ---------- Tabs: adapted classes / loose materials ---------- */
+
+.bank-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+    margin-bottom: var(--space-lg);
+    border-bottom: 2px solid var(--color-border);
+}
+
+.bank-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    margin-bottom: -2px;
+    padding: 0.625rem 1rem;
+    border-bottom: 3px solid transparent;
+    color: var(--color-text-soft);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.bank-tab[aria-current="page"] {
+    border-bottom-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.bank-tab__count {
+    padding: 0 0.5rem;
+    border-radius: var(--radius-pill);
+    background: var(--color-surface-low);
+    font-size: 0.8125rem;
+}
+
+.chip--warning {
+    background: var(--color-tertiary-soft);
+    color: var(--color-tertiary);
+}
+
+/* ---------- A class card: its students, each with class and worksheet ---------- */
+
+.lesson-card__students {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 0.9375rem;
+}
+
+.lesson-card__students li {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: var(--space-xs);
-    margin: 0 0 var(--space-sm);
-    color: var(--color-text-soft);
-    font-size: 0.875rem;
 }
 
-.bank-card__lesson a {
+.lesson-card__students .icon {
     color: var(--color-primary);
+    font-size: 1.125rem;
+}
+
+.lesson-card__students a {
+    margin-left: auto;
+    color: var(--color-primary);
+    font-size: 0.875rem;
     font-weight: 600;
 }
 

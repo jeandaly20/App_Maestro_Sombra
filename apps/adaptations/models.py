@@ -134,9 +134,13 @@ class CurricularAdaptation(models.Model):
         return f'{self.code} · {self.title}'
 
 
+PLAN_SUFFIXES = ('.xlsx', '.xls', '.docx', '.pdf')
+
+
 def lesson_plan_path(instance, filename):
-    # The teacher's own file, stored under its UUID and only served back to them
-    return f'lessons/{instance.teacher_id}/{instance.id}.xlsx'
+    # The teacher's own file (Excel, Word or PDF), stored under its UUID and only served back to them
+    suffix = Path(filename).suffix.lower()
+    return f'lessons/{instance.teacher_id}/{instance.id}{suffix if suffix in PLAN_SUFFIXES else ".xlsx"}'
 
 
 def lesson_guide_path(instance, filename):
@@ -185,6 +189,21 @@ class LessonPlan(models.Model):
                                    name='lesson_record_status_valid'),
         ]
 
+    @property
+    def plan_format(self):
+        """The format the adapted class is given back in: the same one the teacher uploaded (xlsx, pdf or docx)."""
+        suffix = Path(self.plan_file_name or '').suffix.lower()
+        return {'.pdf': 'pdf', '.docx': 'docx'}.get(suffix, 'xlsx')
+
+    @property
+    def plan_format_label(self):
+        return {'pdf': 'PDF', 'docx': 'Word'}.get(self.plan_format, 'Excel')
+
+    @property
+    def is_week(self):
+        """The teacher chose a whole week (all its sessions) instead of one session."""
+        return self.session_label.lower().startswith('semana')
+
     def __str__(self):
         return f'{self.session_label} · {self.title}'.strip(' ·') or 'Clase'
 
@@ -206,6 +225,9 @@ class LessonAdaptation(models.Model):
     worksheet = models.ForeignKey(CurricularAdaptation, on_delete=models.SET_NULL, null=True, blank=True,
                                   related_name='lesson_adaptations', verbose_name='ficha adaptada')
     content = models.JSONField('contenido')
+    # The teacher reviews the adapted class (what goes in the Excel) before its worksheet and the download
+    status = models.CharField('estado', max_length=12, choices=AdaptationStatus.choices,
+                              default=AdaptationStatus.IN_REVIEW)
     ai_model = models.CharField('modelo de IA', max_length=50, blank=True)
     record_status = models.CharField('estado del registro', max_length=8, choices=RecordStatus.choices,
                                      default=RecordStatus.ACTIVE)
@@ -226,6 +248,8 @@ class LessonAdaptation(models.Model):
                                    name='lesson_adaptation_conditions_valid'),
             models.CheckConstraint(check=models.Q(grade__in=AdaptationGrade.values),
                                    name='lesson_adaptation_grade_valid'),
+            models.CheckConstraint(check=models.Q(status__in=AdaptationStatus.values),
+                                   name='lesson_adaptation_status_valid'),
             models.CheckConstraint(check=models.Q(record_status__in=RecordStatus.values),
                                    name='lesson_adaptation_record_status_valid'),
         ]
@@ -233,6 +257,26 @@ class LessonAdaptation(models.Model):
     @property
     def conditions_label(self):
         return conditions_label(self.conditions or [self.condition])
+
+    @property
+    def active_worksheet(self):
+        """Its worksheet, unless it was deleted from the bank."""
+        worksheet = self.worksheet
+        return worksheet if worksheet and worksheet.record_status == RecordStatus.ACTIVE else None
+
+    @property
+    def is_class_approved(self):
+        return self.status != AdaptationStatus.IN_REVIEW
+
+    @property
+    def is_worksheet_approved(self):
+        worksheet = self.active_worksheet
+        return worksheet is None or worksheet.status != AdaptationStatus.IN_REVIEW
+
+    @property
+    def is_ready(self):
+        """Class and worksheet reviewed: the student's folder can go in the ZIP."""
+        return self.is_class_approved and self.is_worksheet_approved
 
     def __str__(self):
         return f'{self.lesson} · {self.student}'

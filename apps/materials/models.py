@@ -111,13 +111,14 @@ class OriginalMaterial(models.Model):
             models.CheckConstraint(
                 check=models.Q(input_type__in=InputType.values), name='material_input_type_valid'
             ),
-            # Text: the text is required. Photo, PDF or Word: the file is required.
+            # Text: the text is required. Photo, PDF or Word: the file is required. A deleted (inactive)
+            # material no longer keeps its file (data minimization), so the rule applies to active ones only.
             models.CheckConstraint(
                 check=(
                     models.Q(input_type=InputType.TEXT) & ~models.Q(input_text='')
                 ) | (
                     ~models.Q(input_type=InputType.TEXT) & ~models.Q(file='')
-                ),
+                ) | models.Q(record_status=RecordStatus.INACTIVE),
                 name='material_content_matches_type',
             ),
             models.CheckConstraint(

@@ -115,11 +115,14 @@ def start_processing(material, requests, adjustments):
 
 def regenerate(adaptation, *, simplify=True, feedback=''):
     """Creates the next version of an adaptation from the same analyzed worksheet."""
-    return _create_adaptation(
+    target = _create_adaptation(
         adaptation.material, adaptation.student, adaptation.conditions or [adaptation.condition],
         adaptation.applied_adjustments,
         source=adaptation, simplify=simplify, feedback=feedback,
     )
+    # The class keeps pointing to the newest version of its worksheet
+    LessonAdaptation.objects.filter(worksheet=adaptation).update(worksheet=target)
+    return target
 
 
 def process_lesson(lesson_id, requests, adjustments, chosen_grade='', check_topic=True):
@@ -142,7 +145,7 @@ def process_lesson(lesson_id, requests, adjustments, chosen_grade='', check_topi
                 guide_parts = figures.image_parts(figures.file_images(guide.read()))
         analysis, _model = ai.analyze_lesson(
             session_text=lesson.session_text, guide_parts=guide_parts, book_summary=book_analysis.get('summary', ''),
-            subject=lesson.subject.name, grade=class_grade, check_guide=check_topic)
+            subject=lesson.subject.name, grade=class_grade, check_guide=check_topic, whole_week=lesson.is_week)
         if check_topic and guide_parts and analysis.get('guide_matches') is False:
             raise ai.AIError(f'{ai.TOPIC_MISMATCH}: la guía del docente es de otro tema. '
                              f'{analysis.get("guide_mismatch", "")}'.strip())
@@ -164,7 +167,7 @@ def process_lesson(lesson_id, requests, adjustments, chosen_grade='', check_topi
                 content, model = ai.adapt_lesson(
                     lesson=analysis, book_summary=book_summary, subject=lesson.subject.name,
                     subject_code=lesson.subject.code, grade=student.grade, conditions=conditions,
-                    adjustments=adjustments, chosen_grade=chosen_grade,
+                    adjustments=adjustments, chosen_grade=chosen_grade, whole_week=lesson.is_week,
                 )
                 worksheet = (material.adaptations.filter(student=student, condition=conditions[0])
                              .order_by('-version').first())

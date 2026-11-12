@@ -45,6 +45,10 @@ class Student(models.Model):
                                            choices=DOCUMENT_TYPES)
     diagnosis_consent_at = models.DateTimeField('autorización del representante', null=True, blank=True,
                                                 editable=False)
+    # The authorization signed by the legal representative (the app's printable form), encrypted like the document
+    consent_file = models.CharField('autorización firmada (cifrada)', max_length=255, blank=True, editable=False)
+    consent_file_type = models.CharField('tipo de archivo de la autorización', max_length=20, blank=True,
+                                         editable=False, choices=DOCUMENT_TYPES)
     # Result of the local reading of the document (documents.check_document); its text is never stored
     diagnosis_check = models.JSONField('revisión automática del documento', null=True, blank=True, editable=False)
     notes = EncryptedTextField('observaciones', blank=True, help_text='Se guardan cifradas.')
@@ -97,6 +101,12 @@ class Student(models.Model):
             models.CheckConstraint(
                 check=models.Q(diagnosis_file_type='') | models.Q(diagnosis_file_type__in=[t for t, _ in DOCUMENT_TYPES]),
                 name='student_document_type_valid',
+            ),
+            # A stored signed authorization has a real file type and its date
+            models.CheckConstraint(
+                check=models.Q(consent_file='') | (models.Q(consent_file_type__in=[t for t, _ in DOCUMENT_TYPES])
+                                                   & models.Q(diagnosis_consent_at__isnull=False)),
+                name='student_consent_file_valid',
             ),
             models.CheckConstraint(
                 check=models.Q(record_status__in=RecordStatus.values), name='student_record_status_valid'
@@ -195,7 +205,8 @@ class Student(models.Model):
         allowed = DISABILITY_SOURCES + ([] if settings.DIAGNOSIS_DOCUMENT_REQUIRED else [DiagnosisSource.IN_EVALUATION])
         if chosen & set(INTELLECTUAL_DISABILITY) and self.diagnosis_source not in allowed:
             raise ValidationError({'diagnosis_source': (
-                'La discapacidad intelectual se respalda con el certificado o carné de discapacidad del MSP '
+                'La discapacidad intelectual se respalda con el certificado de calificación de discapacidad del MSP '
+                '(o la cédula con la discapacidad registrada) '
                 'o con el informe psicopedagógico de la UDAI.'
             )})
 
@@ -206,6 +217,10 @@ class Student(models.Model):
     @property
     def has_document(self):
         return bool(self.diagnosis_file)
+
+    @property
+    def has_signed_consent(self):
+        return bool(self.consent_file)
 
     @property
     def diagnosis_status(self):
@@ -230,7 +245,8 @@ class Student(models.Model):
         source = ' (leído de la imagen)' if check.get('method') == 'ocr' else ''
         if not missing:
             return 'ok', f'Coincide el nombre, la institución y el diagnóstico{source}.'
-        return 'warn', f'No se encontró {", ".join(missing)} en el documento{source}. Revísalo.'
+        listed = ' y '.join([', '.join(missing[:-1]), missing[-1]]) if len(missing) > 1 else missing[0]
+        return 'warn', f'No se encontró {listed} en el documento{source}. Revísalo.'
 
     def save(self, *args, **kwargs):
         if not self.pseudonym:

@@ -12,8 +12,8 @@
         {% if analysis.objective %}<p class="page-header__intro"><strong>Objetivo de la clase:</strong> {{ analysis.objective }}</p>{% endif %}
     </div>
     <div class="page-header__actions">
-        {% if adaptations and not is_working %}
-        <a class="button button--primary" href="{% url 'lesson_zip' lesson.pk %}"><span class="icon" aria-hidden="true">folder_zip</span>Descargar todo (ZIP)</a>
+        {% if all_ready and not is_working %}
+        <a class="button button--primary" href="{% url 'lesson_zip' lesson.pk %}"><span class="icon" aria-hidden="true">folder_zip</span>Descargar clase completa (ZIP)</a>
         {% endif %}
         <a class="button button--secondary" href="{% url 'lesson_upload' %}"><span class="icon" aria-hidden="true">add</span>Adaptar otra clase</a>
         {% if not is_working %}
@@ -26,6 +26,7 @@
     </div>
 </div>
 
+{% if is_working or lesson.status == 'ERROR' or not adaptations %}
 <section class="card material-status" aria-live="polite" {% if is_working %}data-poll-url="{% url 'lesson_status' lesson.pk %}"{% endif %}>
     <span class="material-status__icon"><span class="icon" aria-hidden="true">table_view</span></span>
     <div class="material-status__body">
@@ -41,68 +42,135 @@
             <div class="alert alert--error" role="alert"><span class="icon" aria-hidden="true">error</span>
                 <div><p><strong>No se pudo adaptar la clase.</strong> {{ lesson.ai_error }}</p>
                 <a class="button button--primary" href="{% url 'lesson_setup' lesson.pk %}">Intentar de nuevo</a></div></div>
-        {% elif analysis %}
-            <p class="material-status__message material-status__message--ok"><span class="icon" aria-hidden="true">check_circle</span>{{ analysis.summary }}</p>
         {% endif %}
     </div>
 </section>
+{% else %}
 
-{% if selected %}
-<nav class="adaptation-tabs" aria-label="Estudiantes">
-    {% for item in adaptations %}
-        <a class="adaptation-tab" href="?a={{ item.pk }}" {% if item.pk == selected.pk %}aria-current="page"{% endif %}>
-            <span class="avatar avatar--sm" aria-hidden="true">{{ item.student.initials }}</span>{{ item.student.name }} · {{ item.conditions_label }}
-        </a>
-    {% endfor %}
+{# ---------- Where we are: every student, their class and their worksheet ---------- #}
+<nav class="wizard" aria-label="Revisión de la clase">
+    <ol class="wizard__students">
+        {% for item in adaptations %}
+        <li class="wizard__student{% if item.pk == selected.pk %} wizard__student--current{% endif %}">
+            <span class="avatar avatar--sm" aria-hidden="true">{{ item.student.initials }}</span>
+            <span class="wizard__name">{{ item.student.name }}<small>{{ item.conditions_label }}</small></span>
+            <a class="wizard__step{% if item.is_class_approved %} wizard__step--done{% endif %}{% if item.pk == selected.pk and step == '1' %} wizard__step--current{% endif %}"
+               href="?a={{ item.pk }}&amp;paso=1"><span class="icon" aria-hidden="true">{% if item.is_class_approved %}check_circle{% else %}table_view{% endif %}</span>1. Clase</a>
+            <a class="wizard__step{% if item.is_worksheet_approved and item.is_class_approved %} wizard__step--done{% endif %}{% if item.pk == selected.pk and step == '2' %} wizard__step--current{% endif %}"
+               href="?a={{ item.pk }}&amp;paso=2"><span class="icon" aria-hidden="true">{% if item.is_worksheet_approved and item.is_class_approved %}check_circle{% else %}assignment{% endif %}</span>2. Ficha</a>
+        </li>
+        {% endfor %}
+        <li class="wizard__student wizard__finish{% if step == 'listo' %} wizard__student--current{% endif %}">
+            {% if all_ready %}<a href="?paso=listo"><span class="icon" aria-hidden="true">folder_zip</span>3. Descargar</a>
+            {% else %}<span title="Aprueba la clase y la ficha de cada estudiante"><span class="icon" aria-hidden="true">lock</span>3. Descargar</span>{% endif %}
+        </li>
+    </ol>
 </nav>
 
-<div class="lesson-layout">
-    <section class="card lesson-plan" aria-labelledby="plan-title">
-        <h2 id="plan-title"><span class="icon" aria-hidden="true">table_view</span>Para tu planificación</h2>
-        <p class="lesson-grade"><span class="chip chip--primary">{{ selected.get_grade_display }}</span>
-            {% if selected.suggested_grade and selected.suggested_grade != selected.grade %}<span class="lesson-grade__note">La IA sugirió {{ selected.get_suggested_grade_display }}.</span>{% endif %}</p>
-        {% if selected.content.grade_reason %}<p class="lesson-note">{{ selected.content.grade_reason }}</p>{% endif %}
-        <p><strong>Objetivo adaptado:</strong> {{ selected.content.adapted_objective }}</p>
-        <p class="lesson-label">Fila "Adaptación curricular"</p>
-        <p class="lesson-row" id="plan-row">{{ plan_row }}</p>
-        <div class="lesson-actions">
-            <button type="button" class="button button--secondary" data-copy="plan-row"><span class="icon" aria-hidden="true">content_copy</span>Copiar texto</button>
-            <a class="button button--primary" href="{% url 'lesson_excel' selected.pk %}"><span class="icon" aria-hidden="true">download</span>Descargar la clase adaptada (Excel)</a>
-        </div>
-        <p class="field__help">Un Excel solo con esta clase adaptada para el estudiante: momentos, apoyos, evaluación y la fila de adaptación curricular. No incluye datos de la institución ni el nombre del estudiante (aparece su seudónimo).</p>
-    </section>
+{% if step == '1' %}
+{# ---------- Step 1: the adapted class, as it will be in its file; the teacher can correct it ---------- #}
+<form method="post" action="{% url 'lesson_save' selected.pk %}" class="card class-sheet">
+    {% csrf_token %}
+    <header class="class-sheet__header">
+        <h2><span class="lesson-step__number">1</span>Revisa la clase adaptada de {{ selected.student.name }}
+            {% if selected.is_class_approved %}<span class="chip chip--primary">Aprobada</span>{% endif %}</h2>
+        <p>Es lo mismo que irá en su {{ lesson.plan_format_label }}, el mismo formato en que subiste la planificación. Puedes corregir cualquier texto de los recuadros antes de aprobar.</p>
+    </header>
 
-    <section class="card lesson-guide-out" aria-labelledby="guide-title">
-        <h2 id="guide-title"><span class="icon" aria-hidden="true">co_present</span>Guía para el docente sombra</h2>
-        <ol class="lesson-moments">
-            {% for moment in selected.content.moments %}
-            <li class="lesson-moment">
-                <h3>{{ moment.name }}{% if moment.duration %} <span class="lesson-moment__time">{{ moment.duration }}</span>{% endif %}</h3>
-                <p class="lesson-label">Qué haces tú</p>
-                <ul>{% for action in moment.teacher_actions %}<li>{{ action }}</li>{% endfor %}</ul>
-                <p class="lesson-label">Qué hace el estudiante</p>
-                <p>{{ moment.student_task }}</p>
-                {% if moment.supports %}<p class="lesson-label">Apoyos</p><ul class="lesson-supports">{% for support in moment.supports %}<li>{{ support }}</li>{% endfor %}</ul>{% endif %}
-                {% if moment.watch_for %}<p class="lesson-watch"><span class="icon" aria-hidden="true">visibility</span>{{ moment.watch_for }}</p>{% endif %}
-            </li>
-            {% endfor %}
-        </ol>
-        <p class="lesson-label">Evaluación</p>
-        <p>{{ selected.content.evaluation }}</p>
-        {% if selected.content.metacognition %}
-            <p class="lesson-label">Preguntas de cierre (lenguaje sencillo)</p>
-            <ul>{% for question in selected.content.metacognition %}<li>{{ question }}</li>{% endfor %}</ul>
-        {% endif %}
-    </section>
-</div>
+    <h3 class="class-sheet__title">1. Datos de la clase y del estudiante</h3>
+    <table class="class-sheet__fields">
+        <tr><th>Materia</th><td>{{ lesson.subject.name }}</td></tr>
+        <tr><th>Clase</th><td>{{ analysis.title|default:lesson.title }}</td></tr>
+        <tr><th>Grado</th><td>{{ selected.student.get_grade_display }}</td></tr>
+        <tr><th>Estudiante</th><td>{{ selected.student.pseudonym }} (seudónimo) · {{ selected.conditions_label }}</td></tr>
+        <tr><th><label for="grade">Grado de adaptación</label></th><td>
+            <select id="grade" name="grade" class="class-sheet__select">
+                {% for value, label in grade_choices %}<option value="{{ value }}" {% if value == selected.grade %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+            {% if selected.suggested_grade and selected.suggested_grade != selected.grade %}<small class="lesson-grade__note">La IA sugirió {{ selected.get_suggested_grade_display }}.</small>{% endif %}
+        </td></tr>
+        <tr><th><label for="grade_reason">Justificación</label></th><td><textarea id="grade_reason" name="grade_reason" rows="3">{{ selected.content.grade_reason }}</textarea></td></tr>
+    </table>
 
-<section class="card lesson-worksheet">
-    <span class="icon" aria-hidden="true">assignment</span>
-    <div>
-        <h2>Ficha adaptada del alumno</h2>
-        <p>Las páginas del libro de esta clase, adaptadas para {{ selected.student.name }}: aprende, practica y comprueba. Revísala y apruébala para imprimirla.</p>
+    <h3 class="class-sheet__title">2. Currículo</h3>
+    <table class="class-sheet__fields">
+        <tr><th>Destreza con criterio de desempeño</th><td>{{ analysis.skill|default:"—" }}</td></tr>
+        <tr><th>Indicador de evaluación</th><td>{{ analysis.indicator|default:"—" }}</td></tr>
+        <tr><th>Objetivo de la clase</th><td>{{ analysis.objective|default:"—" }}</td></tr>
+        <tr><th><label for="adapted_objective">Objetivo adaptado</label></th><td><textarea id="adapted_objective" name="adapted_objective" rows="2">{{ selected.content.adapted_objective }}</textarea></td></tr>
+    </table>
+
+    <h3 class="class-sheet__title">3. Momentos de la clase adaptados</h3>
+    <div class="class-sheet__scroll">
+        <table class="class-sheet__moments">
+            <thead>
+                <tr><th>Momento</th><th>Duración</th><th>Lo que hace la clase</th><th>Qué hace el docente sombra</th><th>Qué hace el estudiante</th><th>Apoyos</th><th>Qué vigilar</th></tr>
+            </thead>
+            <tbody>
+                {% for moment in moments %}
+                <tr>
+                    <th scope="row">{{ moment.name }}</th>
+                    <td><textarea name="moment_{{ forloop.counter0 }}_duration" rows="1" aria-label="Duración de {{ moment.name }}">{{ moment.duration }}</textarea></td>
+                    <td class="class-sheet__readonly">{{ moment.class_activities|default:"—" }}</td>
+                    <td><textarea name="moment_{{ forloop.counter0 }}_teacher_actions" rows="6" aria-label="Qué hace el docente sombra en {{ moment.name }}">{{ moment.teacher_actions_text }}</textarea></td>
+                    <td><textarea name="moment_{{ forloop.counter0 }}_student_task" rows="6" aria-label="Qué hace el estudiante en {{ moment.name }}">{{ moment.student_task }}</textarea></td>
+                    <td><textarea name="moment_{{ forloop.counter0 }}_supports" rows="6" aria-label="Apoyos en {{ moment.name }}">{{ moment.supports_text }}</textarea></td>
+                    <td><textarea name="moment_{{ forloop.counter0 }}_watch_for" rows="6" aria-label="Qué vigilar en {{ moment.name }}">{{ moment.watch_for }}</textarea></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
-    {% if selected.worksheet %}<a class="button button--primary" href="{% url 'material_detail' lesson.material_id %}?a={{ selected.worksheet.pk }}">Ver la ficha</a>{% endif %}
+    <p class="field__help">En "docente sombra" y "apoyos", escribe una acción por línea.</p>
+
+    <h3 class="class-sheet__title">4. Materiales, evaluación y cierre</h3>
+    <table class="class-sheet__fields">
+        <tr><th>Materiales de la clase</th><td>{{ analysis.materials|default:"—" }}</td></tr>
+        <tr><th><label for="evaluation">Evaluación adaptada</label></th><td><textarea id="evaluation" name="evaluation" rows="3">{{ selected.content.evaluation }}</textarea></td></tr>
+        <tr><th><label for="metacognition">Preguntas de cierre</label></th><td><textarea id="metacognition" name="metacognition" rows="3">{{ metacognition_text }}</textarea><small>Una pregunta por línea.</small></td></tr>
+    </table>
+
+    <h3 class="class-sheet__title">5. Adaptación curricular (para la planificación)</h3>
+    <table class="class-sheet__fields">
+        <tr><th><label for="plan_row">Acciones</label></th><td><textarea id="plan_row" name="plan_row" rows="4">{{ plan_row_text }}</textarea><small>Una acción por línea.</small></td></tr>
+        <tr><th>Así queda la fila</th><td><p class="lesson-row" id="plan-row">{{ plan_row }}</p>
+            <button type="button" class="button button--secondary" data-copy="plan-row"><span class="icon" aria-hidden="true">content_copy</span>Copiar texto</button></td></tr>
+    </table>
+
+    <footer class="class-sheet__actions">
+        <button type="submit" name="action" value="save" class="button button--secondary"><span class="icon" aria-hidden="true">save</span>Guardar cambios</button>
+        <button type="submit" name="action" value="approve" class="button button--primary button--large"><span class="icon" aria-hidden="true">arrow_forward</span>Aprobar la clase y revisar la ficha</button>
+    </footer>
+</form>
+
+{% elif step == '2' %}
+{# ---------- Step 2: the student's worksheet, without leaving the class ---------- #}
+<div class="wizard-step-header">
+    <a class="button button--ghost" href="?a={{ selected.pk }}&amp;paso=1"><span class="icon" aria-hidden="true">arrow_back</span>Volver a la clase de {{ selected.student.name }}</a>
+    <h2><span class="lesson-step__number">2</span>Revisa la ficha de {{ selected.student.name }}
+        {% if worksheet and worksheet.status != 'IN_REVIEW' %}<span class="chip chip--primary">Aprobada</span>{% endif %}</h2>
+</div>
+{% if worksheet %}
+    <div class="lesson-worksheet-review">
+        {% include "adaptations/_worksheet_review.html" with worksheet=worksheet %}
+    </div>
+{% else %}
+    <div class="card lesson-locked"><span class="icon" aria-hidden="true">info</span><p>La ficha de este estudiante fue eliminada del banco. La clase se descargará sin ficha.</p>
+        <a class="button button--primary" href="{{ approve_next_url }}">Continuar</a></div>
+{% endif %}
+
+{% else %}
+{# ---------- Step 3: everything approved ---------- #}
+<section class="card lesson-done" aria-labelledby="done-title">
+    <span class="icon lesson-done__icon" aria-hidden="true">task_alt</span>
+    <h2 id="done-title">La clase completa está lista</h2>
+    <p>Aprobaste la clase adaptada y la ficha de {{ adaptations|length }} estudiante{{ adaptations|length|pluralize }}. El ZIP trae una carpeta por estudiante con su clase adaptada en {{ lesson.plan_format_label }} y su ficha en PDF.</p>
+    <ul class="lesson-done__list">
+        {% for item in adaptations %}<li><span class="icon" aria-hidden="true">folder</span>{{ item.student.name }}: Clase adaptada ({{ lesson.plan_format_label }}) y Ficha (PDF){% if not item.active_worksheet %}, sin ficha{% endif %}</li>{% endfor %}
+    </ul>
+    <a class="button button--primary button--large" href="{% url 'lesson_zip' lesson.pk %}"><span class="icon" aria-hidden="true">folder_zip</span>Descargar clase completa (ZIP)</a>
+    <p class="field__help">¿Quieres cambiar algo? Elige el estudiante y el paso arriba.</p>
 </section>
+{% endif %}
 {% endif %}
 {% endblock %}
