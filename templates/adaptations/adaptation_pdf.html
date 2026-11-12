@@ -47,6 +47,14 @@ block of the worksheet is a one-cell table. Fonts are registered in views.regist
     {% if content.learning_goal %}
         <table class="block"><tr><td class="goal"><p><b>{{ content.learning_goal }}</b></p></td></tr></table>
     {% endif %}
+    {% if content.routine %}
+        <table class="block"><tr><td class="goal">
+            <p><b>Primero:</b> {{ content.routine.first }}</p>
+            <p><b>Después:</b> {{ content.routine.then }}</p>
+            <p><b>Al final:</b> {{ content.routine.last }}</p>
+        </td></tr></table>
+    {% endif %}
+    {% if content.total_minutes %}<p class="subtitle">{{ steps|length }} pasos · unos {{ content.total_minutes }} minutos</p>{% endif %}
 
     {% if concepts %}
         <p class="section">Aprende</p>
@@ -63,12 +71,21 @@ block of the worksheet is a one-cell table. Fonts are registered in views.regist
         {% endfor %}
     {% endif %}
 
+    {% if content.reading_words %}
+        <table class="block"><tr><td>
+            <p class="step-title">Lee estas palabras por sílabas</p>
+            {% for item in content.reading_words %}<p><b>{{ item.word }}</b>: {{ item.syllables }}</p>{% endfor %}
+        </td></tr></table>
+    {% endif %}
+
     <p class="section">Ahora practica</p>
     {% for step in steps %}
         {# One row per element: ReportLab can split a table between rows, so a step may continue on the next page #}
         <table class="step">
-            <tr><td class="top"><p class="step-title"><span class="box">[&nbsp;&nbsp;]</span> Paso {{ forloop.counter }}: {{ step.title }}</p></td></tr>
+            <tr><td class="top"><p class="step-title"><span class="box">[&nbsp;&nbsp;]</span> Paso {{ forloop.counter }}: {{ step.title }}{% if step.minutes %} ({{ step.minutes }} min){% endif %}</p></td></tr>
+            {% if step.worked_example %}<tr><td class="mid"><p class="example">Mira cómo se hace: {{ step.worked_example }}</p></td></tr>{% endif %}
             <tr><td class="mid"><p>{{ step.instruction }}</p></td></tr>
+            {% if step.concrete_support %}<tr><td class="mid"><p class="support">Material: {{ step.concrete_support }}</p></td></tr>{% endif %}
             {% if step.keyword %}<tr><td class="mid"><p>Palabra clave: <span class="keyword">{{ step.keyword }}</span></p></td></tr>{% endif %}
             {% if step.figure_src %}<tr><td class="mid picture"><img src="{{ step.figure_src }}" width="{{ step.figure_width }}" height="{{ step.figure_height }}"></td></tr>
             {% elif step.visual_src %}<tr><td class="mid picture"><img src="{{ step.visual_src }}" width="342" height="152"></td></tr>{% endif %}
@@ -79,6 +96,9 @@ block of the worksheet is a one-cell table. Fonts are registered in views.regist
             {% if step.answer_type == 'ESPACIO' %}<tr><td class="mid"><p class="line">______________________________________________________</p><p class="line">______________________________________________________</p></td></tr>{% endif %}
             <tr><td class="bottom"></td></tr>
         </table>
+        {% if content.active_break and forloop.counter == content.break_after_step and not forloop.last %}
+            <table class="block"><tr><td class="goal"><p><b>Pausa activa:</b> {{ content.active_break }}</p></td></tr></table>
+        {% endif %}
     {% endfor %}
 
     {% if content.check_questions %}
@@ -98,6 +118,9 @@ block of the worksheet is a one-cell table. Fonts are registered in views.regist
             <p class="step-title">Palabras para recordar</p>
             {% for item in content.glossary %}<p><b>{{ item.term }}:</b> {{ item.meaning }}</p>{% endfor %}
         </td></tr></table>
+    {% endif %}
+    {% if content.finish_signal %}
+        <table class="block"><tr><td class="goal"><p><b>¿Cuándo terminas?</b> {{ content.finish_signal }}</p></td></tr></table>
     {% endif %}
     {% if content.closing_message %}
         <table class="block"><tr><td><p class="closing">{{ content.closing_message }}</p></td></tr></table>

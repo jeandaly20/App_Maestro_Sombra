@@ -1,23 +1,11 @@
-// "Adaptar clase": recommended rules for the chosen students, copy the plan row, busy state while uploading.
+// "Adaptar clase": each chosen student's rules, copy the plan row, busy state while uploading.
 'use strict';
 
 document.addEventListener('DOMContentLoaded', () => {
     const form = document.querySelector('[data-lesson-form]');
     if (form) {
-        // Tick the UDL rules recommended for the chosen students (the teacher can still change them)
-        const recommendedData = document.getElementById('recommended-adjustments');
-        const recommended = recommendedData ? JSON.parse(recommendedData.textContent) : {};
-        const ruleBoxes = [...form.querySelectorAll('input[name="adjustments"]')];
-        let touched = ruleBoxes.some((box) => box.checked);
-        ruleBoxes.forEach((box) => box.addEventListener('change', () => { touched = true; }));
-        const syncRules = () => {
-            if (touched) return;
-            const chosen = [...form.querySelectorAll('input[name="students"]:checked')].map((box) => box.value);
-            const wanted = new Set(chosen.flatMap((pk) => recommended[pk] || []));
-            ruleBoxes.forEach((box) => { box.checked = wanted.has(box.value); });
-        };
-        form.querySelectorAll('input[name="students"]').forEach((box) => box.addEventListener('change', syncRules));
-        syncRules();
+        // The rules block of each chosen student (syncStudentRules is in adapt.js, loaded on this page too)
+        if (typeof syncStudentRules === 'function') syncStudentRules(form);
 
         form.addEventListener('submit', () => {
             const button = form.querySelector('[data-submit]');

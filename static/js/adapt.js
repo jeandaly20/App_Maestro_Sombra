@@ -37,20 +37,7 @@ function setUpForm() {
     form.querySelectorAll('input[name="input_type"]').forEach((radio) => radio.addEventListener('change', applyType));
     applyType();
 
-    // Tick the UDL rules recommended for the chosen students (the teacher can still change them)
-    const recommendedData = document.getElementById('recommended-adjustments');
-    const recommended = recommendedData ? JSON.parse(recommendedData.textContent) : {};
-    const ruleBoxes = [...form.querySelectorAll('input[name="adjustments"]')];
-    let touchedByTeacher = ruleBoxes.some((box) => box.checked);
-    ruleBoxes.forEach((box) => box.addEventListener('change', () => { touchedByTeacher = true; }));
-    const syncRules = () => {
-        if (touchedByTeacher) return;
-        const chosen = [...form.querySelectorAll('input[name="students"]:checked')].map((box) => box.value);
-        const wanted = new Set(chosen.flatMap((pk) => recommended[pk] || []));
-        ruleBoxes.forEach((box) => { box.checked = wanted.has(box.value); });
-    };
-    form.querySelectorAll('input[name="students"]').forEach((box) => box.addEventListener('change', syncRules));
-    syncRules();
+    syncStudentRules(form);
 
     // Avoid double submissions while the file uploads
     form.addEventListener('submit', () => {
@@ -71,12 +58,15 @@ function setUpPolling() {
                 window.location.reload();
                 return;
             }
+            // What the AI is doing now ("Leyendo el material…", "Adaptando la ficha 2 de 3…")
+            const progress = status.querySelector('[data-progress]');
+            if (progress && data.progress) progress.textContent = data.progress;
         } catch (error) {
             // Network hiccup: keep trying
         }
-        setTimeout(check, 3000);
+        setTimeout(check, 2000);
     };
-    setTimeout(check, 3000);
+    setTimeout(check, 1500);
 }
 
 function setUpComparisonTools() {
@@ -146,4 +136,18 @@ function setUpComparisonTools() {
             button.textContent = 'Generando versión más simple…';
         });
     }
+}
+
+// The rules block of each chosen student (one per student, ticked with their own recommended rules)
+function syncStudentRules(form) {
+    const blocks = [...form.querySelectorAll('[data-rules-for]')];
+    if (!blocks.length) return;
+    const empty = form.querySelector('[data-rules-empty]');
+    const sync = () => {
+        const chosen = new Set([...form.querySelectorAll('input[name="students"]:checked')].map((box) => box.value));
+        blocks.forEach((block) => { block.hidden = !chosen.has(block.dataset.rulesFor); });
+        if (empty) empty.hidden = chosen.size > 0;
+    };
+    form.querySelectorAll('input[name="students"]').forEach((box) => box.addEventListener('change', sync));
+    sync();
 }

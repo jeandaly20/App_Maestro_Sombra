@@ -94,6 +94,10 @@ class OriginalMaterial(models.Model):
     status = models.CharField('estado', max_length=10, choices=Status.choices, default=Status.PENDING)
     ai_analysis = models.JSONField('análisis de la IA', null=True, blank=True)  # jsonb in PostgreSQL
     ai_error = models.TextField('error de la IA', blank=True)
+    # What the AI is doing now, shown to the teacher while she waits ("Leyendo el libro…")
+    progress = models.CharField('avance', max_length=120, blank=True)
+    # The students (by id) and rules of the request, kept so "adaptar de todas formas" can run it again
+    job = models.JSONField('pedido de adaptación', null=True, blank=True)
     record_status = models.CharField('estado del registro', max_length=8, choices=RecordStatus.choices,
                                      default=RecordStatus.ACTIVE)
     created_at = models.DateTimeField('creado', auto_now_add=True)

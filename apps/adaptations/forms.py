@@ -24,22 +24,35 @@ class AdaptMaterialForm(AccessibleFormMixin, forms.Form):
         error_messages={'required': 'Selecciona al menos un estudiante.'},
     )
     subject = forms.ModelChoiceField(label='Materia', queryset=Subject.objects.filter(record_status=RecordStatus.ACTIVE), empty_label='Selecciona la materia')
-    title = forms.CharField(label='Título de la guía', max_length=150,
-                            widget=forms.TextInput(attrs={'placeholder': 'Ej.: Fracciones y repartos simples'}))
+    # The title is read from the worksheet itself; the topic is the teacher's, and the AI checks the worksheet
+    # works it (and the subject) before adapting
     topic = forms.CharField(label='Tema', max_length=150,
+                            help_text='El tema que trabaja la guía. La IA comprueba que el material trate este tema y la materia elegida antes de adaptarlo.',
                             widget=forms.TextInput(attrs={'placeholder': 'Ej.: Fracciones simples y reparto equitativo'}))
     input_type = forms.ChoiceField(label='Tipo de entrada', choices=InputType.choices, initial=InputType.PHOTO,
                                    widget=forms.RadioSelect)
     file = forms.FileField(label='Archivo de la guía', required=False)
     input_text = forms.CharField(label='Texto de la guía', required=False,
                                  widget=forms.Textarea(attrs={'rows': 8, 'placeholder': 'Escribe o pega aquí el texto de la guía...'}))
-    adjustments = forms.MultipleChoiceField(label='Reglas de adaptación aplicadas', choices=UdlAdjustment.choices,
-                                            required=False, widget=forms.CheckboxSelectMultiple)
 
     def __init__(self, *args, teacher, **kwargs):
         super().__init__(*args, **kwargs)
         self.student_objects = {str(s.pk): s for s in teacher.students.filter(record_status=RecordStatus.ACTIVE).order_by('created_at')}
         self.fields['students'].choices = [(pk, s.name) for pk, s in self.student_objects.items()]
+        # The UDL rules are chosen per student: each starts with the ones recommended for their own NEE
+        for pk, student in self.student_objects.items():
+            self.fields[self.rules_field(pk)] = forms.MultipleChoiceField(
+                label=f'Reglas para {student.name}', choices=UdlAdjustment.choices, required=False,
+                initial=recommended_rules(student), widget=forms.CheckboxSelectMultiple)
+
+    @staticmethod
+    def rules_field(pk):
+        return f'rules_{pk}'
+
+    def student_rules(self):
+        """(student, its rules field, the rules recommended for it) for the template, in the students' order."""
+        return [(student, self[self.rules_field(pk)], recommended_rules(student))
+                for pk, student in self.student_objects.items()]
 
     def clean(self):
         data = super().clean()
@@ -66,14 +79,20 @@ class AdaptMaterialForm(AccessibleFormMixin, forms.Form):
                 for pk in self.cleaned_data['students']]
 
     def chosen_adjustments(self):
-        """The teacher's choice, or the recommended adjustments of the selected students."""
-        if self.cleaned_data['adjustments']:
-            return self.cleaned_data['adjustments']
-        recommended = []
-        for pk in self.cleaned_data['students']:
-            for group in self.student_objects[pk].groups:
-                recommended += [a for a in group.adjustments if a not in recommended]
-        return [str(a) for a in recommended]
+        """
+        {student id: the UDL rules the teacher left ticked for that student}. With none ticked the student
+        still gets the mandatory rules of their NEE (udl_rules.CONDITION_RULES): these are extra adjustments.
+        """
+        return {self.student_objects[pk].pk: self.cleaned_data.get(self.rules_field(pk), [])
+                for pk in self.cleaned_data['students']}
+
+
+def recommended_rules(student):
+    """The UDL rules recommended for all the student's NEE groups, without repeats."""
+    rules = []
+    for group in student.groups:
+        rules += [str(rule) for rule in group.adjustments if str(rule) not in rules]
+    return rules
 
 
 MAX_PLAN_MB = 10
@@ -151,7 +170,7 @@ class LessonSetupForm(AdaptMaterialForm):
 
     def __init__(self, *args, sessions, **kwargs):
         super().__init__(*args, **kwargs)
-        for name in ('title', 'topic', 'input_type', 'file', 'input_text'):
+        for name in ('topic', 'input_type', 'file', 'input_text'):
             del self.fields[name]  # they come from the chosen session and the book pages
         # One class per week, "Semana 19 · its topic": the week is adapted whole (a week has one topic and
         # its sessions are the class days). Weeks in order; sheets that are not a week (e.g. PCA) last.

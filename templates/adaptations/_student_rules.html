@@ -1,0 +1,23 @@
+{% comment %}
+UDL rules chosen per student ("Adaptar material" and "Adaptar clase"). Each selected student shows their own
+block, ticked with the rules recommended for their NEE; adapt.js / lesson.js show only the chosen students.
+{% endcomment %}
+<p class="adapt-section__subtitle"><span class="icon" aria-hidden="true">tune</span>Reglas de adaptación de cada estudiante</p>
+<p class="field__help">Cada estudiante trae marcadas las reglas recomendadas para sus NEE y puedes cambiarlas. Las reglas propias de cada NEE (por ejemplo, lenguaje literal en el TEA o un solo cálculo por paso en la discalculia) se aplican siempre; estas son ajustes extra. Si a un estudiante no le dejas ninguna, su adaptación sigue solo las reglas de sus NEE.</p>
+<p class="student-rules__empty" data-rules-empty>Elige a los estudiantes para ver sus reglas.</p>
+{% for student, field, recommended in form.student_rules %}
+    <fieldset class="student-rules" data-rules-for="{{ student.pk }}">
+        <legend class="student-rules__legend">
+            <span class="avatar avatar--sm avatar--{{ student.groups.0.key }}" aria-hidden="true">{{ student.initials }}</span>
+            <span>Reglas para {{ student.name }}<small>{{ student.condition_labels|join:", " }}</small></span>
+        </legend>
+        <div class="rule-grid">
+            {% for checkbox in field %}
+                <label class="rule-option" for="{{ checkbox.id_for_label }}">
+                    {{ checkbox.tag }}
+                    <span>{{ checkbox.choice_label }}{% if checkbox.data.value in recommended %}<small class="rule-option__tag">Recomendada</small>{% endif %}</span>
+                </label>
+            {% endfor %}
+        </div>
+    </fieldset>
+{% endfor %}

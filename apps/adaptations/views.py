@@ -30,7 +30,7 @@ from apps.core.choices import GRADE_NUMBERS, AdaptationGrade, ColorFilter, Recor
 from apps.evaluations.models import Evaluation, EvaluationStatus, Outcome
 from apps.materials.models import InputType, MaterialStatus, OriginalMaterial
 
-from . import ai, figures, lesson_plan, services, visuals
+from . import ai, figures, lesson_plan, nee_modules, services, visuals
 from .curriculum import curriculum_warnings
 from .forms import ACCEPT_BY_TYPE, AdaptMaterialForm, LessonSetupForm, LessonUploadForm
 from .models import AdaptationStatus, CurricularAdaptation, LessonAdaptation, LessonPlan
@@ -145,11 +145,6 @@ class AdaptView(LoginRequiredMixin, FormView):
                 {'option': option, 'student': form.student_objects[option.data['value']]}
                 for option in form['students']
             ],
-            'recommended_by_student': {
-                pk: [str(a) for group in s.groups for a in group.adjustments]
-                for pk, s in form.student_objects.items()
-            },
-            'adjustment_descriptions': dict(UdlAdjustment.choices),
         })
         return context
 
@@ -157,7 +152,8 @@ class AdaptView(LoginRequiredMixin, FormView):
         data = form.cleaned_data
         file = data.get('file') if data['input_type'] != 'TEXT' else None
         material = OriginalMaterial(
-            teacher=self.request.user, subject=data['subject'], title=data['title'], topic=data['topic'],
+            # Until the AI reads the worksheet's own title, it is known by its topic
+            teacher=self.request.user, subject=data['subject'], title=data['topic'], topic=data['topic'],
             input_type=data['input_type'], input_text=data.get('input_text', '') if not file else '',
         )
         if file:
@@ -202,6 +198,7 @@ class MaterialDetailView(LoginRequiredMixin, TemplateView):
             'curriculum_warnings': curriculum_warnings(material, {a.student for a in adaptations}),
             'color_filters': ColorFilter.choices,
             'is_working': material.status in (MaterialStatus.PENDING, MaterialStatus.PROCESSING),
+            'material_mismatch': material.status == MaterialStatus.ERROR and material.ai_error.startswith(ai.MATERIAL_MISMATCH),
             # Our own PDFs carry this footer: an adapted worksheet has no original drawings to reuse
             'is_already_adapted': 'Adaptación DUA revisada por el docente' in (material.ai_analysis or {}).get('extracted_text', ''),
         })
@@ -340,7 +337,22 @@ class MaterialStatusView(LoginRequiredMixin, View):
 
     def get(self, request, pk):
         material = own_material(request, pk)
-        return JsonResponse({'status': material.status, 'label': material.get_status_display(), 'error': material.ai_error})
+        return JsonResponse({'status': material.status, 'label': material.get_status_display(), 'error': material.ai_error,
+                             'progress': material.progress})
+
+
+class MaterialRetryView(LoginRequiredMixin, View):
+    """After a "does not match the subject or topic" stop, the teacher says the worksheet is right: adapt it."""
+
+    def post(self, request, pk):
+        material = own_material(request, pk)
+        if material.status != MaterialStatus.ERROR or not material.ai_error.startswith(ai.MATERIAL_MISMATCH):
+            return redirect('material_detail', pk=material.pk)
+        if not services.retry_without_topic_check(material):
+            messages.error(request, 'No se pudo repetir el pedido. Sube el material de nuevo.')
+            return redirect('adapt')
+        logger.info('Material %s adapted despite the mismatch warning, by teacher=%s', material.pk, request.user.pk)
+        return redirect('material_detail', pk=material.pk)
 
 
 class MaterialFileView(LoginRequiredMixin, View):
@@ -408,14 +420,17 @@ class AdaptationDeleteView(LoginRequiredMixin, View):
 class AdaptationEditView(LoginRequiredMixin, TemplateView):
     """'Ajustar manualmente': the teacher corrects the texts the AI wrote."""
     template_name = 'adaptations/adaptation_edit.html'
-    TEXT_FIELDS = ['title', 'subtitle', 'intro', 'learning_goal', 'closing_message']
-    STEP_FIELDS = ['title', 'instruction', 'hint', 'visual_support', 'figure_description']
+    TEXT_FIELDS = ['title', 'subtitle', 'intro', 'learning_goal', 'closing_message', 'active_break', 'finish_signal']
+    # worked_example (intellectual disability) and concrete_support (dyscalculia) come from nee_modules
+    STEP_FIELDS = ['title', 'instruction', 'hint', 'visual_support', 'figure_description', 'worked_example',
+                   'concrete_support']
     CONCEPT_FIELDS = ['title', 'explanation', 'example']
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['adaptation'] = own_adaptation(self.request, kwargs['pk'])
         context['content'] = context['adaptation'].content
+        context['routine_labels'] = [('first', 'Primero'), ('then', 'Después'), ('last', 'Al final')]
         context['back_url'] = back_to(self.request, f"{reverse('material_detail', args=[context['adaptation'].material_id])}"
                                                     f"?a={context['adaptation'].pk}")
         return context
@@ -446,6 +461,10 @@ class AdaptationEditView(LoginRequiredMixin, TemplateView):
             if not request.POST.get(f'concept_{index}_delete'):
                 concepts.append(updated)
         content['concepts'] = concepts
+        if content.get('routine'):
+            content['routine'] = {key: request.POST.get(f'routine_{key}', content['routine'].get(key, '')).strip()
+                                  for key in ('first', 'then', 'last')}
+        content['total_minutes'] = nee_modules.total_minutes(content)
         content['edited_by_teacher'] = timezone.now().isoformat()
         adaptation.content = content
         adaptation.title = (content.get('title') or adaptation.title)[:150]
@@ -637,10 +656,6 @@ class LessonSetupView(LoginRequiredMixin, FormView):
                 {'option': option, 'student': form.student_objects[option.data['value']]}
                 for option in form['students']
             ],
-            'recommended_by_student': {
-                pk: [str(a) for group in s.groups for a in group.adjustments]
-                for pk, s in form.student_objects.items()
-            },
         })
         return context
 
@@ -817,7 +832,8 @@ class LessonDeleteView(LoginRequiredMixin, View):
 class LessonStatusView(LoginRequiredMixin, View):
     def get(self, request, pk):
         lesson = own_lesson(request, pk)
-        return JsonResponse({'status': lesson.status, 'label': lesson.get_status_display(), 'error': lesson.ai_error})
+        return JsonResponse({'status': lesson.status, 'label': lesson.get_status_display(), 'error': lesson.ai_error,
+                             'progress': lesson.progress})
 
 
 def plan_row_text(adaptation):

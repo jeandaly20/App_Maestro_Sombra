@@ -1322,3 +1322,119 @@
 .open-lesson form {
     display: contents;
 }
+/* ---------- UDL rules per student ---------- */
+
+.student-rules {
+    margin: 0 0 var(--space-md);
+    padding: var(--space-md);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+}
+
+.student-rules__legend {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: 0 var(--space-xs);
+    font-family: var(--font-heading);
+    font-weight: 600;
+}
+
+.student-rules__legend small {
+    display: block;
+    color: var(--color-text-soft);
+    font-family: var(--font-body, inherit);
+    font-size: 0.8125rem;
+    font-weight: 400;
+}
+
+.student-rules__empty {
+    margin: 0 0 var(--space-md);
+    color: var(--color-text-soft);
+    font-style: italic;
+}
+
+.rule-option__tag {
+    display: block;
+    color: var(--color-primary);
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.alert__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    margin-top: var(--space-sm);
+}
+
+/* ---------- Parts that come from the student's conditions (nee_modules) ---------- */
+
+.routine,
+.reading-words {
+    margin: var(--space-sm) 0;
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-sm);
+    background: var(--color-primary-soft);
+}
+
+.routine p,
+.reading-words ul {
+    margin: 0.25rem 0;
+}
+
+.reading-words ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm) var(--space-lg);
+    padding: 0;
+    list-style: none;
+}
+
+.reading-words span {
+    color: var(--color-primary);
+    letter-spacing: 0.04em;
+}
+
+.worksheet__time,
+.step__minutes {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    color: var(--color-text-soft);
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.step__example,
+.active-break,
+.finish-signal {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-xs);
+    margin: var(--space-xs) 0;
+}
+
+.active-break {
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface-low);
+    list-style: none;
+}
+
+.nee-check {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-xs);
+    margin: var(--space-sm) 0;
+    font-size: 0.875rem;
+}
+
+.nee-check ul {
+    margin: var(--space-xs) 0 0;
+    padding-left: 1.1rem;
+}
+
+.nee-check--ok { color: var(--color-primary); }
+
+.nee-check--warn { color: var(--color-tertiary); }

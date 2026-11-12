@@ -16,6 +16,7 @@ urlpatterns = [
     path('clase/adaptacion/<uuid:pk>/guardar/', views.LessonSaveView.as_view(), name='lesson_save'),
     path('material/<uuid:pk>/', views.MaterialDetailView.as_view(), name='material_detail'),
     path('material/<uuid:pk>/estado/', views.MaterialStatusView.as_view(), name='material_status'),
+    path('material/<uuid:pk>/adaptar-igual/', views.MaterialRetryView.as_view(), name='material_retry'),
     path('material/<uuid:pk>/archivo/', views.MaterialFileView.as_view(), name='material_file'),
     path('material/<uuid:pk>/figura/<int:number>/', views.MaterialFigureView.as_view(), name='material_figure'),
     path('adaptacion/<uuid:pk>/accion/', views.AdaptationActionView.as_view(), name='adaptation_action'),

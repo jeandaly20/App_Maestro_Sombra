@@ -26,14 +26,26 @@
             {% endfor %}
         </ol>
         {% if is_working %}
-            <p class="material-status__message"><span class="spinner" aria-hidden="true"></span>La IA está leyendo la guía y preparando las adaptaciones. Esto puede tardar hasta un minuto.</p>
+            <p class="material-status__message"><span class="spinner" aria-hidden="true"></span><span data-progress>{{ material.progress|default:"La IA está leyendo la guía y preparando las adaptaciones…" }}</span></p>
+            <p class="field__help">Puede tardar hasta un minuto; la página se actualiza sola.</p>
         {% elif material.status == 'ERROR' %}
             <div class="alert alert--error" role="alert">
                 <span class="icon" aria-hidden="true">error</span>
                 <div>
                     <p><strong>No se pudo procesar el material.</strong> {{ material.ai_error }}</p>
-                    <p>Si es una foto, tómala de nuevo con buena luz, o elige "Escribir o pegar texto".</p>
-                    <a class="button button--primary" href="{% url 'adapt' %}">Volver a cargar</a>
+                    {% if material_mismatch %}
+                        <p>Revisa la materia y el tema que escribiste, o el archivo que subiste. Si el material sí es el correcto, puedes adaptarlo de todas formas.</p>
+                        <div class="alert__actions">
+                            <a class="button button--secondary" href="{% url 'adapt' %}">Corregir y volver a cargar</a>
+                            <form method="post" action="{% url 'material_retry' material.pk %}">
+                                {% csrf_token %}
+                                <button type="submit" class="button button--primary">El material es correcto: adaptar de todas formas</button>
+                            </form>
+                        </div>
+                    {% else %}
+                        <p>Si es una foto, tómala de nuevo con buena luz, o elige "Escribir o pegar texto".</p>
+                        <a class="button button--primary" href="{% url 'adapt' %}">Volver a cargar</a>
+                    {% endif %}
                 </div>
             </div>
         {% elif analysis %}

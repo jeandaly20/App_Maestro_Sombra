@@ -37,7 +37,8 @@
             {% endfor %}
         </ol>
         {% if is_working %}
-            <p class="material-status__message"><span class="spinner" aria-hidden="true"></span>La IA está leyendo la planificación y las páginas y adaptando la clase. Puede tardar uno o dos minutos.</p>
+            <p class="material-status__message"><span class="spinner" aria-hidden="true"></span><span data-progress>{{ lesson.progress|default:"La IA está leyendo la planificación y las páginas…" }}</span></p>
+            <p class="field__help">Puede tardar uno o dos minutos; la página se actualiza sola.</p>
         {% elif lesson.status == 'ERROR' %}
             <div class="alert alert--error" role="alert"><span class="icon" aria-hidden="true">error</span>
                 <div><p><strong>No se pudo adaptar la clase.</strong> {{ lesson.ai_error }}</p>

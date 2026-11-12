@@ -4,7 +4,6 @@
 {% block title %}Adaptar material{% endblock %}
 {% block styles %}{{ block.super }}<link rel="stylesheet" href="{% asset 'css/adapt.css' %}">{% endblock %}
 {% block scripts %}
-    {{ recommended_by_student|json_script:"recommended-adjustments" }}
     <script src="{% asset 'js/adapt.js' %}" defer></script>
 {% endblock %}
 
@@ -61,7 +60,6 @@
             {% include "includes/field.html" with field=form.subject icon="menu_book" %}
             {% include "includes/field.html" with field=form.topic icon="topic" %}
         </div>
-        {% include "includes/field.html" with field=form.title icon="title" %}
     </section>
 
     {# ---------- Material ---------- #}
@@ -91,16 +89,7 @@
             {% include "includes/field.html" with field=form.input_text %}
         </div>
 
-        <p class="adapt-section__subtitle"><span class="icon" aria-hidden="true">tune</span>Reglas de adaptación aplicadas</p>
-        <p class="field__help">Se marcan las recomendadas según la condición de los estudiantes elegidos. Puedes cambiarlas.</p>
-        <div class="rule-grid">
-            {% for checkbox in form.adjustments %}
-                <label class="rule-option" for="{{ checkbox.id_for_label }}">
-                    {{ checkbox.tag }}
-                    <span>{{ checkbox.choice_label }}</span>
-                </label>
-            {% endfor %}
-        </div>
+        {% include "adaptations/_student_rules.html" %}
     </section>
 
     <div class="adapt-actions">

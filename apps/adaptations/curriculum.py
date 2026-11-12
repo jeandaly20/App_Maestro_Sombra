@@ -61,6 +61,65 @@ SUBJECT_RULES = {
     ],
 }
 
+# How each subject shows a solved model, keeps the answers hidden and checks what was learned (worksheet only).
+# OTRA (or a subject added later) gets DEFAULT_WORKSHEET_RULES.
+WORKSHEET_RULES = {
+    'MAT': [
+        'Modelo resuelto: la operación o el problema paso a paso, con los mismos tipos de números de la guía (por '
+        'ejemplo 45 × 45 = 2 025, descomponiendo en decenas y unidades).',
+        'Si una actividad pide encontrar un número, ese número no aparece en ningún título, consigna, pista, '
+        'opción ni dibujo; la pista da una estrategia (por ejemplo "prueba con números de dos cifras grandes").',
+        'Comprobación: cálculos cortos como los de los pasos; las opciones incorrectas son errores de cálculo '
+        'comunes (llevar mal, confundir la operación, olvidar un cero).',
+    ],
+    'LEN': [
+        'Modelo resuelto: una oración o un fragmento corto de la guía ya trabajado (por ejemplo, el sujeto '
+        'subrayado o la idea principal escrita).',
+        'Si una actividad pide encontrar una palabra, un personaje o una idea del texto, no la escribas en la '
+        'consigna, la pista ni el título; la pista dice dónde buscar (por ejemplo "lee otra vez el segundo párrafo").',
+        'Comprobación: primero preguntas literales sobre la lectura (qué, quién, dónde) y luego una de inferencia; '
+        'las opciones incorrectas son personajes, lugares o palabras parecidas del mismo texto.',
+    ],
+    'CIE': [
+        'Modelo resuelto: un ejemplo del entorno ya clasificado o explicado (por ejemplo "el perro es un ser vivo '
+        'porque nace, crece y se alimenta").',
+        'Si una actividad pide nombrar o clasificar algo, la respuesta no aparece en la consigna ni en la pista; la '
+        'pista recuerda la característica que hay que mirar.',
+        'Comprobación: preguntas sobre los conceptos y sus ejemplos; las opciones incorrectas son conceptos '
+        'parecidos que se suelen confundir (raíz y tallo, órgano y célula, mezcla y sustancia).',
+    ],
+    'SOC': [
+        'Modelo resuelto: un hecho o lugar de la guía ya ubicado en el mapa o en la línea de tiempo.',
+        'Si una actividad pide una fecha, un lugar o un personaje, no lo escribas en la consigna ni en la pista.',
+        'Comprobación: preguntas sobre lugares, hechos y su relación con la familia y la comunidad; las opciones '
+        'incorrectas son lugares o fechas cercanos.',
+    ],
+    'ING': [
+        'Modelo resuelto: una frase en inglés de la guía con su significado en español.',
+        'Las consignas y pistas van en español; lo que se practica va en inglés. La pista da la primera letra o '
+        'una imagen, nunca la palabra completa.',
+        'Comprobación: vocabulario y frases modelo de la guía; las opciones incorrectas son palabras del mismo campo.',
+    ],
+    'ART': [
+        'Modelo resuelto: cómo se hace el trabajo paso a paso, con la lista de materiales al inicio.',
+        'Las actividades valoran el proceso y la expresión: no hay una respuesta única correcta, salvo en '
+        'preguntas sobre técnicas, colores o materiales.',
+        'Comprobación: preguntas sobre los pasos, las técnicas o los materiales usados.',
+    ],
+}
+DEFAULT_WORKSHEET_RULES = [
+    'Modelo resuelto: un ejemplo de la guía ya resuelto que el estudiante pueda imitar.',
+    'Ninguna consigna, pista, título u opción revela la respuesta que el estudiante debe encontrar.',
+    'Comprobación: preguntas sobre lo practicado; las opciones incorrectas son errores comunes y creíbles del tema.',
+]
+
+
+def worksheet_rules(subject_code):
+    """Prompt lines with the subject's way of modelling, hiding answers and checking learning."""
+    rules = WORKSHEET_RULES.get(subject_code, DEFAULT_WORKSHEET_RULES)
+    return 'Cómo se trabaja esta materia en la ficha:\n' + '\n'.join(f'- {rule}' for rule in rules)
+
+
 LEVEL_RULES = {
     'PREPARATORIA': 'Subnivel Preparatoria (currículo integrador por ámbitos): el estudiante todavía no lee de '
                     'forma autónoma; las consignas deben poder leerse en voz alta, ser muy cortas y pedir '

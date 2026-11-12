@@ -25,7 +25,8 @@ from django.conf import settings
 from apps.core.choices import AdaptationGrade, Condition, Grade
 
 from . import visuals
-from .curriculum import level_note
+from . import nee_modules
+from .curriculum import level_note, worksheet_rules
 from .udl_rules import rules_for
 
 logger = logging.getLogger('maestro_sombra')
@@ -61,7 +62,12 @@ ANALYSIS_SCHEMA = {
         'detected_barriers': {'type': 'ARRAY', 'items': {'type': 'STRING'}},
         'cognitive_load': {'type': 'STRING', 'enum': ['BAJA', 'MEDIA', 'ALTA']},
         'summary': {'type': 'STRING'},
-        # What the worksheet really is, to warn the teacher if it does not match the registered subject or grade
+        # The worksheet's own title (the teacher no longer types it)
+        'title': {'type': 'STRING'},
+        # "Adaptar material": whether the worksheet works the topic the teacher wrote
+        'matches_topic': {'type': 'BOOLEAN'},
+        'topic_mismatch': {'type': 'STRING'},
+        # What the worksheet really is, to stop if it does not match the registered subject, and warn about the grade
         'detected_subject': {'type': 'STRING', 'enum': ['MAT', 'LEN', 'CIE', 'SOC', 'ING', 'ART', 'OTRA']},
         'detected_level': {'type': 'STRING', 'enum': ['PREPARATORIA', 'ELEMENTAL', 'MEDIA', 'SUPERIOR', 'BACHILLERATO']},
         # "Adaptar clase" only: whether the pages belong to the chosen session of the class plan
@@ -69,7 +75,7 @@ ANALYSIS_SCHEMA = {
         'lesson_mismatch': {'type': 'STRING'},
     },
     'required': ['readable', 'extracted_text', 'figures', 'detected_barriers', 'cognitive_load', 'summary',
-                 'detected_subject', 'detected_level'],
+                 'title', 'detected_subject', 'detected_level'],
 }
 
 VISUAL_SCHEMA = {
@@ -181,32 +187,29 @@ ADAPTATION_SYSTEM = (
     'al estudiante de "tú". La adaptación será revisada por el docente.'
 )
 
+# The same for every subject and condition; the subject (curriculum.worksheet_rules) and the student's
+# conditions (udl_rules + nee_modules) add their own parts
 PEDAGOGY_RULES = (
-    'Lo escrito a mano en las fotos (respuestas, cálculos o números con lápiz o esfero) es de otro '
+    'Lo escrito a mano en las fotos (respuestas, cálculos, palabras o dibujos con lápiz o esfero) es de otro '
     'estudiante: nunca lo uses ni lo menciones; trabaja solo con lo impreso.\n'
     'Estructura obligatoria de la guía adaptada:\n'
     '- "learning_goal": una frase corta que empiece con "Vas a aprender…".\n'
     '- "concepts" (APRENDE): de 2 a 5 conceptos esenciales que el estudiante necesita para hacer la tarea, '
     'elegidos según los objetivos de la guía. Para cada uno: "explanation" en 2 o 3 frases cortas y sencillas '
     'que expliquen qué es y para qué sirve (no qué muestra una imagen), y "example" con una comparación de la '
-    'vida diaria (por ejemplo, la membrana es como la piel o la puerta de la casa). Si una figura de la guía '
-    'ayuda a entender ese concepto, pon su número en "figure_number". Si la guía trae un ejemplo resuelto '
-    '(por ejemplo 45 × 45 = 2 025 y 20 + 25 = 45), inclúyelo paso a paso en el "example" del concepto que '
-    'explica, porque es el modelo que el estudiante va a seguir.\n'
-    '- "steps" (AHORA PRACTICA): las actividades y preguntas de la guía original, adaptadas. Cada paso dice '
-    'qué hacer y cómo hacerlo, con una "hint" (pista) que remite a lo aprendido en "concepts". La "keyword" es '
-    'la palabra clave de la consigna (un verbo o concepto, por ejemplo "descomponer" o "sumar las partes"), '
-    'NUNCA la respuesta ni un resultado numérico. Ningún paso, pista o título puede revelar la respuesta de '
-    'ese paso ni de otro: si una actividad pide descubrir o encontrar un número, ese número no aparece en '
-    'ningún título, consigna, pista, opción ni "visual" (la pista da una estrategia, por ejemplo "prueba con '
-    'números de dos cifras grandes", y el paso no lleva cuadrícula). Las opciones de un '
-    'paso deben estar relacionadas con el tema. Si la guía '
-    'no trae actividades, crea de 2 a 4 actividades cortas para practicar el contenido de la guía (completar, '
-    'unir, elegir o clasificar), sin datos nuevos.\n'
-    '- "check_questions" (COMPRUEBA LO QUE APRENDISTE): de 2 a 3 preguntas de opción múltiple con 3 opciones '
-    'y su "answer" correcta, sobre lo que se practicó en esta clase (por ejemplo, un cálculo corto como los de '
-    'los pasos). Las opciones incorrectas deben ser errores comunes y creíbles del tema (por ejemplo, un cálculo con una suma mal llevada), no opciones absurdas. Cada opción es '
-    'solo la respuesta (un número o una frase corta), sin repetir la pregunta.\n'
+    'vida diaria del estudiante. Si una figura de la guía ayuda a entender ese concepto, pon su número en '
+    '"figure_number". Si la guía trae un modelo resuelto, inclúyelo paso a paso en el "example" del concepto que '
+    'explica: es lo que el estudiante va a imitar.\n'
+    '- "steps" (AHORA PRACTICA): las actividades y preguntas de la guía original, adaptadas. Cada paso dice qué '
+    'hacer y cómo hacerlo, con una "hint" (pista) que remite a lo aprendido en "concepts" y da una estrategia, '
+    'no la respuesta. La "keyword" es la palabra clave de la consigna (un verbo o un concepto), nunca la '
+    'respuesta. Ningún paso, pista, título, opción o dibujo puede revelar la respuesta de ese paso ni de otro. '
+    'Las opciones de un paso son del mismo tema. Si la guía no trae actividades, crea de 2 a 4 actividades '
+    'cortas para practicar su contenido (completar, unir, elegir o clasificar), sin datos nuevos.\n'
+    '- "check_questions" (COMPRUEBA LO QUE APRENDISTE): de 2 a 3 preguntas de opción múltiple con 3 opciones y '
+    'su "answer" correcta, sobre lo que se practicó. Las opciones incorrectas son errores comunes y creíbles del '
+    'tema, nunca absurdas. Cada opción es solo la respuesta (una palabra, un número o una frase corta), sin '
+    'repetir la pregunta.\n'
     '- Nunca escribas una instrucción que solo diga "Observa la figura" o que describa la imagen: la '
     'descripción para accesibilidad va únicamente en "figure_description".'
 )
@@ -214,22 +217,28 @@ PEDAGOGY_RULES = (
 IMAGE_RULES = (
     'Imágenes: si un concepto o un paso usa una figura de la guía original, escribe su número en "figure_number" '
     '(0 si ninguna); usa cada figura una sola vez y solo si ayuda a entender. Si una actividad necesita un '
-    'material de la guía para hacerse (una tabla para completar, una sopa de letras, una plantilla, un dibujo '
-    'para colorear o señalar), ese paso DEBE llevar el "figure_number" de esa figura. Si un concepto o paso necesita '
-    'una ilustración que la guía no tiene, elige en "visual" uno de estos '
-    'tipos usando SOLO datos de la guía: FRACTION_CIRCLE o FRACTION_BAR (parts, shaded y crossed para lo que '
-    'se quita o se comparte), NUMBER_LINE (start, end y marks), COUNT (count y crossed) o SEQUENCE (items: de '
-    '2 a 5 frases muy cortas con el orden de la actividad) o MULTIPLICATION_GRID (a y b de 2 cifras, '
-    'show_products=true solo en APRENDE, para el ejemplo resuelto que trae la guía (por ejemplo 45 × 45), y '
-    'false en AHORA PRACTICA, para la cuadrícula vacía que el estudiante completa; es la tabla de doble entrada '
-    'que descompone en decenas y unidades). Si la figura de la guía es '
-    'una tabla o cuadrícula que el sistema puede dibujar, usa el "visual" en su lugar (figure_number 0): se ve '
-    'completa y nítida. Si ningún tipo sirve, usa NONE. Máximo 5 pasos con "visual", y nunca uno que '
-    'contradiga los datos de la guía. Si el texto menciona un dibujo, imagen o '
-    'figura que NO está en la lista de figuras, no le pidas al estudiante que lo mire: reescribe la consigna '
-    'para que se entienda sin ese dibujo o usa un "visual". Cada paso debe tener un título corto que diga qué '
-    'se hace (por ejemplo "Observa la célula animal"), nunca solo "Paso 1".'
+    'material de la guía para hacerse (una tabla para completar, una sopa de letras, un mapa, una plantilla, un '
+    'dibujo para colorear o señalar), ese paso DEBE llevar el "figure_number" de esa figura. Si el texto menciona '
+    'un dibujo, imagen o figura que NO está en la lista de figuras, no le pidas al estudiante que lo mire: '
+    'reescribe la consigna para que se entienda sin ese dibujo. Si un concepto o paso necesita una ilustración que '
+    'la guía no tiene, puedes usar en "visual" el tipo SEQUENCE (items: de 2 a 5 frases muy cortas con el orden '
+    'de la actividad); si ninguno sirve, usa NONE. Máximo 5 pasos con "visual", y nunca uno que contradiga la guía.'
 )
+
+# Only for Mathematics: the drawings the system can make are all of numbers
+MATH_VISUALS = (
+    'Dibujos de números (solo con datos de la guía): FRACTION_CIRCLE o FRACTION_BAR (parts, shaded y crossed para '
+    'lo que se quita o se comparte), NUMBER_LINE (start, end y marks), COUNT (count y crossed) o MULTIPLICATION_GRID '
+    '(a y b de 2 cifras, show_products=true solo en APRENDE, para el ejemplo resuelto que trae la guía, y false en '
+    'AHORA PRACTICA, para la cuadrícula vacía que el estudiante completa; es la tabla de doble entrada que '
+    'descompone en decenas y unidades). Si la figura de la guía es una tabla o cuadrícula que el sistema puede '
+    'dibujar, usa el "visual" en su lugar (figure_number 0): se ve completa y nítida.'
+)
+NON_MATH_VISUALS = {'SEQUENCE', 'NONE'}
+
+
+def image_rules(subject_code):
+    return IMAGE_RULES + ('\n' + MATH_VISUALS if subject_code == 'MAT' else '')
 
 
 def _call(model, system, parts, schema, timeout):
@@ -263,7 +272,7 @@ def _pause_primary():
 
 
 def generate_json(system, parts, schema):
-    """Calls Gemini and returns (data, model_version). Falls back to the lite model if overloaded."""
+    """Calls Gemini and returns (data, model_version). Falls back to the other model if overloaded."""
     if not settings.GEMINI_API_KEY:
         raise AIError('Falta configurar la clave de la API de Gemini (GEMINI_API_KEY en el archivo .env).')
     last_error = None
@@ -307,6 +316,7 @@ def generate_json(system, parts, schema):
 
 
 TOPIC_MISMATCH = 'Las páginas no corresponden a la clase elegida'
+MATERIAL_MISMATCH = 'El material no coincide con lo que escribiste'
 
 
 def topic_note(session_text, images, ok_field, why_field):
@@ -317,22 +327,24 @@ def topic_note(session_text, images, ok_field, why_field):
         'objetivo específico y las actividades de la sesión, no solo con la materia, el eje o la destreza '
         'general (muchas planificaciones repiten la misma destreza en todas las sesiones). Responde false si '
         'trabajan otro contenido, aunque sea de la misma materia: por ejemplo, la sesión trata el perímetro y '
-        'las imágenes, las fracciones. Responde true si '
+        'las imágenes, las fracciones, o la sesión trata el sustantivo y las imágenes, los verbos. Responde true si '
         'corresponden a esas actividades, aunque usen otras palabras. Si es false, explica en '
         f'"{why_field}", en una frase corta para el docente, de qué tratan las imágenes y de qué trata la clase.'
     )
 
 
-def analyze_material(*, text='', image_parts=(), subject, topic, session_text=''):
+def analyze_material(*, text='', image_parts=(), subject, topic, session_text='', check_topic=False):
     """
     Reads the worksheet once: its page images (photo, PDF pages, Word pictures) and/or its text.
-    With session_text ("Adaptar clase") it also checks that the pages belong to that session.
+    With session_text ("Adaptar clase") it also checks that the pages belong to that session; with check_topic
+    ("Adaptar material") that the worksheet works the topic the teacher wrote.
     """
     prompt = (
         f'Materia: {subject}. Tema: {topic}.\n'
         'Analiza esta guía escolar: extrae su contenido, describe y ubica cada figura, y señala las barreras '
         'de aprendizaje, el número de ejercicios y la carga cognitiva (BAJA, MEDIA o ALTA). En "summary" '
-        'resume en una frase qué trabaja la guía. Según su contenido (no según lo que dice el docente), '
+        'resume en una frase qué trabaja la guía y en "title" escribe el título de la guía (el que trae '
+        'impreso o, si no tiene, uno corto que diga su tema). Según su contenido (no según lo que dice el docente), '
         'indica en "detected_subject" la materia que realmente trabaja (MAT Matemática, LEN Lengua y Literatura, '
         'CIE Ciencias Naturales, SOC Estudios Sociales, ING Inglés, ART Educación Cultural y Artística u OTRA) y '
         'en "detected_level" el subnivel del currículo ecuatoriano para el que está pensada: PREPARATORIA (1.º), '
@@ -340,6 +352,14 @@ def analyze_material(*, text='', image_parts=(), subject, topic, session_text=''
     )
     if session_text:
         prompt += '\n' + topic_note(session_text, 'las páginas', 'matches_lesson', 'lesson_mismatch')
+    elif check_topic:
+        prompt += (
+            f'\nEl docente dice que esta guía trabaja el tema "{topic}". Indica en "matches_topic" si su contenido '
+            'trabaja ese tema (true) o no (false). Responde true si es el mismo tema aunque use otras palabras, o '
+            'si es una parte de ese tema; false si trata otro contenido, aunque sea de la misma materia (por '
+            'ejemplo, el tema dice fracciones y la guía trabaja la multiplicación). Si es false, explica en '
+            '"topic_mismatch", en una frase corta para el docente, de qué trata la guía.'
+        )
     parts = [{'text': prompt}]
     if text:
         parts.append({'text': f'Texto de la guía:\n{text}'})
@@ -352,7 +372,12 @@ def analyze_material(*, text='', image_parts=(), subject, topic, session_text=''
 
 def adapt_worksheet(*, analysis, subject, topic, grade, conditions, adjustments, simplify=False, feedback='',
                     subject_code=None):
-    """Restructures the analyzed worksheet for ONE student and all their conditions. No personal data."""
+    """
+    Restructures the analyzed worksheet for ONE student and all their conditions. No personal data.
+    The answer must carry the fields of each condition (nee_modules); if the checks in code find something
+    missing (a step without its keyword, sentences too long for the student...), the AI is asked once to
+    correct exactly that. What is still missing is kept in "nee_check" for the teacher's review.
+    """
     figures = analysis.get('figures', [])
     figure_lines = '\n'.join(f'Figura {n}: {f["description"]}' for n, f in enumerate(figures, start=1))
     forbidden = handwritten_numbers(analysis)
@@ -366,7 +391,9 @@ def adapt_worksheet(*, analysis, subject, topic, grade, conditions, adjustments,
         (f'Números escritos a mano por otro estudiante, que no debes usar: {", ".join(sorted(forbidden))}.'
          if forbidden else ''),
         PEDAGOGY_RULES,
-        IMAGE_RULES,
+        worksheet_rules(subject_code),
+        image_rules(subject_code),
+        nee_modules.instructions_for(conditions),
         'Devuelve la guía adaptada. En "summary" escribe una frase para el banco de adaptaciones. '
         'En "udl_principle" indica el principio DUA principal aplicado y en "udl_justification" explica '
         'en una o dos frases por qué la adaptación reduce las barreras.',
@@ -378,9 +405,28 @@ def adapt_worksheet(*, analysis, subject, topic, grade, conditions, adjustments,
         prompt.append(f'Observación del docente sobre la versión anterior: {feedback}')
     # Last on purpose: the model follows the final instruction most reliably
     prompt.append(SPELLING_RULE)
-    content, model = generate_json(ADAPTATION_SYSTEM, [{'text': '\n\n'.join(part for part in prompt if part)}],
-                                   ADAPTATION_SCHEMA)
-    return normalize_adaptation(content, figure_count=len(figures), forbidden=forbidden), model
+    text = '\n\n'.join(part for part in prompt if part)
+    schema = nee_modules.schema_for(ADAPTATION_SCHEMA, conditions)
+
+    def ask(extra=''):
+        content, model = generate_json(ADAPTATION_SYSTEM, [{'text': text + extra}], schema)
+        content = normalize_adaptation(content, figure_count=len(figures), forbidden=forbidden,
+                                       subject_code=subject_code)
+        return content, model, nee_modules.problems(content, conditions)
+
+    content, model, missing = ask()
+    if missing:
+        logger.info('Worksheet misses its condition rules, asking once to correct: %s', missing)
+        # The spelling rule goes last again: a correction must not cost the accents
+        correction = ('\n\nTu respuesta anterior no cumplió estas reglas obligatorias de las condiciones del '
+                      'estudiante. Devuelve la guía completa otra vez, corrigiendo exactamente esto:\n'
+                      + '\n'.join(f'- {item}' for item in missing) + '\n\n' + SPELLING_RULE)
+        second, second_model, second_missing = ask(correction)
+        if len(second_missing) <= len(missing):
+            content, model, missing = second, second_model, second_missing
+    content['nee_check'] = {'passed': not missing, 'problems': missing}
+    content['total_minutes'] = nee_modules.total_minutes(content)
+    return content, model
 
 
 RECOMMENDATION_SCHEMA = {
@@ -545,7 +591,7 @@ def adapt_lesson(*, lesson, book_summary, subject, subject_code, grade, conditio
         'Adapta todos los momentos, en el mismo orden. En "evaluation" explica cómo evaluar al estudiante con el '
         'indicador de la clase. En "metacognition" no copies las preguntas de la clase: reescríbelas para este '
         'estudiante, con palabras sencillas y de máximo 10 palabras cada una (por ejemplo "¿Qué te ayudó a '
-        'multiplicar?").',
+        'entender el tema?").',
         SPELLING_RULE,
     ]
     data, model = generate_json(LESSON_ADAPTATION_SYSTEM, [{'text': '\n\n'.join(p for p in prompt if p)}],
@@ -595,7 +641,7 @@ def _step_title(step):
 MAX_DRAWN_VISUALS = 6
 
 
-def normalize_adaptation(content, figure_count=0, forbidden=()):
+def normalize_adaptation(content, figure_count=0, forbidden=(), subject_code=None):
     """
     Cleans the model's answer: the templates number the steps themselves (drop "Paso 1:"), a keyword
     is never the answer, figure numbers must exist (each figure used once) and drawn visuals are
@@ -621,6 +667,8 @@ def normalize_adaptation(content, figure_count=0, forbidden=()):
             if ANSWER_LIKE.match(str(item.get('keyword', '')).strip() or 'x'):
                 item['keyword'] = ''  # a number or an operation would give the answer away
         visual = visuals.clean_visual(item.get('visual')) if drawn < MAX_DRAWN_VISUALS else None
+        if visual and subject_code != 'MAT' and visual['type'] not in NON_MATH_VISUALS:
+            visual = None  # a drawing of numbers does not belong in a reading, science or arts worksheet
         if visual and visual['type'] == 'MULTIPLICATION_GRID':
             if 'instruction' in item:
                 visual['show_products'] = False  # a practice grid is for the student to fill in, never solved

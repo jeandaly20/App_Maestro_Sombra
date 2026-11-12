@@ -173,6 +173,7 @@ class LessonPlan(models.Model):
     analysis = models.JSONField('análisis de la IA', null=True, blank=True)
     status = models.CharField('estado', max_length=10, choices=Status.choices, default=Status.PENDING)
     ai_error = models.TextField('error de la IA', blank=True)
+    progress = models.CharField('avance', max_length=120, blank=True)  # what the AI is doing now
     record_status = models.CharField('estado del registro', max_length=8, choices=RecordStatus.choices,
                                      default=RecordStatus.ACTIVE)
     created_at = models.DateTimeField('creado', auto_now_add=True)

@@ -17,6 +17,14 @@ actions return to that page (the class in "Adaptar clase") instead of the materi
             {% if content.learning_goal %}
                 <p class="learning-goal" data-reading-line><span class="icon" aria-hidden="true">flag</span>{{ content.learning_goal }}</p>
             {% endif %}
+            {% if content.routine %}
+                <div class="routine" data-reading-line>
+                    <p><strong>Primero:</strong> {{ content.routine.first }}</p>
+                    <p><strong>Después:</strong> {{ content.routine.then }}</p>
+                    <p><strong>Al final:</strong> {{ content.routine.last }}</p>
+                </div>
+            {% endif %}
+            {% if content.total_minutes %}<p class="worksheet__time"><span class="icon" aria-hidden="true">timer</span>{{ steps|length }} pasos · unos {{ content.total_minutes }} minutos</p>{% endif %}
 
             {% if concepts %}
                 <h5 class="worksheet__section"><span class="icon" aria-hidden="true">lightbulb</span>Aprende</h5>
@@ -32,12 +40,21 @@ actions return to that page (the class in "Adaptar clase") instead of the materi
                 </div>
             {% endif %}
 
+            {% if content.reading_words %}
+                <div class="reading-words" data-reading-line>
+                    <p class="adapt-section__subtitle">Lee estas palabras por sílabas</p>
+                    <ul>{% for item in content.reading_words %}<li><strong>{{ item.word }}</strong> <span>{{ item.syllables }}</span></li>{% endfor %}</ul>
+                </div>
+            {% endif %}
+
             <h5 class="worksheet__section"><span class="icon" aria-hidden="true">edit_note</span>Ahora practica</h5>
             <ol class="worksheet__steps">
                 {% for step in steps %}
                     <li class="step" data-reading-line>
-                        <p class="step__title"><span class="step__number" aria-hidden="true">{{ forloop.counter }}</span>{{ step.title }}</p>
+                        <p class="step__title"><span class="step__number" aria-hidden="true">{{ forloop.counter }}</span>{{ step.title }}{% if step.minutes %} <span class="step__minutes"><span class="icon" aria-hidden="true">timer</span>{{ step.minutes }} min</span>{% endif %}</p>
+                        {% if step.worked_example %}<p class="step__example"><span class="icon" aria-hidden="true">visibility</span><span><strong>Mira cómo se hace:</strong> {{ step.worked_example }}</span></p>{% endif %}
                         <p class="step__instruction">{{ step.instruction }}</p>
+                        {% if step.concrete_support %}<p class="step__support"><span class="icon" aria-hidden="true">category</span><span><strong>Material:</strong> {{ step.concrete_support }}</span></p>{% endif %}
                         {% if step.keyword %}<p class="step__keyword">Palabra clave: <mark>{{ step.keyword }}</mark></p>{% endif %}
                         {% include "adaptations/_item_image.html" with item=step %}
                         {% if step.hint %}<p class="step__hint"><span class="icon" aria-hidden="true">tips_and_updates</span><span><strong>Pista:</strong> {{ step.hint }}</span></p>{% endif %}
@@ -45,6 +62,9 @@ actions return to that page (the class in "Adaptar clase") instead of the materi
                         {% if step.options %}<ul class="step__options">{% for option in step.options %}<li><span class="box" aria-hidden="true"></span>{{ option }}</li>{% endfor %}</ul>{% endif %}
                         {% if step.answer_type == 'ESPACIO' %}<div class="step__answer" aria-hidden="true"></div>{% endif %}
                     </li>
+                    {% if content.active_break and forloop.counter == content.break_after_step and not forloop.last %}
+                        <li class="active-break" data-reading-line><span class="icon" aria-hidden="true">directions_run</span><span><strong>Pausa activa:</strong> {{ content.active_break }}</span></li>
+                    {% endif %}
                 {% endfor %}
             </ol>
 
@@ -67,10 +87,20 @@ actions return to that page (the class in "Adaptar clase") instead of the materi
                     <dl>{% for item in content.glossary %}<dt>{{ item.term }}</dt><dd>{{ item.meaning }}</dd>{% endfor %}</dl>
                 </div>
             {% endif %}
+            {% if content.finish_signal %}<p class="finish-signal" data-reading-line><span class="icon" aria-hidden="true">sports_score</span><span><strong>¿Cuándo terminas?</strong> {{ content.finish_signal }}</span></p>{% endif %}
             {% if content.closing_message %}<p class="worksheet__closing" data-reading-line><span class="icon" aria-hidden="true">thumb_up</span>{{ content.closing_message }}</p>{% endif %}
         </div>
         {% if content.udl_justification %}
             <div class="udl-box"><span class="icon" aria-hidden="true">psychology</span><p><strong>Justificación DUA:</strong> {{ content.udl_justification }}</p></div>
+        {% endif %}
+        {% if content.nee_check %}
+            {% if content.nee_check.passed %}
+                <p class="nee-check nee-check--ok"><span class="icon" aria-hidden="true">verified</span>Revisión automática: cumple las reglas obligatorias de {{ worksheet.conditions_label }}.</p>
+            {% else %}
+                <div class="nee-check nee-check--warn"><span class="icon" aria-hidden="true">warning</span>
+                    <div><p><strong>Revisión automática:</strong> revisa esto antes de aprobar (o usa "Ajustar manualmente"):</p>
+                    <ul>{% for problem in content.nee_check.problems %}<li>{{ problem }}</li>{% endfor %}</ul></div></div>
+            {% endif %}
         {% endif %}
         <p class="adapted__meta">Ajustes DUA: {{ worksheet.adjustment_labels|join:", "|default:"ninguno" }} · Modelo: {{ worksheet.ai_model }} · Generada en {{ worksheet.generation_time_sec }} s</p>
 

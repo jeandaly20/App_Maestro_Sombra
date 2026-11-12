@@ -3,7 +3,6 @@
 {% block title %}Adaptar clase{% endblock %}
 {% block styles %}{{ block.super }}<link rel="stylesheet" href="{% asset 'css/adapt.css' %}">{% endblock %}
 {% block scripts %}
-    {{ recommended_by_student|json_script:"recommended-adjustments" }}
     <script src="{% asset 'js/lesson.js' %}" defer></script>
 {% endblock %}
 
@@ -77,12 +76,7 @@
                 </div>
             {% endfor %}
         </div>
-        <p class="adapt-section__subtitle"><span class="icon" aria-hidden="true">tune</span>Reglas de adaptación aplicadas</p>
-        <div class="rule-grid">
-            {% for checkbox in form.adjustments %}
-                <label class="rule-option" for="{{ checkbox.id_for_label }}">{{ checkbox.tag }}<span>{{ checkbox.choice_label }}</span></label>
-            {% endfor %}
-        </div>
+        {% include "adaptations/_student_rules.html" %}
     </section>
 
     <div class="adapt-actions">
