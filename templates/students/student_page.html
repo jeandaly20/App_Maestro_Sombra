@@ -61,7 +61,7 @@
                                 </label>
                             {% endfor %}
                         </div>
-                        <p class="condition-group__subtitle">Ajustes DUA recomendados automáticamente:</p>
+                        <p class="condition-group__subtitle">Ajustes DUA sugeridos por el sistema para este grupo:</p>
                         <ul class="pill-list">
                             {% for label in item.group.adjustment_labels %}<li>{{ label }}</li>{% endfor %}
                         </ul>
@@ -108,11 +108,20 @@
                 </div>
             </div>
 
-            <h3 class="form-section"><span class="icon" aria-hidden="true">notes</span>4. Observaciones y recomendaciones pedagógicas</h3>
+            <h3 class="form-section"><span class="icon" aria-hidden="true">person_search</span>4. Perfil pedagógico individual</h3>
+            <p class="field__help">Lo que observas en <strong>este</strong> estudiante: dos estudiantes con la misma NEE pueden tener fortalezas, barreras y apoyos distintos. Es opcional: puedes completarlo más adelante. El sistema no lo deduce de la NEE.</p>
+            <div class="profile-note">
+                <p><span class="icon" aria-hidden="true">info</span><span><strong>Ajustes DUA sugeridos</strong> (sección 2): estrategias generales que el sistema propone según el grupo de NEE; son sugerencias, no necesidades confirmadas. <strong>Apoyos pedagógicos individuales</strong> (aquí): las estrategias que tú registras para este estudiante; no cambian aunque cambien sus NEE.</span></p>
+            </div>
+            {% include "includes/field.html" with field=form.learning_strengths %}
+            {% include "includes/field.html" with field=form.learning_barriers %}
+            {% include "includes/field.html" with field=form.pedagogical_supports %}
+
+            <h3 class="form-section"><span class="icon" aria-hidden="true">notes</span>5. Observaciones y recomendaciones pedagógicas</h3>
             {% include "includes/field.html" with field=form.notes %}
 
             <div class="student-form__footer">
-                <p><span class="icon" aria-hidden="true">lock</span>El nombre y las observaciones se guardan cifrados y nunca se envían a la IA (LOPDP).</p>
+                <p><span class="icon" aria-hidden="true">lock</span>El nombre, el perfil pedagógico y las observaciones se guardan cifrados y no se envían a la IA (LOPDP).</p>
                 <div class="student-form__actions">
                     <a class="button button--secondary" href="{% url 'student_list' %}">Cancelar</a>
                     <button type="submit" class="button button--primary button--large">

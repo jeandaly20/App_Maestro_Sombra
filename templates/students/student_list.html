@@ -81,12 +81,16 @@
                         <span>Firmada el {{ student.diagnosis_consent_at|date:"d/m/Y" }} · <a href="{% url 'student_consent' student.pk %}" target="_blank" rel="noopener">Ver autorización</a></span>
                     {% elif student.has_document %}<span class="student-facts__missing">Falta subirla firmada</span>
                     {% else %}<span class="student-facts__missing">No aplica (sin documento)</span>{% endif %}</dd></div>
+                <div><dt>Perfil pedagógico individual</dt>
+                    <dd>{# Only how complete it is: its content is read in the student's record #}
+                        <span{% if not student.profile_sections %} class="student-facts__missing"{% endif %}>{% if student.profile_sections == 3 %}Completo{% elif student.profile_sections %}En elaboración ({{ student.profile_sections }} de 3 apartados){% else %}Sin registrar{% endif %} · <a href="{% url 'student_edit' student.pk %}">Ver en la ficha</a></span></dd></div>
                 <div><dt>Observaciones</dt><dd>{{ student.notes|default:"Sin observaciones."|linebreaksbr }}</dd></div>
             </dl>
 
             <div class="student-card__guidelines">
-                <p class="condition-group__subtitle">Pautas de adaptación automáticas:</p>
+                <p class="condition-group__subtitle">Ajustes DUA sugeridos por el sistema (según sus NEE):</p>
                 <p>{{ student.recommended_adjustments|join:", " }}.</p>
+                <p class="student-card__hint">Son sugerencias generales, no necesidades confirmadas. Los apoyos de este estudiante van en su perfil pedagógico.</p>
             </div>
 
             <footer class="student-card__footer">

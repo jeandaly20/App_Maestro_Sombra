@@ -57,6 +57,11 @@ class Student(models.Model):
     # Result of the local reading of the document (documents.check_document); its text is never stored
     diagnosis_check = models.JSONField('revisión automática del documento', null=True, blank=True, editable=False)
     notes = EncryptedTextField('observaciones', blank=True, help_text='Se guardan cifradas.')
+    # Individual pedagogical profile, written by the teacher for THIS student (not inferred from the NEE).
+    # Encrypted like the notes; not sent to the AI yet.
+    learning_strengths = EncryptedTextField('fortalezas del estudiante', blank=True, default='')
+    learning_barriers = EncryptedTextField('barreras de aprendizaje observadas', blank=True, default='')
+    pedagogical_supports = EncryptedTextField('apoyos pedagógicos individuales', blank=True, default='')
     record_status = models.CharField('estado del registro', max_length=8, choices=RecordStatus.choices,
                                      default=RecordStatus.ACTIVE)
     created_at = models.DateTimeField('creado', auto_now_add=True)
@@ -212,6 +217,12 @@ class Student(models.Model):
                 '(o la cédula con la discapacidad registrada) '
                 'o con el informe psicopedagógico de la UDAI.'
             )})
+
+    @property
+    def profile_sections(self):
+        """How many of the three parts of the pedagogical profile are written (0 to 3)."""
+        return sum(1 for text in (self.learning_strengths, self.learning_barriers, self.pedagogical_supports)
+                   if (text or '').strip())
 
     @property
     def is_diagnosis_pending(self):

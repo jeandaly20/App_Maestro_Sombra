@@ -13,6 +13,10 @@ from .documents import ACCEPT, MAX_DOCUMENT_MB, detect_type
 from .models import MAX_AGE, MIN_AGE, Student
 
 
+PROFILE_MAX_LENGTH = 1500  # characters per profile field: a few clear sentences, not a whole report
+PROFILE_FIELDS = ['learning_strengths', 'learning_barriers', 'pedagogical_supports']
+
+
 def years_ago(years, today=None):
     today = today or date.today()
     try:
@@ -39,7 +43,8 @@ class StudentForm(AccessibleFormMixin, forms.ModelForm):
 
     class Meta:
         model = Student
-        fields = ['name', 'birth_date', 'grade', 'conditions', 'diagnosis_source', 'diagnosis_date', 'notes']
+        fields = ['name', 'birth_date', 'grade', 'conditions', 'diagnosis_source', 'diagnosis_date',
+                  'learning_strengths', 'learning_barriers', 'pedagogical_supports', 'notes']
         labels = {
             'name': 'Nombre del niño o niña',
             'birth_date': 'Fecha de nacimiento',
@@ -47,8 +52,22 @@ class StudentForm(AccessibleFormMixin, forms.ModelForm):
             'notes': 'Notas de aula y estilo de aprendizaje',
             'diagnosis_source': 'Documento que respalda el diagnóstico',
             'diagnosis_date': 'Fecha del informe o certificado',
+            'learning_strengths': 'Fortalezas del estudiante',
+            'learning_barriers': 'Barreras de aprendizaje observadas',
+            'pedagogical_supports': 'Apoyos pedagógicos individuales',
         }
-        help_texts = {'name': '', 'notes': ''}
+        help_texts = {
+            'name': '', 'notes': '',
+            'learning_strengths': ('Habilidades, intereses y recursos que le ayudan a aprender. Ejemplo: "Comprende '
+                                   'explicaciones orales, reconoce imágenes y participa activamente en ejercicios '
+                                   'prácticos."'),
+            'learning_barriers': ('Dificultades que observas durante las actividades, no el diagnóstico. Ejemplo: '
+                                  '"Presenta dificultades para leer instrucciones extensas y mantener la atención '
+                                  'durante actividades prolongadas."'),
+            'pedagogical_supports': ('Estrategias que tú o el profesional responsable consideran pertinentes para '
+                                     'este estudiante; no cambian aunque cambien sus NEE. Ejemplo: "Instrucciones '
+                                     'breves, lectura acompañada, apoyos visuales y pausas programadas."'),
+        }
         widgets = {
             'name': forms.TextInput(attrs={'autocomplete': 'off', 'placeholder': 'Ej.: Mateo Benítez'}),
             'birth_date': forms.DateInput(format='%Y-%m-%d', attrs={'type': 'date'}),
@@ -56,6 +75,18 @@ class StudentForm(AccessibleFormMixin, forms.ModelForm):
             'notes': forms.Textarea(attrs={
                 'rows': 4,
                 'placeholder': 'Fortalezas observadas, apoyos sensoriales, estilo de aprendizaje...',
+            }),
+            'learning_strengths': forms.Textarea(attrs={
+                'rows': 3, 'maxlength': PROFILE_MAX_LENGTH,
+                'placeholder': 'Ej.: Comprende explicaciones orales y le gustan las actividades con imágenes.',
+            }),
+            'learning_barriers': forms.Textarea(attrs={
+                'rows': 3, 'maxlength': PROFILE_MAX_LENGTH,
+                'placeholder': 'Ej.: Le cuesta leer instrucciones largas y mantener la atención más de 10 minutos.',
+            }),
+            'pedagogical_supports': forms.Textarea(attrs={
+                'rows': 3, 'maxlength': PROFILE_MAX_LENGTH,
+                'placeholder': 'Ej.: Instrucciones breves, lectura acompañada, apoyos visuales y pausas programadas.',
             }),
         }
 
@@ -172,3 +203,19 @@ class StudentForm(AccessibleFormMixin, forms.ModelForm):
         if len(name) < 3:
             raise forms.ValidationError('Escribe el nombre del estudiante.')
         return name
+
+    def _clean_profile(self, field):
+        """Optional text of the pedagogical profile: trimmed, and short enough to stay a usable summary."""
+        text = (self.cleaned_data.get(field) or '').strip()
+        if len(text) > PROFILE_MAX_LENGTH:
+            raise forms.ValidationError(f'Escribe como máximo {PROFILE_MAX_LENGTH} caracteres (tienes {len(text)}).')
+        return text
+
+    def clean_learning_strengths(self):
+        return self._clean_profile('learning_strengths')
+
+    def clean_learning_barriers(self):
+        return self._clean_profile('learning_barriers')
+
+    def clean_pedagogical_supports(self):
+        return self._clean_profile('pedagogical_supports')

@@ -539,3 +539,32 @@
         gap: 0;
     }
 }
+
+/* ---------- Individual pedagogical profile ---------- */
+
+.profile-note {
+    margin: 0 0 var(--space-md);
+    padding: 0.75rem var(--space-md);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface-low);
+    font-size: 0.875rem;
+}
+
+.profile-note p {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-xs);
+    margin: 0;
+}
+
+.profile-note .icon {
+    flex-shrink: 0;
+    color: var(--color-primary);
+    font-size: 1.1rem;
+}
+
+.student-card__hint {
+    margin: var(--space-xs) 0 0;
+    color: var(--color-text-soft);
+    font-size: 0.8125rem;
+}
