@@ -10,9 +10,9 @@ from django.db.models import Max
 
 from apps.core.choices import RecordStatus
 from apps.materials.models import MaterialStatus, OriginalMaterial
-from apps.students.models import Student
+from apps.students.models import Student, ai_profile_allowed
 
-from . import ai, figures
+from . import ai, document_privacy, figures, pedagogical_relevance
 from .curriculum import SUBJECT_NAMES
 from .models import CurricularAdaptation, LessonAdaptation, LessonPlan
 
@@ -20,13 +20,53 @@ logger = logging.getLogger('maestro_sombra')
 
 
 def scrub_personal_data(text, student):
-    """Removes the student's name from free text before it reaches the AI (LOPDP)."""
+    """
+    Removes the student's name, and any identifier (ID numbers, phones, e-mails...), from free text before it
+    reaches the AI (LOPDP): the teacher's feedback and classroom observations.
+    """
     if not text:
         return ''
     for word in sorted(student.name.split(), key=len, reverse=True):
         if len(word) > 2:
             text = re.sub(rf'\b{re.escape(word)}\b', 'el estudiante', text, flags=re.IGNORECASE)
-    return text
+    return document_privacy.sanitize_text(text)[0]
+
+
+def scrub_names(text, names):
+    """The text without the given students' names nor other identifiers, before it reaches the AI (LOPDP)."""
+    if not text:
+        return text or ''
+    return document_privacy.sanitize_text(text, names)[0]
+
+
+def teacher_student_names(teacher):
+    return [student.name for student in Student.objects.filter(teacher=teacher)]
+
+
+def scrubbed_analysis(analysis, names):
+    """A copy of the worksheet reading without the names of the teacher's students (a photo may show one)."""
+    analysis = dict(analysis or {})
+    analysis['extracted_text'] = scrub_names(analysis.get('extracted_text', ''), names)
+    analysis['handwritten'] = [scrub_names(str(item), names) for item in analysis.get('handwritten') or []]
+    analysis['figures'] = [{**figure, 'description': scrub_names(figure.get('description', ''), names)}
+                           for figure in analysis.get('figures') or []]
+    return analysis
+
+
+def student_profile(student):
+    """The individual pedagogical profile, read only in this server by the relevance engine."""
+    return {field: getattr(student, field, '') or '' for field in
+            ('learning_strengths', 'learning_barriers', 'pedagogical_supports')}
+
+
+def worksheet_relevance(material, analysis, student, conditions, adjustments):
+    figures_text = ' '.join(f.get('description', '') for f in analysis.get('figures') or [])
+    return pedagogical_relevance.analyze(
+        conditions=conditions, profile=student_profile(student), subject_code=material.subject.code,
+        subject_name=material.subject.name, topic=material.topic,
+        activity_text=f"{analysis.get('extracted_text', '')} {figures_text}",
+        exercise_count=analysis.get('exercise_count') or 0, has_figures=bool(analysis.get('figures')),
+        adjustments=adjustments, share_profile=ai_profile_allowed(student))
 
 
 def report(record, text):
@@ -49,11 +89,18 @@ def _next_version(material, student, condition):
 def _create_adaptation(material, student, conditions, adjustments, *, source=None, simplify=False, feedback=''):
     started = time.monotonic()
     condition = conditions[0]  # groups the versions of the same worksheet
+    analysis = scrubbed_analysis(material.ai_analysis, teacher_student_names(material.teacher))
+    # The relevance engine reads the profile here; the AI only gets its authorized part (no profile)
+    relevance = worksheet_relevance(material, analysis, student, conditions, adjustments)
     content, model = ai.adapt_worksheet(
-        analysis=material.ai_analysis, subject=material.subject.name, topic=material.topic,
+        analysis=analysis, subject=material.subject.name, topic=material.topic,
         grade=student.grade, conditions=conditions, adjustments=adjustments,
         simplify=simplify, feedback=scrub_personal_data(feedback, student), subject_code=material.subject.code,
+        relevance=relevance,
     )
+    content['relevance'] = pedagogical_relevance.storable(relevance)
+    content['review_checks'] = pedagogical_relevance.review_checks(
+        content, kind='worksheet', conditions=conditions, student_name=student.name, original=analysis)
     adaptation = CurricularAdaptation(
         material=material, student=student, condition=condition, conditions=list(conditions),
         version=_next_version(material, student, condition), source_adaptation=source,
@@ -100,7 +147,8 @@ def process_material(material_id, requests, adjustments, *, session_text='', bef
         if resume and (material.ai_analysis or {}).get('extracted_text'):
             analysis = material.ai_analysis  # already read in the attempt that stopped
         else:
-            analysis = read_material(material, say, session_text, check_topic, title_from_ai)
+            analysis = read_material(material, say, session_text, check_topic, title_from_ai,
+                                     private_names=teacher_student_names(material.teacher))
         if before_adapting:
             before_adapting(analysis)
         students = {s.pk: s for s in Student.objects.filter(teacher=material.teacher, pk__in=[r[0] for r in requests])}
@@ -125,10 +173,17 @@ def process_material(material_id, requests, adjustments, *, session_text='', bef
     return material
 
 
-def read_material(material, say, session_text, check_topic, title_from_ai):
-    """The AI reads the worksheet once; it is saved at once, so a later failure does not lose it."""
+def read_material(material, say, session_text, check_topic, title_from_ai, private_names=()):
+    """
+    The AI reads the worksheet once; it is saved at once, so a later failure does not lose it. The names of the
+    teacher's students are removed from a typed or Word text before it is sent, and from what the AI read.
+    """
     started = time.monotonic()
-    text, images = figures.load_sources(material)
+    # Privacy check BEFORE sending: only the cleaned text and redacted pages leave; a blocked file stops here
+    inspection = document_privacy.inspect_material(material, private_names)
+    if not inspection.allowed:
+        raise ai.AIError(f'{ai.PRIVACY_BLOCK}: {inspection.message}')
+    text, images = inspection.text, inspection.images
     if not text.strip() and not images:
         raise ai.AIError('El archivo no tiene texto ni imágenes que leer. Revisa el archivo o pega el texto.')
     say('La IA está leyendo el material' + (f' ({len(images)} página{"s" if len(images) > 1 else ""})'
@@ -141,9 +196,12 @@ def read_material(material, say, session_text, check_topic, title_from_ai):
                          f'{analysis.get("lesson_mismatch", "")}'.strip())
     if check_topic and (mismatch := material_mismatch(material, analysis)):
         raise ai.AIError(f'{ai.MATERIAL_MISMATCH}: {mismatch}.')
+    analysis = scrubbed_analysis(analysis, private_names)
     figures.crop_figures(material, images, analysis.get('figures', []))
     analysis['model'] = model
     analysis['seconds'] = round(time.monotonic() - started)
+    # What the check did, for the teacher (counts only, never the removed values)
+    analysis['privacy'] = {'status': inspection.status, 'message': inspection.message}
     material.ai_analysis = analysis
     fields = ['ai_analysis', 'updated_at']
     if title_from_ai and (analysis.get('title') or '').strip():
@@ -233,22 +291,31 @@ def process_lesson(lesson_id, requests, adjustments, chosen_grade='', check_topi
     lesson.ai_error = ''
     lesson.save(update_fields=['status', 'ai_error', 'updated_at'])
     rules = rules_by_student(adjustments)
+    names = teacher_student_names(lesson.teacher)
+    # The plan's text was cleaned when it was read; it is checked again for any identifier before it is sent
+    session_text = document_privacy.sanitize_text(lesson.session_text, names)[0]
 
     def read_lesson(book_analysis):
         # Runs after the book is read and before anything is adapted: a guide of another topic stops here
         if resume and lesson.analysis:
             return
-        guide_parts = []
+        guide_parts, guide_note = [], ''
         report(lesson, 'La IA está leyendo la planificación' + (' y la guía del docente' if lesson.guide_file else '') + '…')
         if lesson.guide_file:
             with lesson.guide_file.open('rb') as guide:
-                guide_parts = figures.image_parts(figures.file_images(guide.read()))
+                inspection = document_privacy.inspect_file(guide.read(), names)
+            if inspection.allowed:
+                guide_parts = figures.image_parts(inspection.images)
+            else:  # the class goes on without the guide: it is optional, and it is never sent unchecked
+                guide_note = f'La guía del docente no se envió a la IA: {inspection.message}'
         analysis, _model = ai.analyze_lesson(
-            session_text=lesson.session_text, guide_parts=guide_parts, book_summary=book_analysis.get('summary', ''),
+            session_text=session_text, guide_parts=guide_parts, book_summary=book_analysis.get('summary', ''),
             subject=lesson.subject.name, grade=class_grade, check_guide=check_topic, whole_week=lesson.is_week)
         if check_topic and guide_parts and analysis.get('guide_matches') is False:
             raise ai.AIError(f'{ai.TOPIC_MISMATCH}: la guía del docente es de otro tema. '
                              f'{analysis.get("guide_mismatch", "")}'.strip())
+        if guide_note:
+            analysis['privacy_note'] = guide_note
         lesson.analysis = analysis
         lesson.save(update_fields=['analysis', 'updated_at'])
 
@@ -256,7 +323,7 @@ def process_lesson(lesson_id, requests, adjustments, chosen_grade='', check_topi
         students = {s.pk: s for s in Student.objects.filter(teacher=lesson.teacher, pk__in=[r[0] for r in requests])}
         class_grade = students[requests[0][0]].grade
         material = process_material(lesson.material_id, requests, adjustments, before_adapting=read_lesson,
-                                    session_text=lesson.session_text if check_topic else '', resume=resume,
+                                    session_text=session_text if check_topic else '', resume=resume,
                                     progress=lambda text: report(lesson, text.replace('el material', 'las páginas del libro')))
         if material.status == MaterialStatus.ERROR:
             raise ai.AIError(material.ai_error)
@@ -269,11 +336,17 @@ def process_lesson(lesson_id, requests, adjustments, chosen_grade='', check_topi
             student = students[student_id]
             report(lesson, f'Adaptando la clase {number} de {len(requests)}…' if len(requests) > 1
                    else 'Adaptando la clase…')
+            student_rules = rules.get(str(student_id), [])
+            relevance = lesson_relevance(lesson, analysis, book_summary, student, conditions, student_rules)
             content, model = ai.adapt_lesson(
                 lesson=analysis, book_summary=book_summary, subject=lesson.subject.name,
                 subject_code=lesson.subject.code, grade=student.grade, conditions=conditions,
-                adjustments=rules.get(str(student_id), []), chosen_grade=chosen_grade, whole_week=lesson.is_week,
+                adjustments=student_rules, chosen_grade=chosen_grade, whole_week=lesson.is_week,
+                relevance=relevance,
             )
+            content['relevance'] = pedagogical_relevance.storable(relevance)
+            content['review_checks'] = pedagogical_relevance.review_checks(
+                content, kind='lesson', conditions=conditions, student_name=student.name, original=analysis)
             worksheet = (material.adaptations.filter(student=student, condition=conditions[0])
                          .order_by('-version').first())
             # Saved at once: if the next student fails, this one is kept for the retry
@@ -299,6 +372,17 @@ def process_lesson(lesson_id, requests, adjustments, chosen_grade='', check_topi
     lesson.progress = ''
     lesson.save(update_fields=['status', 'ai_error', 'plan_file', 'progress', 'updated_at'])
     return lesson
+
+
+def lesson_relevance(lesson, analysis, book_summary, student, conditions, adjustments):
+    """The relevance engine for a whole class: its moments, objective, skill and the book pages it uses."""
+    moments = ' '.join(f"{m.get('name', '')} {m.get('activities', '')}" for m in analysis.get('moments', []))
+    return pedagogical_relevance.analyze(
+        conditions=conditions, profile=student_profile(student), subject_code=lesson.subject.code,
+        subject_name=lesson.subject.name, topic=analysis.get('title') or lesson.title,
+        activity_text=f'{moments} {book_summary}', is_lesson=True,
+        objective=analysis.get('objective', ''), skill=analysis.get('skill', ''), adjustments=adjustments,
+        share_profile=ai_profile_allowed(student))
 
 
 def start_lesson_processing(lesson, requests, adjustments, chosen_grade='', check_topic=True, resume=False):

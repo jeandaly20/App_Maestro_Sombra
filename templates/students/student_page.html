@@ -137,6 +137,53 @@
             <input type="hidden" name="back" value="{{ request.path }}">
         </form>
         {% if object %}
+        {# ---------- Authorizations of the legal representative, one per document, with what each covers ---------- #}
+        <section class="consents" aria-labelledby="consents-title">
+            <h3 class="form-section" id="consents-title"><span class="icon" aria-hidden="true">verified_user</span>Autorizaciones del representante</h3>
+            <p class="field__help">Cada autorización cubre solo los tratamientos que dice su documento. La del formulario de registro permite guardar los datos y enviar a la IA el grado y la NEE con seudónimo; <strong>no</strong> cubre el perfil pedagógico.</p>
+            <p class="consents__status"><span class="icon" aria-hidden="true">{% if profile_shared %}cloud_upload{% else %}lock{% endif %}</span>
+                {% if profile_shared %}El perfil pedagógico (solo categorías) se usa en las solicitudes a la IA: hay una autorización vigente y el envío está habilitado.
+                {% elif not profile_transfer_enabled %}El envío del perfil pedagógico a la IA está deshabilitado en el sistema: el perfil se usa solo dentro de la aplicación.
+                {% else %}El perfil pedagógico no se envía a la IA: falta una autorización vigente de este estudiante que lo cubra.{% endif %}</p>
+            {% if consents %}
+                <div class="table-wrap"><table class="consents__table">
+                    <thead><tr><th>Versión</th><th>Fecha</th><th>Tratamientos</th><th>Estado</th><th></th></tr></thead>
+                    <tbody>{% for consent in consents %}
+                        <tr>
+                            <td>{{ consent.document_version }}</td>
+                            <td>{{ consent.authorized_on|date:"d/m/Y" }}</td>
+                            <td>{{ consent.treatment_labels|join:"; " }}</td>
+                            <td>{{ consent.get_status_display }}{% if consent.revoked_at %} ({{ consent.revoked_at|date:"d/m/Y" }}){% endif %}</td>
+                            <td class="consents__actions">
+                                {% if consent.signed_file %}<a href="{% url 'student_consent_record_file' object.pk consent.pk %}" target="_blank" rel="noopener">Ver documento</a>{% endif %}
+                                {% if consent.is_active %}
+                                    <form method="post" action="{% url 'student_consent_revoke' object.pk consent.pk %}" data-confirm="¿Revocar esta autorización? Desde ahora no se usará.">{% csrf_token %}
+                                        <button type="submit" class="button button--ghost">Revocar</button></form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}</tbody>
+                </table></div>
+            {% else %}
+                <p class="field__help">Este estudiante aún no tiene autorizaciones registradas.</p>
+            {% endif %}
+            <details class="consents__new">
+                <summary>Registrar una autorización nueva</summary>
+                <p class="field__help">Sube solo un documento firmado cuyo texto haya revisado un profesional competente: la aplicación no redacta ni aprueba textos legales. Marca únicamente los tratamientos que ese documento autoriza.</p>
+                <form method="post" action="{% url 'student_consent_create' object.pk %}" enctype="multipart/form-data" novalidate>
+                    {% csrf_token %}
+                    <div class="field-row">
+                        {% include "includes/field.html" with field=consent_form.document_version %}
+                        {% include "includes/field.html" with field=consent_form.authorized_on %}
+                    </div>
+                    <fieldset class="consents__treatments"><legend class="field__label">{{ consent_form.treatments.label }}</legend>
+                        {% for checkbox in consent_form.treatments %}<label class="rule-option" for="{{ checkbox.id_for_label }}">{{ checkbox.tag }}<span>{{ checkbox.choice_label }}</span></label>{% endfor %}
+                    </fieldset>
+                    {% include "includes/field.html" with field=consent_form.signed_document icon="upload_file" %}
+                    <button type="submit" class="button button--secondary"><span class="icon" aria-hidden="true">save</span>Registrar autorización</button>
+                </form>
+            </details>
+        </section>
         <form method="post" action="{% url 'student_deactivate' object.pk %}" class="student-deactivate"
               data-confirm="¿Dar de baja a {{ object.name }}? Dejará de aparecer en el directorio y se liberará un cupo. Sus adaptaciones y evaluaciones se conservan en el historial.">
             {% csrf_token %}

@@ -199,7 +199,10 @@ class MaterialDetailView(LoginRequiredMixin, TemplateView):
             'color_filters': ColorFilter.choices,
             'is_working': material.status in (MaterialStatus.PENDING, MaterialStatus.PROCESSING),
             'material_mismatch': material.status == MaterialStatus.ERROR and material.ai_error.startswith(ai.MATERIAL_MISMATCH),
-            'can_resume': material.status == MaterialStatus.ERROR and bool(material.job),
+            # Retrying a file blocked for privacy would send nothing new: the teacher uploads another version
+            'can_resume': (material.status == MaterialStatus.ERROR and bool(material.job)
+                           and not material.ai_error.startswith(ai.PRIVACY_BLOCK)),
+            'privacy_blocked': material.status == MaterialStatus.ERROR and material.ai_error.startswith(ai.PRIVACY_BLOCK),
             # Our own PDFs carry this footer: an adapted worksheet has no original drawings to reuse
             'is_already_adapted': 'Adaptación DUA revisada por el docente' in (material.ai_analysis or {}).get('extracted_text', ''),
         })
@@ -768,6 +771,7 @@ class LessonDetailView(LoginRequiredMixin, TemplateView):
             # Google overloaded (not pages of another topic): the class can continue from where it stopped
             'can_resume': (lesson.status == MaterialStatus.ERROR and bool(lesson.plan_file)
                            and not lesson.ai_error.startswith(ai.TOPIC_MISMATCH)
+                           and ai.PRIVACY_BLOCK not in lesson.ai_error
                            and bool(lesson.material and lesson.material.job)),
             'plan_row': plan_row_text(selected) if selected else '',
             'moments': class_moments(lesson, selected) if selected else [],

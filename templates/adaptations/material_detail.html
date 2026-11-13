@@ -50,6 +50,9 @@
                             </form>
                             <a class="button button--secondary" href="{% url 'adapt' %}">Volver a cargar</a>
                         </div>
+                    {% elif privacy_blocked %}
+                        <p>Nada de este archivo se envió a la IA. Sube un PDF digital o un Word sin datos personales, o escribe el texto de la guía.</p>
+                        <a class="button button--primary" href="{% url 'adapt' %}">Volver a cargar</a>
                     {% else %}
                         <p>Si es una foto, tómala de nuevo con buena luz, o elige "Escribir o pegar texto".</p>
                         <a class="button button--primary" href="{% url 'adapt' %}">Volver a cargar</a>
@@ -61,6 +64,12 @@
                 <div class="alert alert--info" role="status">
                     <span class="icon" aria-hidden="true">info</span>
                     <p><strong>Este archivo es una guía ya adaptada por Maestro Sombra.</strong> Para recuperar los dibujos, sube la guía original que entregas en clase.</p>
+                </div>
+            {% endif %}
+            {% if analysis.privacy.message %}
+                <div class="alert alert--info" role="status">
+                    <span class="icon" aria-hidden="true">shield</span>
+                    <p><strong>Revisión de privacidad:</strong> {{ analysis.privacy.message }} La IA recibió solo la versión depurada.</p>
                 </div>
             {% endif %}
             {% if analysis.handwritten %}

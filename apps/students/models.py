@@ -269,3 +269,87 @@ class Student(models.Model):
 
     def __str__(self):
         return self.pseudonym
+
+
+# ---------------- Individual consent for each kind of data processing ----------------
+
+class Treatment(models.TextChoices):
+    """What the legal representative authorizes. Each one is separate: one never implies another."""
+    INTERNAL = 'INTERNAL', 'Tratamiento interno para la gestión educativa'
+    AI_ADAPTATION = 'AI_ADAPTATION', 'Envío a un proveedor de IA para generar adaptaciones (grado y NEE, con seudónimo)'
+    AI_PROFILE = 'AI_PROFILE', 'Uso del perfil pedagógico (solo categorías) en solicitudes a un proveedor de IA'
+
+
+class ConsentStatus(models.TextChoices):
+    ACTIVE = 'ACTIVE', 'Vigente'
+    REVOKED = 'REVOKED', 'Revocada'
+    REPLACED = 'REPLACED', 'Reemplazada'
+
+
+# The authorization of the registration form (apps/students/consent.py): its text covers keeping the data and
+# sending the grade and the NEE to the AI, NOT the pedagogical profile
+REGISTRATION_CONSENT_VERSION = 'REGISTRO-2026-v1'
+REGISTRATION_TREATMENTS = [Treatment.INTERNAL, Treatment.AI_ADAPTATION]
+
+
+class StudentConsent(models.Model):
+    """
+    One signed authorization of a student's legal representative: its document version, date, the treatments it
+    covers and whether it is still in force. The signed file is stored encrypted (documents.py); only its storage
+    path is kept here. A legal professional reviews the text: the app neither writes nor approves it.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='consents', verbose_name='estudiante')
+    document_version = models.CharField('versión del documento', max_length=40)
+    authorized_on = models.DateField('fecha de autorización')
+    treatments = ArrayField(models.CharField(max_length=20, choices=Treatment.choices),
+                            verbose_name='tratamientos autorizados')
+    status = models.CharField('estado', max_length=8, choices=ConsentStatus.choices, default=ConsentStatus.ACTIVE)
+    revoked_at = models.DateTimeField('revocada o reemplazada el', null=True, blank=True)
+    signed_file = models.CharField('documento firmado (cifrado)', max_length=255, blank=True, editable=False)
+    signed_file_type = models.CharField('tipo de archivo', max_length=20, blank=True, editable=False,
+                                        choices=DOCUMENT_TYPES)
+    created_at = models.DateTimeField('creado', auto_now_add=True)
+    updated_at = models.DateTimeField('actualizado', auto_now=True)
+
+    class Meta:
+        db_table = 'trx_student_consent'
+        ordering = ['-authorized_on', '-created_at']
+        verbose_name = 'autorización del representante'
+        verbose_name_plural = 'autorizaciones del representante'
+        constraints = [
+            models.CheckConstraint(check=models.Q(treatments__contained_by=Treatment.values),
+                                   name='student_consent_treatments_valid'),
+            models.CheckConstraint(check=models.Q(treatments__len__gte=1), name='student_consent_has_treatment'),
+            models.CheckConstraint(check=models.Q(status__in=ConsentStatus.values), name='student_consent_status_valid'),
+            # In force means not revoked; revoked or replaced always says when
+            models.CheckConstraint(
+                check=(models.Q(status=ConsentStatus.ACTIVE, revoked_at__isnull=True)
+                       | (~models.Q(status=ConsentStatus.ACTIVE) & models.Q(revoked_at__isnull=False))),
+                name='student_consent_revocation_dated'),
+        ]
+
+    @property
+    def treatment_labels(self):
+        return [Treatment(value).label for value in self.treatments]
+
+    @property
+    def is_active(self):
+        return self.status == ConsentStatus.ACTIVE
+
+    def __str__(self):
+        return f'{self.student.pseudonym} · {self.document_version}'
+
+
+def consent_allows(student, treatment):
+    """Whether THIS student has an authorization in force that covers this treatment."""
+    return student.consents.filter(status=ConsentStatus.ACTIVE, treatments__contains=[treatment]).exists()
+
+
+def ai_profile_allowed(student):
+    """
+    The pedagogical profile may reach the AI only with both: the system setting turned on explicitly, and an
+    individual authorization in force that covers it. Off by default; missing either keeps it out.
+    """
+    return bool(getattr(settings, 'AI_PROFILE_TRANSFER_ENABLED', False)) and \
+        consent_allows(student, Treatment.AI_PROFILE)

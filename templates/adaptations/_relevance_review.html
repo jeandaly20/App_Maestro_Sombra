@@ -1,0 +1,53 @@
+{% comment %}
+The pedagogical relevance of an adaptation, for the teacher's review: the AI's justification of each adjustment,
+the automatic checks (they never validate it) and the local analysis of the student's NEE and profile.
+"data" is the adaptation content (worksheet or class).
+{% endcomment %}
+{% with relevance=data.relevance checks=data.review_checks justification=data.pedagogical_justification %}
+{% if relevance or checks or justification %}
+<details class="relevance-review"{% if checks.problems %} open{% endif %}>
+    <summary><span class="icon" aria-hidden="true">fact_check</span>Pertinencia pedagógica y comprobaciones
+        {% if checks.problems %}<span class="chip chip--warning">{{ checks.problems|length }} por revisar</span>{% endif %}</summary>
+
+    {% if checks %}
+        <div class="relevance-review__block">
+            <p class="adapt-section__subtitle">Comprobaciones automáticas</p>
+            {% if checks.problems %}
+                <ul class="relevance-review__problems">{% for problem in checks.problems %}<li>{{ problem }}</li>{% endfor %}</ul>
+            {% else %}
+                <p>Sin observaciones automáticas.</p>
+            {% endif %}
+            <p class="field__help">Estas comprobaciones solo revisan la estructura, los objetivos y los datos: no validan la adaptación. La decisión pedagógica es tuya.</p>
+        </div>
+    {% endif %}
+
+    {% if justification %}
+        <div class="relevance-review__block">
+            <p class="adapt-section__subtitle">Justificación de los ajustes (propuesta por la IA)</p>
+            <div class="table-wrap"><table class="relevance-review__table">
+                <thead><tr><th>Barrera atendida</th><th>Ajuste</th><th>Motivo</th><th>Objetivo relacionado</th><th>Indicador observable</th></tr></thead>
+                <tbody>{% for item in justification %}<tr><td>{{ item.barrier }}</td><td>{{ item.adjustment }}</td><td>{{ item.reason }}</td><td>{{ item.objective }}</td><td>{{ item.indicator }}</td></tr>{% endfor %}</tbody>
+            </table></div>
+        </div>
+    {% endif %}
+
+    {% if relevance %}
+        <div class="relevance-review__block">
+            <p class="adapt-section__subtitle">Análisis local del sistema</p>
+            <ul class="relevance-review__list">
+                {% for item in relevance.nee %}<li><strong>{{ item.label }}:</strong> {% if item.applies %}aplica{% else %}no aplica en esta actividad{% endif %}. {{ item.reason }}</li>{% endfor %}
+            </ul>
+            {% if relevance.relevant_barriers or relevance.other_barriers %}
+                <p><strong>Barreras de su perfil relacionadas con la actividad:</strong>
+                    {% for item in relevance.relevant_barriers %}{{ item.label }}{% if not forloop.last %}, {% endif %}{% empty %}ninguna{% endfor %}.
+                    {% if relevance.other_barriers %}No se asume que afecten aquí: {% for item in relevance.other_barriers %}{{ item.label }}{% if not forloop.last %}, {% endif %}{% endfor %}.{% endif %}</p>
+            {% endif %}
+            {% if relevance.usable_strengths %}<p><strong>Fortalezas aprovechables:</strong> {% for item in relevance.usable_strengths %}{{ item.label }}{% if not forloop.last %}, {% endif %}{% endfor %}.</p>{% endif %}
+            {% if relevance.relevant_supports %}<p><strong>Apoyos individuales pertinentes (aplícalos al revisar):</strong> {% for item in relevance.relevant_supports %}{{ item.label }}{% if not forloop.last %}, {% endif %}{% endfor %}.</p>{% endif %}
+            {% if relevance.udl_suggestions %}<p><strong>Ajustes DUA sugeridos:</strong> {% for item in relevance.udl_suggestions %}{{ item.label }}{% if not item.pertinent %} (aporte limitado aquí){% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}.</p>{% endif %}
+            {% for warning in relevance.warnings %}<p class="relevance-review__warning"><span class="icon" aria-hidden="true">info</span>{{ warning }}</p>{% endfor %}
+        </div>
+    {% endif %}
+</details>
+{% endif %}
+{% endwith %}

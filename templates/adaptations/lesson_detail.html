@@ -148,6 +148,7 @@
             <button type="button" class="button button--secondary" data-copy="plan-row"><span class="icon" aria-hidden="true">content_copy</span>Copiar texto</button></td></tr>
     </table>
 
+    {% include "adaptations/_relevance_review.html" with data=selected.content %}
     <footer class="class-sheet__actions">
         <button type="submit" name="action" value="save" class="button button--secondary"><span class="icon" aria-hidden="true">save</span>Guardar cambios</button>
         <button type="submit" name="action" value="approve" class="button button--primary button--large"><span class="icon" aria-hidden="true">arrow_forward</span>Aprobar la clase y revisar la ficha</button>

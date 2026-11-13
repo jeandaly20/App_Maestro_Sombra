@@ -17,12 +17,11 @@ function setUpForm() {
     const textZone = form.querySelector('[data-text-zone]');
     const help = form.querySelector('[data-file-help]');
     const helpTexts = {
-        PHOTO: 'En el celular se abre la cámara. Toma la foto de frente, con buena luz y sin sombras. Máximo 10 MB.',
-        PDF: 'Sube la guía en PDF. Máximo 10 MB.',
+        PDF: 'Sube la guía en PDF digital (con texto que se pueda seleccionar). Máximo 10 MB.',
         WORD: 'Sube la guía en Word (.docx). Se leerá su texto. Máximo 10 MB.',
     };
     const applyType = () => {
-        const type = form.querySelector('input[name="input_type"]:checked')?.value || 'PHOTO';
+        const type = form.querySelector('input[name="input_type"]:checked')?.value || 'PDF';
         const isText = type === 'TEXT';
         fileZone.hidden = isText;
         textZone.hidden = !isText;

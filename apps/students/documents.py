@@ -307,10 +307,42 @@ DOCUMENT_FIELDS = ['diagnosis_file', 'diagnosis_file_type', 'diagnosis_consent_a
                    'consent_file', 'consent_file_type']
 
 
+def close_consents(student, *, paths=None, delete_files=False):
+    """
+    Consent records whose signed file goes (paths), or all of the student's (paths=None, the student's leave):
+    they stop being in force, dated; with delete_files their own encrypted files are deleted too (LOPDP).
+    """
+    from .models import ConsentStatus, StudentConsent  # documents.py is imported by the models' users
+
+    consents = StudentConsent.objects.filter(student_id=student.pk, status=ConsentStatus.ACTIVE)
+    if paths is not None:
+        consents = consents.filter(signed_file__in=[path for path in paths if path])
+    for consent in consents:
+        if delete_files and consent.signed_file and consent.signed_file != student.consent_file:
+            default_storage.delete(consent.signed_file)
+        consent.status = ConsentStatus.REVOKED
+        consent.revoked_at = timezone.now()
+        consent.signed_file = ''
+        consent.save(update_fields=['status', 'revoked_at', 'signed_file', 'updated_at'])
+
+
+def save_ai_consent_file(student, uploaded):
+    """The signed file of a new authorization, encrypted like the other documents; returns its storage path."""
+    uploaded.seek(0)
+    return _store(student, uploaded.read(), 'consentimiento')
+
+
+def read_consent_record(consent):
+    with default_storage.open(consent.signed_file, 'rb') as stored:
+        return decrypt_bytes(stored.read())
+
+
 def delete_document(student, *, save=True):
     """The document and the signed authorization go together: without the document the consent is not needed."""
     if not (student.diagnosis_file or student.consent_file):
         return
+    if student.pk:
+        close_consents(student, paths=[student.consent_file])
     for path in (student.diagnosis_file, student.consent_file):
         if path:
             default_storage.delete(path)

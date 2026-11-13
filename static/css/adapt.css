@@ -1438,3 +1438,71 @@
 .nee-check--ok { color: var(--color-primary); }
 
 .nee-check--warn { color: var(--color-tertiary); }
+
+/* ---------- Pedagogical relevance and automatic checks (teacher's review) ---------- */
+
+.relevance-review {
+    margin: var(--space-md) 0;
+    padding: var(--space-sm) var(--space-md);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    font-size: 0.875rem;
+}
+
+.relevance-review summary {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.relevance-review__block {
+    margin-top: var(--space-md);
+}
+
+.relevance-review__block p,
+.relevance-review__list {
+    margin: var(--space-xs) 0;
+}
+
+.relevance-review__list,
+.relevance-review__problems {
+    padding-left: 1.1rem;
+}
+
+.relevance-review__problems {
+    color: var(--color-tertiary);
+}
+
+.relevance-review__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+}
+
+.relevance-review__table th,
+.relevance-review__table td {
+    padding: 0.4rem 0.5rem;
+    border: 1px solid var(--color-border);
+    text-align: left;
+    vertical-align: top;
+}
+
+.relevance-review__warning {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-xs);
+    color: var(--color-text-soft);
+}
+
+.table-wrap {
+    overflow-x: auto;
+}
+
+.privacy-help {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-xs);
+}

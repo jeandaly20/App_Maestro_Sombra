@@ -13,6 +13,7 @@ Google Gemini client (REST API) and the three prompts of the system:
 Privacy (LOPDP): the model never receives the student's name, notes or birth date;
 only the grade, the conditions and the UDL adjustments.
 """
+import copy
 import json
 import logging
 import re
@@ -154,6 +155,22 @@ ADAPTATION_SCHEMA = {
     },
     'required': ['title', 'summary', 'intro', 'learning_goal', 'concepts', 'steps', 'check_questions',
                  'udl_principle', 'udl_justification'],
+}
+
+# The pedagogical justification the teacher reviews (asked only when the relevance engine is used)
+JUSTIFICATION_SCHEMA = {
+    'type': 'ARRAY',
+    'items': {
+        'type': 'OBJECT',
+        'properties': {
+            'barrier': {'type': 'STRING'},
+            'adjustment': {'type': 'STRING'},
+            'reason': {'type': 'STRING'},
+            'objective': {'type': 'STRING'},
+            'indicator': {'type': 'STRING'},
+        },
+        'required': ['barrier', 'adjustment', 'reason', 'objective', 'indicator'],
+    },
 }
 
 ANALYSIS_SYSTEM = (
@@ -356,6 +373,7 @@ def generate_json(system, parts, schema):
 
 TOPIC_MISMATCH = 'Las páginas no corresponden a la clase elegida'
 MATERIAL_MISMATCH = 'El material no coincide con lo que escribiste'
+PRIVACY_BLOCK = 'El material no se envió a la IA por privacidad'
 
 
 def topic_note(session_text, images, ok_field, why_field):
@@ -410,13 +428,23 @@ def analyze_material(*, text='', image_parts=(), subject, topic, session_text=''
     return data, model
 
 
+def with_justification(schema):
+    """The answer schema plus the pedagogical justification the teacher reviews (a copy: the base stays as is)."""
+    schema = copy.deepcopy(schema)
+    schema['properties']['pedagogical_justification'] = JUSTIFICATION_SCHEMA
+    schema['required'] = [*schema['required'], 'pedagogical_justification']
+    return schema
+
+
 def adapt_worksheet(*, analysis, subject, topic, grade, conditions, adjustments, simplify=False, feedback='',
-                    subject_code=None):
+                    subject_code=None, relevance=None):
     """
     Restructures the analyzed worksheet for ONE student and all their conditions. No personal data.
     The answer must carry the fields of each condition (nee_modules); if the checks in code find something
     missing (a step without its keyword, sentences too long for the student...), the AI is asked once to
     correct exactly that. What is still missing is kept in "nee_check" for the teacher's review.
+    `relevance` (pedagogical_relevance.analyze) adds only its authorized part (`ai_prompt`: NEE x subject x
+    activity, no profile) and asks for the pedagogical justification; without it the behaviour is the previous one.
     """
     figures = analysis.get('figures', [])
     figure_lines = '\n'.join(f'Figura {n}: {f["description"]}' for n, f in enumerate(figures, start=1))
@@ -446,10 +474,14 @@ def adapt_worksheet(*, analysis, subject, topic, grade, conditions, adjustments,
                       'ejercicios, frases más cortas y más apoyos visuales, manteniendo el objetivo esencial.')
     if feedback:
         prompt.append(f'Observación del docente sobre la versión anterior: {feedback}')
+    if relevance:
+        prompt.append(relevance['ai_prompt'])
     # Last on purpose: the model follows the final instruction most reliably
     prompt.append(SPELLING_RULE)
     text = '\n\n'.join(part for part in prompt if part)
     schema = nee_modules.schema_for(ADAPTATION_SCHEMA, conditions)
+    if relevance:
+        schema = with_justification(schema)
 
     def ask(extra=''):
         content, model = generate_json(ADAPTATION_SYSTEM, [{'text': text + extra}], schema)
@@ -617,8 +649,11 @@ def analyze_lesson(*, session_text, guide_parts=(), book_summary='', subject, gr
 
 
 def adapt_lesson(*, lesson, book_summary, subject, subject_code, grade, conditions, adjustments, chosen_grade='',
-                 whole_week=False):
-    """Adapts the whole class (or week) for ONE student and all their conditions. Receives no personal data."""
+                 whole_week=False, relevance=None):
+    """
+    Adapts the whole class (or week) for ONE student and all their conditions. Receives no personal data.
+    With `relevance`, adds its authorized part (no profile) and asks for the pedagogical justification.
+    """
     moments = '\n'.join(f'- {m.get("name", "")} ({m.get("duration", "")}): {m.get("activities", "")}'
                          for m in lesson.get('moments', []))
     prompt = [
@@ -639,10 +674,13 @@ def adapt_lesson(*, lesson, book_summary, subject, subject_code, grade, conditio
         'indicador de la clase. En "metacognition" no copies las preguntas de la clase: reescríbelas para este '
         'estudiante, con palabras sencillas y de máximo 10 palabras cada una (por ejemplo "¿Qué te ayudó a '
         'entender el tema?").',
+        ('Conserva la secuencia, las sesiones y la duración de cada momento. Si propones cambiar una duración, '
+         'explícalo en "pedagogical_justification" para que el docente lo decida.' if relevance else ''),
+        relevance['ai_prompt'] if relevance else '',
         SPELLING_RULE,
     ]
-    data, model = generate_json(LESSON_ADAPTATION_SYSTEM, [{'text': '\n\n'.join(p for p in prompt if p)}],
-                                LESSON_ADAPTATION_SCHEMA)
+    schema = with_justification(LESSON_ADAPTATION_SCHEMA) if relevance else LESSON_ADAPTATION_SCHEMA
+    data, model = generate_json(LESSON_ADAPTATION_SYSTEM, [{'text': '\n\n'.join(p for p in prompt if p)}], schema)
     if not data.get('moments') or not data.get('plan_row'):
         raise AIError('La IA no devolvió la clase adaptada completa. Inténtalo de nuevo.')
     return data, model

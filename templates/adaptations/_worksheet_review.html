@@ -102,6 +102,7 @@ actions return to that page (the class in "Adaptar clase") instead of the materi
                     <ul>{% for problem in content.nee_check.problems %}<li>{{ problem }}</li>{% endfor %}</ul></div></div>
             {% endif %}
         {% endif %}
+        {% include "adaptations/_relevance_review.html" with data=content %}
         <p class="adapted__meta">Ajustes DUA: {{ worksheet.adjustment_labels|join:", "|default:"ninguno" }} · Modelo: {{ worksheet.ai_model }} · Generada en {{ worksheet.generation_time_sec }} s</p>
 
         {# ---------- Actions ---------- #}

@@ -2,6 +2,7 @@ import logging
 import zipfile
 from io import BytesIO
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import IntegrityError, InternalError, transaction
@@ -21,8 +22,11 @@ from apps.core.choices import CONDITION_DESCRIPTIONS, CONDITION_GROUPS, CONDITIO
 
 from . import documents
 from .consent import consent_form_pdf
-from .forms import StudentForm
-from .models import MAX_STUDENTS_PER_TEACHER, Student
+from .forms import StudentConsentForm, StudentForm
+from .models import (
+    MAX_STUDENTS_PER_TEACHER, REGISTRATION_CONSENT_VERSION, REGISTRATION_TREATMENTS, ConsentStatus, Student,
+    StudentConsent, ai_profile_allowed,
+)
 
 logger = logging.getLogger('maestro_sombra')
 
@@ -43,6 +47,21 @@ class StudentListView(LoginRequiredMixin, TemplateView):
         context.update({'students': students, 'max_students': MAX_STUDENTS_PER_TEACHER,
                         'is_full': len(students) >= MAX_STUDENTS_PER_TEACHER})
         return context
+
+
+def record_registration_consent(student):
+    """
+    The signed registration form becomes a consent record with exactly its scope (internal treatment, grade and
+    NEE to the AI); an earlier one of the same form is replaced, never widened.
+    """
+    previous = student.consents.filter(document_version=REGISTRATION_CONSENT_VERSION, status=ConsentStatus.ACTIVE)
+    previous.exclude(signed_file=student.consent_file).update(status=ConsentStatus.REPLACED, revoked_at=timezone.now(),
+                                                               signed_file='')
+    if not previous.filter(signed_file=student.consent_file).exists():
+        StudentConsent.objects.create(
+            student=student, document_version=REGISTRATION_CONSENT_VERSION, authorized_on=timezone.localdate(),
+            treatments=list(REGISTRATION_TREATMENTS), signed_file=student.consent_file,
+            signed_file_type=student.consent_file_type)
 
 
 class StudentPageMixin(LoginRequiredMixin):
@@ -90,6 +109,8 @@ class StudentPageMixin(LoginRequiredMixin):
                 elif form.document_check:
                     form.instance.diagnosis_check = form.document_check  # read again by the form: the data changed
                 response = super().form_valid(form)
+                if form.cleaned_data.get('consent_document'):
+                    record_registration_consent(self.object)
             for path in filter(None, replaced):
                 default_storage.delete(path)
             return response
@@ -124,6 +145,16 @@ class StudentCreateView(StudentPageMixin, CreateView):
 
 class StudentUpdateView(StudentPageMixin, UpdateView):
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update({
+            'consents': self.object.consents.all(),
+            'consent_form': StudentConsentForm(initial={'authorized_on': timezone.localdate()}),
+            'profile_transfer_enabled': settings.AI_PROFILE_TRANSFER_ENABLED,
+            'profile_shared': ai_profile_allowed(self.object),
+        })
+        return context
+
     def form_valid(self, form):
         response = super().form_valid(form)
         if not form.errors:
@@ -138,6 +169,7 @@ class StudentDeactivateView(LoginRequiredMixin, View):
     def post(self, request, pk):
         student = get_object_or_404(Student, pk=pk, teacher=request.user, record_status=RecordStatus.ACTIVE)
         documents.delete_document(student, save=False)  # leave: the history stays, the health document goes
+        documents.close_consents(student, delete_files=True)  # and every authorization stops being in force
         student.record_status = RecordStatus.INACTIVE
         student.save(update_fields=['record_status', 'updated_at'] + documents.DOCUMENT_FIELDS)
         logger.info('Student deactivated: %s by teacher=%s', student.pseudonym, request.user.pk)
@@ -248,4 +280,62 @@ class StudentRecordsPdfView(LoginRequiredMixin, View):
         response = HttpResponse(pdf, content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         response['Cache-Control'] = 'no-store'  # personal data: do not keep it in the browser cache
+        return response
+
+
+def own_student(request, pk):
+    return get_object_or_404(Student, pk=pk, teacher=request.user, record_status=RecordStatus.ACTIVE)
+
+
+class StudentConsentCreateView(LoginRequiredMixin, View):
+    """
+    Registers an authorization signed by the legal representative, with the treatments it covers. The teacher
+    uploads a document a legal professional reviewed: the app neither writes nor approves legal texts.
+    """
+
+    def post(self, request, pk):
+        student = own_student(request, pk)
+        form = StudentConsentForm(request.POST, request.FILES)
+        if not form.is_valid():
+            for errors in form.errors.values():
+                for error in errors:
+                    messages.error(request, error)
+            return redirect('student_edit', pk=student.pk)
+        consent = form.save(commit=False)
+        consent.student = student
+        consent.signed_file = documents.save_ai_consent_file(student, form.cleaned_data['signed_document'])
+        consent.signed_file_type = form.file_type
+        consent.save()
+        logger.info('Consent %s registered for %s by teacher=%s', consent.document_version, student.pseudonym,
+                    request.user.pk)
+        messages.success(request, 'Autorización registrada.')
+        return redirect('student_edit', pk=student.pk)
+
+
+class StudentConsentRevokeView(LoginRequiredMixin, View):
+    """The representative withdrew an authorization: it stops being in force at once (its file is kept)."""
+
+    def post(self, request, pk, consent_pk):
+        student = own_student(request, pk)
+        consent = get_object_or_404(StudentConsent, pk=consent_pk, student=student, status=ConsentStatus.ACTIVE)
+        consent.status = ConsentStatus.REVOKED
+        consent.revoked_at = timezone.now()
+        consent.save(update_fields=['status', 'revoked_at', 'updated_at'])
+        logger.info('Consent revoked for %s by teacher=%s', student.pseudonym, request.user.pk)
+        messages.success(request, 'Autorización revocada: desde ahora no se usa.')
+        return redirect('student_edit', pk=student.pk)
+
+
+class StudentConsentFileView(LoginRequiredMixin, View):
+    """Opens a signed authorization, decrypted, only for the student's teacher. Every opening is logged."""
+
+    def get(self, request, pk, consent_pk):
+        student = own_student(request, pk)
+        consent = get_object_or_404(StudentConsent, pk=consent_pk, student=student)
+        if not consent.signed_file:
+            raise Http404
+        logger.info('Consent document opened: %s by teacher=%s', student.pseudonym, request.user.pk)
+        response = HttpResponse(documents.read_consent_record(consent), content_type=consent.signed_file_type)
+        response['Content-Disposition'] = f'inline; filename="autorizacion-{student.pseudonym}"'
+        response['Cache-Control'] = 'private, no-store'
         return response

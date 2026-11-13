@@ -8,7 +8,7 @@ from apps.core.choices import AdaptationGrade, RecordStatus, UdlAdjustment
 from apps.core.forms import AccessibleFormMixin
 from apps.materials.models import EXTENSIONS_BY_TYPE, InputType, Subject
 
-from . import lesson_plan
+from . import document_privacy, lesson_plan
 
 ACCEPT_BY_TYPE = {
     InputType.PHOTO: 'image/jpeg,image/png,image/webp',
@@ -29,8 +29,9 @@ class AdaptMaterialForm(AccessibleFormMixin, forms.Form):
     topic = forms.CharField(label='Tema', max_length=150,
                             help_text='El tema que trabaja la guía. La IA comprueba que el material trate este tema y la materia elegida antes de adaptarlo.',
                             widget=forms.TextInput(attrs={'placeholder': 'Ej.: Fracciones simples y reparto equitativo'}))
-    input_type = forms.ChoiceField(label='Tipo de entrada', choices=InputType.choices, initial=InputType.PHOTO,
-                                   widget=forms.RadioSelect)
+    # Photos are not offered: their personal data cannot be checked reliably before sending them to the AI
+    input_type = forms.ChoiceField(label='Tipo de entrada', initial=InputType.PDF, widget=forms.RadioSelect,
+                                   choices=[c for c in InputType.choices if c[0] != InputType.PHOTO])
     file = forms.FileField(label='Archivo de la guía', required=False)
     input_text = forms.CharField(label='Texto de la guía', required=False,
                                  widget=forms.Textarea(attrs={'rows': 8, 'placeholder': 'Escribe o pega aquí el texto de la guía...'}))
@@ -38,6 +39,8 @@ class AdaptMaterialForm(AccessibleFormMixin, forms.Form):
     def __init__(self, *args, teacher, **kwargs):
         super().__init__(*args, **kwargs)
         self.student_objects = {str(s.pk): s for s in teacher.students.filter(record_status=RecordStatus.ACTIVE).order_by('created_at')}
+        # Names the privacy check removes from the material (every student of this teacher)
+        self.private_names = [s.name for s in teacher.students.all()]
         self.fields['students'].choices = [(pk, s.name) for pk, s in self.student_objects.items()]
         # The UDL rules are chosen per student: each starts with the ones recommended for their own NEE
         for pk, student in self.student_objects.items():
@@ -71,7 +74,18 @@ class AdaptMaterialForm(AccessibleFormMixin, forms.Form):
                     self.add_error('file', f'Este tipo de entrada acepta archivos {allowed}.')
                 elif file.size > settings.MAX_UPLOAD_MB * 1024 * 1024:
                     self.add_error('file', f'El archivo supera los {settings.MAX_UPLOAD_MB} MB.')
+                else:
+                    self.check_privacy('file', file)
         return data
+
+    def check_privacy(self, field, upload):
+        """The local privacy check, at upload time: a file that cannot be sent safely is refused here."""
+        upload.seek(0)
+        inspection = document_privacy.inspect_file(upload.read(), self.private_names)
+        upload.seek(0)
+        if not inspection.allowed:
+            self.add_error(field, inspection.message)
+        return inspection
 
     def requests(self):
         """(student_id, conditions) pairs to adapt: one worksheet per student, with all their conditions."""
@@ -105,10 +119,10 @@ class MultipleFileInput(forms.ClearableFileInput):
 
 
 class MultipleFileField(forms.FileField):
-    """Several photos of the same pages (or one PDF)."""
+    """The pages of the class: one digital PDF (photos are refused by the privacy check of the form)."""
 
     def __init__(self, *args, **kwargs):
-        kwargs.setdefault('widget', MultipleFileInput(attrs={'accept': 'image/jpeg,image/png,image/webp,application/pdf'}))
+        kwargs.setdefault('widget', MultipleFileInput(attrs={'accept': 'application/pdf'}))
         super().__init__(*args, **kwargs)
 
     def clean(self, data, initial=None):
@@ -181,6 +195,19 @@ class LessonSetupForm(AdaptMaterialForm):
         self.sessions = {week['key']: week for week in weeks}
         self.fields['session'].choices = [('', 'Selecciona la semana')] + [
             (week['key'], f"{week['week']} · {week['title']}") for week in weeks]
+
+    def clean(self):
+        data = super().clean()
+        for field in ('book_files', 'guide_files'):
+            uploads = data.get(field) or []
+            if not uploads or field in self.errors:
+                continue
+            if len(uploads) > 1:
+                self.add_error(field, 'Sube las páginas en un solo PDF digital: por privacidad, las fotos no se '
+                                      'envían a la IA.')
+            else:
+                self.check_privacy(field, uploads[0])
+        return data
 
     def chosen_session(self):
         return self.sessions[self.cleaned_data['session']]

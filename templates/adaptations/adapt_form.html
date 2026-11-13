@@ -12,7 +12,7 @@
     <div>
         <p class="badge-line"><span class="icon" aria-hidden="true">auto_fix_high</span>Paso 1 de 2 · Carga del material</p>
         <h1>Adaptar material curricular</h1>
-        <p class="page-header__intro">Sube la guía en foto, PDF, Word o texto. La inteligencia artificial la leerá con sus dibujos y propondrá una versión adaptada para cada estudiante, que podrás revisar antes de imprimir.</p>
+        <p class="page-header__intro">Sube la guía en PDF digital, Word o texto. Antes de enviarla a la inteligencia artificial, el sistema revisa y quita los datos personales; después la IA propone una versión adaptada para cada estudiante, que podrás revisar antes de imprimir.</p>
     </div>
 </div>
 
@@ -80,9 +80,10 @@
             <label class="field__label" for="{{ form.file.id_for_label }}">{{ form.file.label }}</label>
             <input type="file" name="file" id="{{ form.file.id_for_label }}" class="field__control"
                    data-accept-photo="{{ accept_by_type.PHOTO }}" data-accept-pdf="{{ accept_by_type.PDF }}"
-                   data-accept-word="{{ accept_by_type.WORD }}" accept="{{ accept_by_type.PHOTO }}" capture="environment"
+                   data-accept-word="{{ accept_by_type.WORD }}" accept="{{ accept_by_type.PDF }}"
                    {% if form.file.errors %}aria-invalid="true" aria-describedby="{{ form.file.auto_id }}_error"{% endif %}>
-            <p class="field__help" data-file-help>En el celular se abre la cámara. Toma la foto de frente, con buena luz y sin sombras. Máximo 10 MB.</p>
+            <p class="field__help" data-file-help>Sube la guía en PDF digital (con texto que se pueda seleccionar). Máximo 10 MB.</p>
+            <p class="field__help privacy-help"><span class="icon" aria-hidden="true">shield</span>Por privacidad, las fotos y los PDF escaneados no se envían a la IA: en una imagen no se puede comprobar de forma confiable que no haya nombres, firmas u otros datos personales.</p>
             {% for error in form.file.errors %}<p class="field__error" id="{{ form.file.auto_id }}_error"><span class="icon" aria-hidden="true">error</span>{{ error }}</p>{% endfor %}
         </div>
         <div data-text-zone hidden>

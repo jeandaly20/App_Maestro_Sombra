@@ -34,6 +34,9 @@ GEMINI_FALLBACK_MODELS = [name.strip() for name in os.getenv(
     'GEMINI_FALLBACK_MODELS', 'gemini-3.1-flash-lite,gemini-3.5-flash').split(',') if name.strip()]
 
 GEMINI_TIMEOUT_SECONDS = 60  # a whole week can take Flash about 30 s; more than 60 s means overloaded
+# Sending the pedagogical profile (fixed categories, never the teacher's text) to the AI. Off unless set
+# explicitly; even then it needs each student's own authorization covering it (StudentConsent, AI_PROFILE).
+AI_PROFILE_TRANSFER_ENABLED = os.getenv('AI_PROFILE_TRANSFER_ENABLED', 'False') == 'True'
 
 
 # Applications

@@ -10,7 +10,7 @@ from apps.core.forms import AccessibleFormMixin
 from . import documents
 from .consent import check_signed
 from .documents import ACCEPT, MAX_DOCUMENT_MB, detect_type
-from .models import MAX_AGE, MIN_AGE, Student
+from .models import MAX_AGE, MIN_AGE, Student, StudentConsent, Treatment
 
 
 PROFILE_MAX_LENGTH = 1500  # characters per profile field: a few clear sentences, not a whole report
@@ -219,3 +219,36 @@ class StudentForm(AccessibleFormMixin, forms.ModelForm):
 
     def clean_pedagogical_supports(self):
         return self._clean_profile('pedagogical_supports')
+
+
+class StudentConsentForm(forms.ModelForm):
+    """A new signed authorization: the version of its document, its date, what it covers and the signed copy."""
+    treatments = forms.MultipleChoiceField(label='Tratamientos que autoriza', choices=Treatment.choices,
+                                           widget=forms.CheckboxSelectMultiple,
+                                           error_messages={'required': 'Marca al menos un tratamiento autorizado.'})
+    signed_document = forms.FileField(label='Documento firmado (PDF, JPG o PNG)',
+                                      widget=forms.ClearableFileInput(attrs={'accept': ACCEPT}),
+                                      error_messages={'required': 'Sube el documento firmado.'})
+
+    class Meta:
+        model = StudentConsent
+        fields = ['document_version', 'authorized_on', 'treatments']
+        labels = {'document_version': 'Versión del documento', 'authorized_on': 'Fecha de la firma'}
+        widgets = {'authorized_on': forms.DateInput(format='%Y-%m-%d', attrs={'type': 'date'}),
+                   'document_version': forms.TextInput(attrs={'placeholder': 'Ej.: IA-PERFIL-2027-v1'})}
+
+    def clean_authorized_on(self):
+        signed = self.cleaned_data['authorized_on']
+        if signed > date.today():
+            raise forms.ValidationError('La fecha de la firma no puede ser futura.')
+        return signed
+
+    def clean_signed_document(self):
+        uploaded = self.cleaned_data['signed_document']
+        if uploaded.size > MAX_DOCUMENT_MB * 1024 * 1024:
+            raise forms.ValidationError(f'El documento supera los {MAX_DOCUMENT_MB} MB.')
+        self.file_type = detect_type(uploaded.read(8))
+        uploaded.seek(0)
+        if not self.file_type:
+            raise forms.ValidationError('Sube el documento firmado en PDF, JPG o PNG.')
+        return uploaded

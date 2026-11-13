@@ -50,12 +50,12 @@
     <section class="card adapt-section" aria-labelledby="pages-title">
         <h2 id="pages-title" class="adapt-section__title"><span class="icon" aria-hidden="true">auto_stories</span>2. Páginas de la clase</h2>
         <div class="upload-zone">
-            {% include "includes/field.html" with field=form.book_files icon="photo_camera" %}
-            <p class="field__help">Fotos de las páginas del libro del alumno (hasta 10) o un PDF. Si eliges la semana completa, sube las páginas de todas sus sesiones. Obligatorio.</p>
+            {% include "includes/field.html" with field=form.book_files icon="picture_as_pdf" %}
+            <p class="field__help">Las páginas del libro del alumno en un PDF digital (por ejemplo, el texto escolar en PDF). Si eliges la semana completa, incluye las páginas de todas sus sesiones. Obligatorio. Por privacidad, las fotos y los PDF escaneados no se envían a la IA.</p>
         </div>
         <div class="upload-zone lesson-guide">
             {% include "includes/field.html" with field=form.guide_files icon="menu_book" %}
-            <p class="field__help">Fotos de la guía del docente para esta clase (hasta 10) o un PDF. Si trae una sección de "Apoyo", la IA la usa.</p>
+            <p class="field__help">La guía del docente para esta clase en un PDF digital. Si trae una sección de "Apoyo", la IA la usa. Antes de enviarla se quitan los datos personales.</p>
         </div>
     </section>
 
