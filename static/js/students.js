@@ -46,8 +46,9 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleDetails();
     }
 
-    // Conditions that cannot go together are disabled as soon as one of them is ticked
-    // (same rules as the model and the database: DSM-5 criterion D, one intellectual disability level)
+    // Combinations this version does not cover are disabled as soon as one of them is ticked (same rules as the
+    // model and the database: no DEA with intellectual disability yet, one intellectual disability level).
+    // A ticked box is never unticked here: nothing already chosen is removed.
     const learningDisorders = ['DYSLEXIA', 'DYSCALCULIA'];
     const intellectual = ['ID_MILD', 'ID_MODERATE'];
     const conditionBoxes = [...document.querySelectorAll('input[name="conditions"]')];
@@ -64,8 +65,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 box.disabled = Boolean(blocked);
             });
             let note = '';
-            if (hasLearning) note = 'La discapacidad intelectual no se combina con dislexia o discalculia (DSM-5).';
-            else if (chosenLevel) note = 'Con discapacidad intelectual no se registran dislexia ni discalculia, y solo un nivel.';
+            if (hasLearning) note = 'Esta versión aún no contempla combinar dislexia o discalculia con discapacidad intelectual.';
+            else if (chosenLevel) note = 'Esta versión aún no contempla combinar discapacidad intelectual con dislexia o discalculia. La discapacidad intelectual se registra con un solo nivel.';
             conflictNote.textContent = note;
             conflictNote.hidden = !note;
         };

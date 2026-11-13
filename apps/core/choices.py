@@ -32,8 +32,9 @@ CONDITION_DESCRIPTIONS = {
 }
 
 
-# DSM-5, specific learning disorder, criterion D: the difficulties must not be better explained by an
-# intellectual disability, so DEA and intellectual disability are not registered together.
+# Scope of this version: its adaptation rules do not cover a DEA together with intellectual disability, so
+# those combinations are not registered yet (a limit of the system, not a statement that they cannot co-occur).
+# With the single-level rule, 23 combinations of the six conditions are accepted.
 LEARNING_DISORDERS = [Condition.DYSLEXIA, Condition.DYSCALCULIA]
 INTELLECTUAL_DISABILITY = [Condition.ID_MILD, Condition.ID_MODERATE]
 

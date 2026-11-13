@@ -13,6 +13,11 @@ from apps.core.choices import (
 from apps.core.fields import EncryptedTextField
 
 MAX_STUDENTS_PER_TEACHER = 3
+UNSUPPORTED_COMBINATION = (
+    'Esta versión de App Maestro Sombra todavía no contempla adaptaciones para combinaciones de dislexia o '
+    'discalculia con discapacidad intelectual. Registra únicamente las condiciones admitidas por el sistema y '
+    'consulta con el profesional responsable cuando el informe incluya una combinación no contemplada.'
+)
 MIN_AGE, MAX_AGE = 3, 18
 DOCUMENT_TYPES = [('application/pdf', 'PDF'), ('image/jpeg', 'Imagen JPG'), ('image/png', 'Imagen PNG')]
 
@@ -167,11 +172,9 @@ class Student(models.Model):
         chosen = set(self.conditions or [])
         if set(INTELLECTUAL_DISABILITY) <= chosen:
             raise ValidationError({'conditions': 'Elige un solo nivel de discapacidad intelectual: leve o moderada.'})
+        # A limit of this version (its adaptation rules do not cover these combinations), not a clinical rule
         if chosen & set(LEARNING_DISORDERS) and chosen & set(INTELLECTUAL_DISABILITY):
-            raise ValidationError({'conditions': (
-                'La dislexia y la discalculia (DEA) no se registran junto con discapacidad intelectual: el DSM-5 pide '
-                'descartar la discapacidad intelectual antes de diagnosticar un DEA. Elige el diagnóstico del informe.'
-            )})
+            raise ValidationError({'conditions': UNSUPPORTED_COMBINATION})
         self.clean_diagnosis(chosen)
         if self.teacher_id and self._state.adding:
             registered = Student.objects.filter(teacher_id=self.teacher_id,
