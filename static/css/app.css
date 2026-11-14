@@ -238,7 +238,8 @@
 
 @media (max-width: 960px) {
     .app {
-        grid-template-columns: 1fr;
+        /* minmax(0, …): a wide table or tab row scrolls inside its box instead of widening the whole page */
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .sidebar {
@@ -270,4 +271,9 @@
     .user__text {
         display: none;
     }
+}
+
+/* A section reached by its link (#recomendaciones…) is not hidden under the sticky top bar */
+main [id] {
+    scroll-margin-top: 5.5rem;
 }

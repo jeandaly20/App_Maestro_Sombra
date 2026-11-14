@@ -26,7 +26,7 @@
     </div>
 </div>
 
-{% if is_working or lesson.status == 'ERROR' or not adaptations %}
+{% if is_working or interrupted or lesson.status == 'ERROR' or not adaptations %}
 <section class="card material-status" aria-live="polite" {% if is_working %}data-poll-url="{% url 'lesson_status' lesson.pk %}"{% endif %}>
     <span class="material-status__icon"><span class="icon" aria-hidden="true">table_view</span></span>
     <div class="material-status__body">
@@ -39,6 +39,17 @@
         {% if is_working %}
             <p class="material-status__message"><span class="spinner" aria-hidden="true"></span><span data-progress>{{ lesson.progress|default:"La IA está leyendo la planificación y las páginas…" }}</span></p>
             <p class="field__help">Puede tardar uno o dos minutos; la página se actualiza sola.</p>
+        {% elif interrupted %}
+            <div class="alert alert--error" role="alert"><span class="icon" aria-hidden="true">error</span>
+                <div><p><strong>La adaptación se interrumpió</strong> (no hubo avances en los últimos minutos; por ejemplo, el servidor se reinició).</p>
+                {% if can_resume %}
+                    <p>Las clases que ya se guardaron se conservan: al reintentar, solo se adapta lo que falta.</p>
+                    <form method="post" action="{% url 'lesson_resume' lesson.pk %}">{% csrf_token %}
+                        <button type="submit" class="button button--primary"><span class="icon" aria-hidden="true">refresh</span>Reintentar</button>
+                    </form>
+                {% else %}
+                    <a class="button button--primary" href="{% url 'lesson_setup' lesson.pk %}">Intentar de nuevo</a>
+                {% endif %}</div></div>
         {% elif lesson.status == 'ERROR' %}
             <div class="alert alert--error" role="alert"><span class="icon" aria-hidden="true">error</span>
                 <div><p><strong>No se pudo adaptar la clase.</strong> {{ lesson.ai_error }}</p>

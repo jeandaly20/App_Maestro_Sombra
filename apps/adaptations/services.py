@@ -4,9 +4,11 @@ import re
 import threading
 import time
 import uuid
+from datetime import timedelta
 
 from django.db import close_old_connections, transaction
-from django.db.models import Max
+from django.db.models import Max, Q
+from django.utils import timezone
 
 from apps.core.choices import RecordStatus
 from apps.materials.models import MaterialStatus, OriginalMaterial
@@ -70,9 +72,38 @@ def worksheet_relevance(material, analysis, student, conditions, adjustments):
 
 
 def report(record, text):
-    """What the AI is doing now, for the page the teacher is looking at (it polls the status)."""
+    """
+    What the AI is doing now, for the page the teacher is looking at (it polls the status). It also refreshes
+    updated_at: a job that stops reporting for STALE_AFTER is taken as interrupted (see claim_for_retry).
+    """
     record.progress = text[:120]
-    type(record).objects.filter(pk=record.pk).update(progress=record.progress)
+    type(record).objects.filter(pk=record.pk).update(progress=record.progress, updated_at=timezone.now())
+
+
+# A job with no news for this long was interrupted (the server stopped while its thread ran): it may be resumed.
+# Longer than the slowest single step: an AI call goes through at most 3 models, 2 tries each, 60 s timeout.
+STALE_AFTER = timedelta(minutes=15)
+WORKING = (MaterialStatus.PENDING, MaterialStatus.PROCESSING)
+
+
+def is_interrupted(record):
+    """Still "working" but with no news for STALE_AFTER: its background job is no longer running."""
+    return record.status in WORKING and record.updated_at < timezone.now() - STALE_AFTER
+
+
+def claim_for_retry(record):
+    """
+    Reserves a material or a class for one retry with a single conditional UPDATE in PostgreSQL: it moves to
+    PENDING only if it is still in ERROR, or interrupted. Of two simultaneous "Reintentar" requests only one
+    gets the row; the other starts nothing (no second background job, no duplicate calls to the AI).
+    """
+    now = timezone.now()
+    available = Q(status=MaterialStatus.ERROR) | Q(status__in=WORKING, updated_at__lt=now - STALE_AFTER)
+    claimed = type(record).objects.filter(available, pk=record.pk).update(
+        status=MaterialStatus.PENDING, ai_error='', updated_at=now)
+    if claimed:
+        record.status, record.ai_error, record.updated_at = MaterialStatus.PENDING, '', now
+    return bool(claimed)
 
 
 def rules_by_student(adjustments):
@@ -248,11 +279,8 @@ def start_processing(material, requests, adjustments, *, check_topic=True, resum
 def retry_without_topic_check(material):
     """The teacher says the worksheet is right after a mismatch warning: adapt it as it was requested."""
     requests = job_requests(material.job)
-    if not requests:
+    if not requests or not claim_for_retry(material):
         return False
-    material.status = MaterialStatus.PENDING
-    material.ai_error = ''
-    material.save(update_fields=['status', 'ai_error', 'updated_at'])
     start_processing(material, requests, material.job.get('adjustments', {}), check_topic=False)
     return True
 
@@ -260,11 +288,8 @@ def retry_without_topic_check(material):
 def resume_material(material):
     """'Reintentar' after the AI failed: keeps what was done and asks the AI only for what is missing."""
     requests = job_requests(material.job)
-    if not requests:
+    if not requests or not claim_for_retry(material):  # one retry at a time, even with two clicks
         return False
-    material.status = MaterialStatus.PENDING
-    material.ai_error = ''
-    material.save(update_fields=['status', 'ai_error', 'updated_at'])
     start_processing(material, requests, material.job.get('adjustments', {}),
                      check_topic=material.job.get('check_topic', True), resume=True)
     return True
@@ -411,11 +436,8 @@ def resume_lesson(lesson):
     """'Reintentar' a class that stopped: the pages, the plan and the students already done are kept."""
     saved = lesson.material.job if lesson.material else None
     requests = job_requests(saved)
-    if not requests or not lesson.plan_file:
+    if not requests or not lesson.plan_file or not claim_for_retry(lesson):  # one retry at a time
         return False
-    lesson.status = MaterialStatus.PENDING
-    lesson.ai_error = ''
-    lesson.save(update_fields=['status', 'ai_error', 'updated_at'])
     start_lesson_processing(lesson, requests, saved.get('adjustments', {}), saved.get('chosen_grade', ''),
                             saved.get('check_topic', True), resume=True)
     return True

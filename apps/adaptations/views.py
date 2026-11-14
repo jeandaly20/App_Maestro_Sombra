@@ -197,10 +197,11 @@ class MaterialDetailView(LoginRequiredMixin, TemplateView):
             'selected': selected,
             'curriculum_warnings': curriculum_warnings(material, {a.student for a in adaptations}),
             'color_filters': ColorFilter.choices,
-            'is_working': material.status in (MaterialStatus.PENDING, MaterialStatus.PROCESSING),
+            'is_working': material.status in services.WORKING and not services.is_interrupted(material),
+            'interrupted': services.is_interrupted(material),
             'material_mismatch': material.status == MaterialStatus.ERROR and material.ai_error.startswith(ai.MATERIAL_MISMATCH),
             # Retrying a file blocked for privacy would send nothing new: the teacher uploads another version
-            'can_resume': (material.status == MaterialStatus.ERROR and bool(material.job)
+            'can_resume': ((material.status == MaterialStatus.ERROR or services.is_interrupted(material)) and bool(material.job)
                            and not material.ai_error.startswith(ai.PRIVACY_BLOCK)),
             'privacy_blocked': material.status == MaterialStatus.ERROR and material.ai_error.startswith(ai.PRIVACY_BLOCK),
             # Our own PDFs carry this footer: an adapted worksheet has no original drawings to reuse
@@ -341,7 +342,9 @@ class MaterialStatusView(LoginRequiredMixin, View):
 
     def get(self, request, pk):
         material = own_material(request, pk)
-        return JsonResponse({'status': material.status, 'label': material.get_status_display(), 'error': material.ai_error,
+        # An interrupted job is reported as stopped, so the page reloads and offers "Reintentar"
+        status = MaterialStatus.ERROR if services.is_interrupted(material) else material.status
+        return JsonResponse({'status': status, 'label': material.get_status_display(), 'error': material.ai_error,
                              'progress': material.progress})
 
 
@@ -350,7 +353,8 @@ class MaterialResumeView(LoginRequiredMixin, View):
 
     def post(self, request, pk):
         material = own_material(request, pk)
-        if material.status == MaterialStatus.ERROR and services.resume_material(material):
+        # resume_material reserves the row (ERROR or interrupted) with one UPDATE: a second click starts nothing
+        if services.resume_material(material):
             logger.info('Material %s resumed by teacher=%s', material.pk, request.user.pk)
         return redirect('material_detail', pk=material.pk)
 
@@ -360,7 +364,7 @@ class LessonResumeView(LoginRequiredMixin, View):
 
     def post(self, request, pk):
         lesson = own_lesson(request, pk)
-        if lesson.status == MaterialStatus.ERROR and services.resume_lesson(lesson):
+        if services.resume_lesson(lesson):  # reserved with one UPDATE: two clicks start a single job
             logger.info('Lesson %s resumed by teacher=%s', lesson.pk, request.user.pk)
             return redirect('lesson_detail', pk=lesson.pk)
         return redirect('lesson_setup', pk=lesson.pk)
@@ -768,9 +772,10 @@ class LessonDetailView(LoginRequiredMixin, TemplateView):
         context.update({
             'lesson': lesson, 'analysis': lesson.analysis or {}, 'adaptations': adaptations, 'selected': selected,
             'step': step if selected else 'listo', 'all_ready': all_ready,
-            'is_working': lesson.status in (MaterialStatus.PENDING, MaterialStatus.PROCESSING),
+            'is_working': lesson.status in services.WORKING and not services.is_interrupted(lesson),
+            'interrupted': services.is_interrupted(lesson),
             # Google overloaded (not pages of another topic): the class can continue from where it stopped
-            'can_resume': (lesson.status == MaterialStatus.ERROR and bool(lesson.plan_file)
+            'can_resume': ((lesson.status == MaterialStatus.ERROR or services.is_interrupted(lesson)) and bool(lesson.plan_file)
                            and not lesson.ai_error.startswith(ai.TOPIC_MISMATCH)
                            and ai.PRIVACY_BLOCK not in lesson.ai_error
                            and bool(lesson.material and lesson.material.job)),
@@ -864,7 +869,8 @@ class LessonDeleteView(LoginRequiredMixin, View):
 class LessonStatusView(LoginRequiredMixin, View):
     def get(self, request, pk):
         lesson = own_lesson(request, pk)
-        return JsonResponse({'status': lesson.status, 'label': lesson.get_status_display(), 'error': lesson.ai_error,
+        status = MaterialStatus.ERROR if services.is_interrupted(lesson) else lesson.status  # see MaterialStatusView
+        return JsonResponse({'status': status, 'label': lesson.get_status_display(), 'error': lesson.ai_error,
                              'progress': lesson.progress})
 
 

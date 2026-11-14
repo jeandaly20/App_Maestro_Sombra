@@ -773,7 +773,7 @@
 
 @media (max-width: 1100px) {
     .comparison {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
     }
 }
 
@@ -1182,7 +1182,7 @@
 
 @media (max-width: 960px) {
     .lesson-layout {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
     }
 }
 

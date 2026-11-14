@@ -28,6 +28,21 @@
         {% if is_working %}
             <p class="material-status__message"><span class="spinner" aria-hidden="true"></span><span data-progress>{{ material.progress|default:"La IA está leyendo la guía y preparando las adaptaciones…" }}</span></p>
             <p class="field__help">Puede tardar hasta un minuto; la página se actualiza sola.</p>
+        {% elif interrupted %}
+            <div class="alert alert--error" role="alert">
+                <span class="icon" aria-hidden="true">error</span>
+                <div>
+                    <p><strong>El procesamiento se interrumpió</strong> (no hubo avances en los últimos minutos; por ejemplo, el servidor se reinició).</p>
+                    {% if can_resume %}
+                        <p>Lo que ya se hizo está guardado: al reintentar, solo se hace lo que falta.</p>
+                        <form method="post" action="{% url 'material_resume' material.pk %}">{% csrf_token %}
+                            <button type="submit" class="button button--primary"><span class="icon" aria-hidden="true">refresh</span>Reintentar</button>
+                        </form>
+                    {% else %}
+                        <a class="button button--primary" href="{% url 'adapt' %}">Volver a cargar</a>
+                    {% endif %}
+                </div>
+            </div>
         {% elif material.status == 'ERROR' %}
             <div class="alert alert--error" role="alert">
                 <span class="icon" aria-hidden="true">error</span>

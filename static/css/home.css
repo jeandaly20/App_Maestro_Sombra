@@ -225,6 +225,8 @@
 
 .table-wrap {
     overflow-x: auto;
+    contain: inline-size; /* on a phone the table scrolls inside its card instead of widening the page */
+    position: relative; /* keeps the screen-reader-only header text inside the scrolling box */
 }
 
 .activity__table {
