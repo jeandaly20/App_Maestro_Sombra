@@ -278,6 +278,8 @@ class Treatment(models.TextChoices):
     INTERNAL = 'INTERNAL', 'Tratamiento interno para la gestión educativa'
     AI_ADAPTATION = 'AI_ADAPTATION', 'Envío a un proveedor de IA para generar adaptaciones (grado y NEE, con seudónimo)'
     AI_PROFILE = 'AI_PROFILE', 'Uso del perfil pedagógico (solo categorías) en solicitudes a un proveedor de IA'
+    AI_EVALUATION = 'AI_EVALUATION', ('Tratamiento externo de datos de evaluación mediante IA (solo indicadores '
+                                      'estructurados, nunca observaciones)')
 
 
 class ConsentStatus(models.TextChoices):
@@ -353,3 +355,13 @@ def ai_profile_allowed(student):
     """
     return bool(getattr(settings, 'AI_PROFILE_TRANSFER_ENABLED', False)) and \
         consent_allows(student, Treatment.AI_PROFILE)
+
+
+def ai_evaluation_allowed(student):
+    """
+    The structured indicators of a classroom evaluation may reach the AI only with both: the system setting
+    turned on explicitly, and an authorization in force of THIS student that names this treatment. No other
+    authorization (registration, adaptations, profile) implies it. The teacher's observations never go.
+    """
+    return bool(getattr(settings, 'AI_EVALUATION_TRANSFER_ENABLED', False)) and \
+        consent_allows(student, Treatment.AI_EVALUATION)

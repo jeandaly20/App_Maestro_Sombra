@@ -11,7 +11,7 @@ from django.db.models import Count
 from django.http import Http404, HttpResponse
 from django.template.loader import render_to_string
 from django.shortcuts import get_object_or_404, redirect
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
@@ -25,7 +25,7 @@ from .consent import consent_form_pdf
 from .forms import StudentConsentForm, StudentForm
 from .models import (
     MAX_STUDENTS_PER_TEACHER, REGISTRATION_CONSENT_VERSION, REGISTRATION_TREATMENTS, ConsentStatus, Student,
-    StudentConsent, ai_profile_allowed,
+    StudentConsent, ai_evaluation_allowed, ai_profile_allowed,
 )
 
 logger = logging.getLogger('maestro_sombra')
@@ -152,6 +152,8 @@ class StudentUpdateView(StudentPageMixin, UpdateView):
             'consent_form': StudentConsentForm(initial={'authorized_on': timezone.localdate()}),
             'profile_transfer_enabled': settings.AI_PROFILE_TRANSFER_ENABLED,
             'profile_shared': ai_profile_allowed(self.object),
+            'evaluation_transfer_enabled': settings.AI_EVALUATION_TRANSFER_ENABLED,
+            'evaluation_shared': ai_evaluation_allowed(self.object),
         })
         return context
 
@@ -175,6 +177,49 @@ class StudentDeactivateView(LoginRequiredMixin, View):
         logger.info('Student deactivated: %s by teacher=%s', student.pseudonym, request.user.pk)
         messages.success(request, f'{student.name} fue dado de baja. Su historial se conserva y se liberó un cupo.')
         return redirect('student_list')
+
+
+class StudentProgressView(LoginRequiredMixin, TemplateView):
+    """
+    "Historial de aprendizaje": only the student's own teacher can open it (404 for anyone else). The data is
+    computed here from the final evaluations; observations are never shown in it, nor sent anywhere.
+    """
+    template_name = 'students/student_progress.html'
+
+    def get_context_data(self, **kwargs):
+        from apps.adaptations import learning_progress
+        context = super().get_context_data(**kwargs)
+        student = get_object_or_404(Student, pk=self.kwargs['pk'], teacher=self.request.user,
+                                    record_status=RecordStatus.ACTIVE)
+        subject = self.request.GET.get('materia', '')
+        data = learning_progress.progress(student)
+        if subject and subject not in dict(data['subjects']):
+            subject = ''  # an unknown subject shows everything instead of an empty page
+        if subject:
+            data = learning_progress.progress(student, subject)
+        context.update({'student': student, **data})
+        return context
+
+
+class StudentRecommendationReviewView(LoginRequiredMixin, View):
+    """The teacher's decision on one current recommendation. Nothing in the student's profile changes."""
+
+    def post(self, request, pk):
+        from apps.adaptations import learning_progress
+        from apps.evaluations.models import RecommendationDecision, RecommendationReview
+        student = get_object_or_404(Student, pk=pk, teacher=request.user, record_status=RecordStatus.ACTIVE)
+        key, decision = request.POST.get('key', ''), request.POST.get('decision', '')
+        current = {item['key']: item for item in learning_progress.progress(student)['recommendations']}
+        if key not in current or decision not in RecommendationDecision.values:
+            raise Http404  # only a recommendation the system shows now can be reviewed
+        RecommendationReview.objects.update_or_create(
+            student=student, key=key, defaults={'evidence': current[key]['fingerprint'], 'decision': decision})
+        logger.info('Recommendation reviewed for %s by teacher=%s', student.pseudonym, request.user.pk)
+        messages.success(request, 'Revisión guardada. La recomendación volverá a quedar pendiente si llegan '
+                                  'evaluaciones nuevas que cambien su evidencia.')
+        target = reverse('student_progress', args=[student.pk])
+        subject = request.POST.get('materia', '')
+        return redirect(f'{target}?materia={subject}#recomendaciones' if subject else f'{target}#recomendaciones')
 
 
 class StudentDocumentView(LoginRequiredMixin, View):

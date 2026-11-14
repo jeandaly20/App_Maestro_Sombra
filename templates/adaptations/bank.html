@@ -178,7 +178,6 @@
                 <form method="post" action="{% url 'adaptation_action' card.pk %}" data-busy="Generando una versión más simple…">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="regenerate">
-                    {% if card.evaluation.observation %}<input type="hidden" name="feedback" value="{{ card.evaluation.observation }}">{% endif %}
                     <button type="submit" class="button button--secondary{% if card.outcome == 'NEEDS_SIMPLER' %} button--warning{% endif %}">
                         <span class="icon" aria-hidden="true">autorenew</span>Regenerar simplificado</button>
                 </form>
@@ -213,7 +212,7 @@
 <section class="card advice" aria-labelledby="advice-title">
     <span class="advice__icon"><span class="icon" aria-hidden="true">psychology</span></span>
     <div>
-        <h2 id="advice-title">Recomendación pedagógica del asistente</h2>
+        <h2 id="advice-title">Recomendación pedagógica del asistente <span class="chip chip--secondary">Generada por IA</span></h2>
         <p class="advice__context">{{ advice.adaptation.student.name }} · {{ advice.adaptation.code }} · {{ advice.recommended_at|date:"j M Y" }}</p>
         <p>{{ advice.ai_recommendation }}</p>
     </div>

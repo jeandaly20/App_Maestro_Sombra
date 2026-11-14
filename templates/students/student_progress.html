@@ -1,0 +1,188 @@
+{% extends "app_base.html" %}
+{% load static l10n %}
+
+{% block title %}Historial de aprendizaje{% endblock %}
+{% block styles %}{{ block.super }}<link rel="stylesheet" href="{% asset 'css/students.css' %}">{% endblock %}
+
+{% block content %}
+<a class="button button--ghost student-back" href="{% url 'student_list' %}"><span class="icon" aria-hidden="true">arrow_back</span>Gestión de estudiantes</a>
+<div class="page-header">
+    <div>
+        <p class="badge-line"><span class="icon" aria-hidden="true">lock</span>Uso exclusivo del docente · no se envía a la IA</p>
+        <h1>Historial de aprendizaje de {{ student.name }}</h1>
+        <p class="page-header__intro">Resultados registrados por el docente después de cada actividad. El sistema los describe; no emite diagnósticos ni atribuye los resultados a un apoyo.</p>
+    </div>
+    <div class="page-header__actions">
+        <a class="button button--secondary" href="{% url 'student_edit' student.pk %}"><span class="icon" aria-hidden="true">badge</span>Ficha del estudiante</a>
+    </div>
+</div>
+
+{% if subjects %}
+<nav class="progress-filters" aria-label="Filtrar por asignatura">
+    <a class="filter-chip" href="?" aria-pressed="{% if not subject_code %}true{% else %}false{% endif %}">Todas las asignaturas</a>
+    {% for code, name in subjects %}
+        <a class="filter-chip" href="?materia={{ code }}" aria-pressed="{% if subject_code == code %}true{% else %}false{% endif %}">{{ name }}</a>
+    {% endfor %}
+</nav>
+{% endif %}
+
+{# ---------- Summary ---------- #}
+<section class="progress-summary" aria-label="Resumen">
+    <div class="card progress-stat"><p class="progress-stat__value">{{ total }}</p><p class="progress-stat__label">actividad{{ total|pluralize:"es" }} evaluada{{ total|pluralize }}</p></div>
+    <div class="card progress-stat"><p class="progress-stat__value">{{ subjects|length }}</p><p class="progress-stat__label">asignatura{{ subjects|length|pluralize }} con evaluaciones</p></div>
+    <div class="card progress-stat"><p class="progress-stat__value">{{ overload.with_signs }}<span class="progress-stat__of"> de {{ overload.registered }}</span></p><p class="progress-stat__label">con signos de sobrecarga (entre las que la registraron)</p></div>
+    <div class="card progress-stat"><p class="progress-stat__value">{{ pending }}</p><p class="progress-stat__label">recomendaci{{ pending|pluralize:"ón,ones" }} pendiente{{ pending|pluralize }} de revisión</p></div>
+</section>
+{% if drafts %}
+<div class="alert alert--info" role="status"><span class="icon" aria-hidden="true">draft</span><p>Hay {{ drafts }} evaluaci{{ drafts|pluralize:"ón,ones" }} en borrador: no se usa{{ drafts|pluralize:",n" }} en este análisis hasta que se finalice{{ drafts|pluralize:",n" }}.</p></div>
+{% endif %}
+
+{% if not total %}
+<section class="card progress-empty">
+    <span class="icon" aria-hidden="true">timeline</span>
+    <h2>Todavía no hay actividades evaluadas</h2>
+    <p>El historial se forma con las evaluaciones que finalizas en el Banco de adaptaciones después de usar una ficha en clase. {{ insufficient_text }}</p>
+    <a class="button button--primary" href="{% url 'bank' %}?alumno={{ student.pk }}">Ir al Banco de adaptaciones</a>
+</section>
+{% else %}
+
+{# ---------- Achievement chart, one per subject (subjects are never mixed) ---------- #}
+<section class="card progress-section" aria-labelledby="chart-title">
+    <h2 id="chart-title"><span class="icon" aria-hidden="true">show_chart</span>Logro del objetivo adaptado (escala −2 a +2)</h2>
+    <p class="progress-note">Cada punto es una evaluación real, en orden de registro. Las evaluaciones sin este dato no se dibujan ni se completan. Un gráfico por asignatura.</p>
+    {% for item in by_subject %}
+        <figure class="progress-chart">
+            <figcaption><strong>{{ item.name }}</strong> · {{ item.count }} actividad{{ item.count|pluralize:"es" }}</figcaption>
+            {% if item.chart.points %}{% localize off %}
+            <svg viewBox="0 0 {{ item.chart.width }} {{ item.chart.height }}" role="img" aria-label="Logro del objetivo en {{ item.name }}: {% for p in item.chart.points %}{{ p.entry.date|date:'j M' }} {{ p.label }}{% if not forloop.last %}; {% endif %}{% endfor %}">
+                {% for level in item.chart.levels %}
+                    <line x1="{{ item.chart.left }}" x2="{{ item.chart.right }}" y1="{{ level.y }}" y2="{{ level.y }}" class="progress-chart__grid"/>
+                    <text x="{{ item.chart.label_x }}" y="{{ level.y }}" class="progress-chart__level" text-anchor="end" dominant-baseline="middle">{{ level.label }}</text>
+                {% endfor %}
+                {% for p in item.chart.points %}
+                    <g class="progress-chart__point">
+                        <circle cx="{{ p.x }}" cy="{{ p.y }}" r="14" class="progress-chart__hit"><title>{{ p.entry.date|date:"j M Y" }} · {{ p.entry.code }} · {{ p.entry.topic }}: {{ p.label }}</title></circle>
+                        <circle cx="{{ p.x }}" cy="{{ p.y }}" r="5" class="progress-chart__dot"/>
+                        <text x="{{ p.x }}" y="{{ item.chart.date_y }}" class="progress-chart__date" text-anchor="middle">{{ p.entry.date|date:"j M" }}</text>
+                    </g>
+                {% endfor %}
+            </svg>{% endlocalize %}
+            {% else %}
+                <p class="progress-note">Ninguna evaluación de {{ item.name }} registró el logro del objetivo.</p>
+            {% endif %}
+            {% if item.chart.not_plotted %}<p class="progress-note">Sin logro registrado (no se dibujan): {% for e in item.chart.not_plotted %}{{ e.code }}{% if not forloop.last %}, {% endif %}{% endfor %}.</p>{% endif %}
+        </figure>
+    {% endfor %}
+</section>
+
+{# ---------- Comparable activities ---------- #}
+<section class="card progress-section" aria-labelledby="groups-title">
+    <h2 id="groups-title"><span class="icon" aria-hidden="true">compare_arrows</span>Evolución observada por destreza o tema</h2>
+    <p class="progress-note">Solo se comparan actividades de la misma asignatura y la misma destreza (o, si no tienen destreza, el mismo tema), con al menos {{ min_for_trend }} evaluaciones. {{ observed_note }}</p>
+    {% for group in groups %}
+        <article class="progress-group">
+            <h3>{{ group.subject_name }} · {{ group.label }} <span class="chip chip--{% if group.comparable %}primary{% else %}secondary{% endif %}">{{ group.count }} evaluaci{{ group.count|pluralize:"ón,ones" }}</span></h3>
+            {% if group.comparable %}
+                <ul class="progress-series">{% for s in group.series %}<li><strong>{{ s.label }}:</strong> {{ s.text }}{% if s.missing %} <span class="progress-note">({{ s.missing }} sin registrar)</span>{% endif %}</li>{% endfor %}</ul>
+            {% else %}
+                <p class="progress-note">{{ group.message }}</p>
+            {% endif %}
+        </article>
+    {% endfor %}
+</section>
+
+<div class="progress-columns">
+    {# ---------- Support and overload ---------- #}
+    <section class="card progress-section" aria-labelledby="supports-title">
+        <h2 id="supports-title"><span class="icon" aria-hidden="true">support</span>Apoyos</h2>
+        <h3>Aplicados durante la actividad (registrados por el docente)</h3>
+        {% if supports.applied %}
+            <ul class="progress-list">{% for s in supports.applied %}<li>{{ s.label }}: {{ s.count }} actividad{{ s.count|pluralize:"es" }}{% if s.useful %} · útil en {{ s.useful }}{% endif %}</li>{% endfor %}</ul>
+        {% endif %}
+        {% if supports.not_recorded %}<p class="progress-note">Sin registro en {{ supports.not_recorded }} de {{ supports.total }} evaluaciones: no se suponen a partir de los sugeridos.</p>{% endif %}
+        <h3>Incluidos en las fichas (reglas DUA)</h3>
+        {% if supports.in_material %}<ul class="progress-list">{% for s in supports.in_material %}<li>{{ s.label }}: {{ s.count }}</li>{% endfor %}</ul>{% else %}<p class="progress-note">Sin reglas registradas.</p>{% endif %}
+        <h3>Sugeridos por el motor de pertinencia</h3>
+        {% if supports.suggested %}<ul class="progress-list">{% for s in supports.suggested %}<li>{{ s.label }}: {{ s.count }}</li>{% endfor %}</ul>{% else %}<p class="progress-note">Sin sugerencias guardadas en estas fichas.</p>{% endif %}
+        <p class="progress-note">Sugerido, incluido en la ficha y aplicado en clase son cosas distintas: solo lo marcado por el docente cuenta como aplicado.</p>
+    </section>
+
+    <section class="card progress-section" aria-labelledby="levels-title">
+        <h2 id="levels-title"><span class="icon" aria-hidden="true">bar_chart</span>Distribución de lo registrado</h2>
+        <h3>Nivel de apoyo</h3>
+        <ul class="progress-bars">{% for row in autonomy.rows %}<li><span>{{ row.label }}</span><span class="progress-bar" style="--value: {{ row.count }}; --total: {{ autonomy.total }}"></span><strong>{{ row.count }}</strong></li>{% endfor %}</ul>
+        {% if autonomy.missing %}<p class="progress-note">Sin registrar: {{ autonomy.missing }}.</p>{% endif %}
+        <h3>Comprensión</h3>
+        <ul class="progress-bars">{% for row in comprehension.rows %}<li><span>{{ row.label }}</span><span class="progress-bar" style="--value: {{ row.count }}; --total: {{ comprehension.total }}"></span><strong>{{ row.count }}</strong></li>{% endfor %}</ul>
+        {% if comprehension.missing %}<p class="progress-note">Sin registrar: {{ comprehension.missing }}.</p>{% endif %}
+        <h3>Sobrecarga cognitiva</h3>
+        <p>Leve o evidente en {{ overload.with_signs }} de {{ overload.registered }} evaluaciones que la registraron{% if overload.evident %} ({{ overload.evident }} evidente{{ overload.evident|pluralize }}){% endif %}.{% if overload.missing %} Sin registrar en {{ overload.missing }}.{% endif %}</p>
+    </section>
+</div>
+
+{# ---------- Insufficient information ---------- #}
+{% if insufficient %}
+<section class="card progress-section progress-section--warning" aria-labelledby="gaps-title">
+    <h2 id="gaps-title"><span class="icon" aria-hidden="true">info</span>Información insuficiente</h2>
+    <ul class="progress-list">{% for area in insufficient %}<li>{{ area }}</li>{% endfor %}</ul>
+</section>
+{% endif %}
+{% endif %}
+
+{# ---------- Recommendations ---------- #}
+{% if recommendations %}
+<section class="card progress-section" id="recomendaciones" aria-labelledby="recs-title">
+    <h2 id="recs-title"><span class="icon" aria-hidden="true">lightbulb</span>Recomendaciones para revisar</h2>
+    <p class="progress-note">Generadas con reglas fijas a partir de lo registrado. Son sugerencias para que tú decidas: no cambian el perfil del estudiante ni implican un diagnóstico.</p>
+    {% for rec in recommendations %}
+        <article class="recommendation{% if rec.pending %} recommendation--pending{% endif %}">
+            <p class="recommendation__text">{{ rec.text }}
+                {% if rec.pending %}<span class="chip chip--secondary">Pendiente de revisión</span>{% else %}<span class="chip chip--primary">{{ rec.review.get_decision_display }}</span>{% endif %}</p>
+            <dl class="recommendation__facts">
+                <div><dt>Motivo</dt><dd>{{ rec.reason }}</dd></div>
+                <div><dt>Evidencia</dt><dd>{{ rec.evidence }}</dd></div>
+                {% if rec.activities %}<div><dt>Actividades</dt><dd>{% for a in rec.activities %}{{ a.code }} ({{ a.date|date:"j M Y" }}){% if not forloop.last %}, {% endif %}{% endfor %}</dd></div>{% endif %}
+                <div><dt>Limitaciones</dt><dd>{{ rec.limitations }}</dd></div>
+            </dl>
+            <form method="post" action="{% url 'student_recommendation_review' student.pk %}" class="recommendation__actions">
+                {% csrf_token %}
+                <input type="hidden" name="key" value="{{ rec.key }}">
+                <input type="hidden" name="materia" value="{{ subject_code }}">
+                <button type="submit" name="decision" value="CONSIDERED" class="button button--secondary">La tendré en cuenta</button>
+                <button type="submit" name="decision" value="DISMISSED" class="button button--ghost">No aplica por ahora</button>
+            </form>
+        </article>
+    {% endfor %}
+</section>
+{% endif %}
+
+{% if total %}
+{# ---------- Chronological history (also the table view of the chart) ---------- #}
+<section class="card progress-section" aria-labelledby="history-title">
+    <h2 id="history-title"><span class="icon" aria-hidden="true">history</span>Historial cronológico</h2>
+    <div class="progress-table-wrap">
+        <table class="progress-table">
+            <thead><tr><th scope="col">Fecha de registro</th><th scope="col">Asignatura y tema</th><th scope="col">Actividad</th><th scope="col">Objetivo o destreza</th><th scope="col">Logro</th><th scope="col">Comprensión</th><th scope="col">Nivel de apoyo</th><th scope="col">Sobrecarga</th><th scope="col">Estado</th></tr></thead>
+            <tbody>
+            {% for e in entries %}
+                <tr>
+                    <td>{{ e.date|date:"j M Y" }}</td>
+                    <td>{{ e.subject_name }}<br><span class="progress-note">{{ e.topic }}</span></td>
+                    <td>{% if e.worksheet_active %}<a href="{% url 'evaluation' e.adaptation_id %}">{{ e.code }}</a>{% else %}{{ e.code }}{% endif %} · v{{ e.version }}{% if e.is_regeneration %} <span class="chip chip--secondary">Regeneración de {{ e.source_code|default:"una versión anterior" }}</span>{% endif %}<br><span class="progress-note">{{ e.activity }}</span>{% if not e.worksheet_active %}<br><span class="progress-note">Ficha eliminada; la evaluación se conserva.</span>{% endif %}</td>
+                    <td>{% if e.skill %}<strong>Destreza:</strong> {{ e.skill }}{% if e.objective %}<br>{% endif %}{% endif %}{% if e.objective %}<span class="progress-note">{{ e.objective_source }}:</span> {{ e.objective }}{% endif %}{% if not e.skill and not e.objective %}<span class="progress-note">Sin registrar</span>{% endif %}</td>
+                    <td>{{ e.labels.goal_attainment|default:"—" }}</td>
+                    <td>{{ e.labels.comprehension|default:"—" }}</td>
+                    <td>{{ e.labels.autonomy_level|default:"—" }}</td>
+                    <td>{{ e.labels.overload|default:"—" }}</td>
+                    <td>Finalizada{% if e.has_observation %}<br><span class="progress-note"><span class="icon icon--sm" aria-hidden="true">lock</span>Observación cifrada (solo en la evaluación)</span>{% endif %}{% if e.supports_applied %}<br><span class="progress-note">Apoyos aplicados: {{ e.supports_applied|join:", " }}</span>{% endif %}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <p class="progress-note">«—» significa que ese indicador no se registró en la evaluación; no se completa.</p>
+</section>
+{% endif %}
+
+<p class="progress-note progress-footer"><span class="icon icon--sm" aria-hidden="true">lock</span>{{ local_only }}</p>
+{% endblock %}

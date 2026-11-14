@@ -2,7 +2,7 @@ from django import forms
 
 from apps.core.forms import AccessibleFormMixin
 
-from .models import Evaluation
+from .models import SUPPORT_CHOICES, Evaluation
 
 # The five research-backed questions (see models.py): (field, hint, required to finish, icon per option)
 QUESTIONS = [
@@ -33,9 +33,18 @@ class EvaluationForm(AccessibleFormMixin, forms.ModelForm):
     evaluations saved before the goal question existed are still valid).
     """
 
+    # Optional: what the teacher really did in class (never filled from the suggestions or the worksheet's rules)
+    supports_applied = forms.MultipleChoiceField(
+        label='Apoyos pedagógicos utilizados durante la actividad', choices=SUPPORT_CHOICES, required=False,
+        widget=forms.CheckboxSelectMultiple)
+    supports_useful = forms.MultipleChoiceField(
+        label='De los apoyos aplicados, ¿cuáles te parecieron útiles?', choices=SUPPORT_CHOICES, required=False,
+        widget=forms.CheckboxSelectMultiple)
+
     class Meta:
         model = Evaluation
-        fields = RADIO_FIELDS + ['observation', 'regeneration_requested']
+        fields = RADIO_FIELDS + ['observation', 'supports_applied', 'supports_useful', 'supports_note',
+                                 'regeneration_requested']
         labels = {
             'goal_attainment': '¿Alcanzó el objetivo adaptado de la clase?',
             'autonomy_level': '¿Qué nivel de apoyo necesitó?',
@@ -43,14 +52,19 @@ class EvaluationForm(AccessibleFormMixin, forms.ModelForm):
             'overload': '¿Mostró signos de sobrecarga cognitiva o fatiga?',
             'achievement_level': '¿Qué nivel de logro alcanzó?',
             'observation': 'Observación pedagógica',
+            'supports_note': 'Descripción de los apoyos (opcional)',
             'regeneration_requested': 'Regenerar este material con mayor simplificación',
         }
-        help_texts = {'observation': ''}
+        help_texts = {'observation': '', 'supports_note': ''}
         widgets = {
             **{name: forms.RadioSelect for name in RADIO_FIELDS},
             'observation': forms.Textarea(attrs={
                 'rows': 4, 'maxlength': 1000,
                 'placeholder': 'Ej.: Identificó bien 1/2 con apoyo de colores, pero con 1/4 y 1/8 se confundió...',
+            }),
+            'supports_note': forms.Textarea(attrs={
+                'rows': 2, 'maxlength': 500,
+                'placeholder': 'Ej.: Se leyó la consigna en voz alta y se hizo una pausa a mitad de la actividad.',
             }),
         }
 
@@ -80,6 +94,9 @@ class EvaluationForm(AccessibleFormMixin, forms.ModelForm):
 
     def clean(self):
         data = super().clean()
+        applied = set(data.get('supports_applied') or [])
+        if set(data.get('supports_useful') or []) - applied:
+            self.add_error('supports_useful', 'Marca como útil solo un apoyo que se aplicó durante la actividad.')
         if self.finishing:
             for name in REQUIRED_TO_FINISH:
                 if not data.get(name):

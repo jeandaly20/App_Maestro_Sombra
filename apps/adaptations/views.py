@@ -424,7 +424,8 @@ class AdaptationActionView(LoginRequiredMixin, View):
                 return JsonResponse({'ok': True})
         elif action == 'regenerate':
             try:
-                target = services.regenerate(adaptation, simplify=True, feedback=request.POST.get('feedback', ''))
+                # No free text from the request reaches the AI (it used to carry the classroom observation)
+                target = services.regenerate(adaptation, simplify=True)
                 messages.success(request, f'Se generó la versión {target.version}, más simplificada.')
             except ai.AIError as error:
                 messages.error(request, str(error))

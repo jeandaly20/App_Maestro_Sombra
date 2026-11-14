@@ -53,9 +53,23 @@ class AdaptMaterialForm(AccessibleFormMixin, forms.Form):
         return f'rules_{pk}'
 
     def student_rules(self):
-        """(student, its rules field, the rules recommended for it) for the template, in the students' order."""
-        return [(student, self[self.rules_field(pk)], recommended_rules(student))
+        """
+        (student, its rules field, the rules recommended for it, its learning history by subject) for the
+        template, in the students' order. The history is a local summary for the teacher (never sent to the AI).
+        """
+        return [(student, self[self.rules_field(pk)], recommended_rules(student), self.history_by_subject(student))
                 for pk, student in self.student_objects.items()]
+
+    @staticmethod
+    def history_by_subject(student):
+        """The student's evaluated activities per subject (id of the subject select), shown before adapting."""
+        from . import learning_progress
+        subjects = {subject.code: subject.pk for subject in Subject.objects.all()}
+        result = []
+        for code in dict.fromkeys(entry.subject_code for entry in learning_progress.history(student)):
+            context = learning_progress.adaptation_context(student, code)
+            result.append({'subject_id': subjects.get(code), **context})
+        return result
 
     def clean(self):
         data = super().clean()

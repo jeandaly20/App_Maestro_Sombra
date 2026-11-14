@@ -5,7 +5,7 @@ block, ticked with the rules recommended for their NEE; adapt.js / lesson.js sho
 <p class="adapt-section__subtitle"><span class="icon" aria-hidden="true">tune</span>Reglas de adaptación de cada estudiante</p>
 <p class="field__help">Cada estudiante trae marcadas las reglas recomendadas para sus NEE y puedes cambiarlas. Las reglas propias de cada NEE (por ejemplo, lenguaje literal en el TEA o un solo cálculo por paso en la discalculia) se aplican siempre; estas son ajustes extra. Si a un estudiante no le dejas ninguna, su adaptación sigue solo las reglas de sus NEE.</p>
 <p class="student-rules__empty" data-rules-empty>Elige a los estudiantes para ver sus reglas.</p>
-{% for student, field, recommended in form.student_rules %}
+{% for student, field, recommended, histories in form.student_rules %}
     <fieldset class="student-rules" data-rules-for="{{ student.pk }}">
         <legend class="student-rules__legend">
             <span class="avatar avatar--sm avatar--{{ student.groups.0.key }}" aria-hidden="true">{{ student.initials }}</span>
@@ -19,5 +19,13 @@ block, ticked with the rules recommended for their NEE; adapt.js / lesson.js sho
                 </label>
             {% endfor %}
         </div>
+        {% for history in histories %}
+            <div class="learning-context" data-history-subject="{{ history.subject_id }}" hidden>
+                <p><span class="icon icon--sm" aria-hidden="true">timeline</span><strong>Antecedentes en esta materia</strong> ({{ history.count }} actividad{{ history.count|pluralize:"es" }} evaluada{{ history.count|pluralize }}):</p>
+                <ul>{% for item in history.related %}<li>{{ item.topic }}: {{ item.goal|default:"logro sin registrar" }}; {{ item.comprehension|default:"comprensión sin registrar" }}{% if item.applied %}; apoyos aplicados: {{ item.applied|join:", " }}{% endif %}</li>{% endfor %}</ul>
+                {% for rec in history.recommendations %}{% if rec.pending %}<p><strong>Por revisar:</strong> {{ rec.text }}</p>{% endif %}{% endfor %}
+                <p class="field__help">Solo para ti: no se envía a la IA. <a href="{% url 'student_progress' student.pk %}" target="_blank" rel="noopener">Ver el historial completo</a></p>
+            </div>
+        {% endfor %}
     </fieldset>
 {% endfor %}

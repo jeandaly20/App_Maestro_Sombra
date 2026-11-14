@@ -12,7 +12,7 @@ from apps.core.choices import RecordStatus
 from apps.materials.models import MaterialStatus, OriginalMaterial
 from apps.students.models import Student, ai_profile_allowed
 
-from . import ai, document_privacy, figures, pedagogical_relevance
+from . import ai, document_privacy, figures, learning_progress, pedagogical_relevance
 from .curriculum import SUBJECT_NAMES
 from .models import CurricularAdaptation, LessonAdaptation, LessonPlan
 
@@ -101,6 +101,10 @@ def _create_adaptation(material, student, conditions, adjustments, *, source=Non
     content['relevance'] = pedagogical_relevance.storable(relevance)
     content['review_checks'] = pedagogical_relevance.review_checks(
         content, kind='worksheet', conditions=conditions, student_name=student.name, original=analysis)
+    # The student's related history, summarized here for the teacher's review. Added after the AI answered:
+    # it is never part of the request (the current consent does not cover sharing past evaluations)
+    content['learning_history'] = learning_progress.adaptation_context(student, material.subject.code,
+                                                                       topic=material.topic)
     adaptation = CurricularAdaptation(
         material=material, student=student, condition=condition, conditions=list(conditions),
         version=_next_version(material, student, condition), source_adaptation=source,
@@ -347,6 +351,8 @@ def process_lesson(lesson_id, requests, adjustments, chosen_grade='', check_topi
             content['relevance'] = pedagogical_relevance.storable(relevance)
             content['review_checks'] = pedagogical_relevance.review_checks(
                 content, kind='lesson', conditions=conditions, student_name=student.name, original=analysis)
+            content['learning_history'] = learning_progress.adaptation_context(  # local only, after the AI call
+                student, lesson.subject.code, skill=analysis.get('skill', ''), topic=lesson.title)
             worksheet = (material.adaptations.filter(student=student, condition=conditions[0])
                          .order_by('-version').first())
             # Saved at once: if the next student fails, this one is kept for the retry

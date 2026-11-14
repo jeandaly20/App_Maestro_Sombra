@@ -473,7 +473,7 @@ def adapt_worksheet(*, analysis, subject, topic, grade, conditions, adjustments,
         prompt.append('Esta es una REGENERACIÓN: la versión anterior resultó difícil. Simplifica más: menos '
                       'ejercicios, frases más cortas y más apoyos visuales, manteniendo el objetivo esencial.')
     if feedback:
-        prompt.append(f'Observación del docente sobre la versión anterior: {feedback}')
+        prompt.append(f'Resultado de la versión anterior en el aula: {feedback}')
     if relevance:
         prompt.append(relevance['ai_prompt'])
     # Last on purpose: the model follows the final instruction most reliably

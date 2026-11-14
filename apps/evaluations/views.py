@@ -2,7 +2,8 @@ import logging
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.urls import reverse
 from django.views import View
 
@@ -15,6 +16,18 @@ from .forms import EvaluationForm
 from .models import Evaluation, EvaluationStatus
 
 logger = logging.getLogger('maestro_sombra')
+
+
+class EvaluationRecommendationReviewView(LoginRequiredMixin, View):
+    """The teacher marks the recommendation of an evaluation as reviewed (only for their own worksheets)."""
+
+    def post(self, request, pk):
+        adaptation = own_adaptation(request, pk)  # 404 for another teacher's adaptation
+        evaluation = get_object_or_404(Evaluation, adaptation=adaptation)
+        evaluation.recommendation_reviewed_at = timezone.now()
+        evaluation.save(update_fields=['recommendation_reviewed_at', 'updated_at'])
+        messages.success(request, 'Recomendación marcada como revisada.')
+        return redirect('evaluation', pk=adaptation.pk)
 
 
 class EvaluationView(LoginRequiredMixin, View):
@@ -56,15 +69,20 @@ class EvaluationView(LoginRequiredMixin, View):
             messages.success(request, 'Borrador guardado. Puedes terminar la evaluación más tarde.')
             return redirect('evaluation', pk=adaptation.pk)
 
-        try:
-            services.recommend(evaluation)
-            messages.success(request, 'Evaluación guardada. El asistente preparó una recomendación pedagógica.')
-        except ai.AIError as error:
-            messages.warning(request, f'Evaluación guardada, pero no se pudo generar la recomendación: {error}')
+        services.recommend(evaluation)  # never fails because of the AI: local rules take over
+        if evaluation.recommendation_source == 'AI':
+            messages.success(request, 'Evaluación guardada. La IA preparó una recomendación con los indicadores '
+                                      '(sin observaciones) y hay orientaciones de reglas locales.')
+        else:
+            messages.success(request, 'Evaluación guardada. Se prepararon orientaciones con reglas locales: '
+                                      f'{evaluation.recommendation_note}')
         if evaluation.regeneration_requested:
             try:
-                new_version = services.regenerate_from(evaluation)
-                messages.success(request, f'Se generó la versión {new_version.version}, más simplificada. Revísala antes de aprobarla.')
+                new_version, used_indicators = services.regenerate_from(evaluation)
+                messages.success(request, f'Se generó la versión {new_version.version}, más simplificada. Revísala antes '
+                                          'de aprobarla. ' + ('La IA recibió los indicadores de la evaluación, sin '
+                                          'observaciones.' if used_indicators else 'No se enviaron datos de la '
+                                          'evaluación a la IA: la versión se hizo con la ficha, sus NEE y sus reglas.'))
                 return redirect(f"{reverse('material_detail', args=[adaptation.material_id])}?a={new_version.pk}")
             except ai.AIError as error:
                 messages.error(request, f'No se pudo regenerar el material: {error}')

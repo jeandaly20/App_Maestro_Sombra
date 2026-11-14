@@ -3,6 +3,24 @@ The pedagogical relevance of an adaptation, for the teacher's review: the AI's j
 the automatic checks (they never validate it) and the local analysis of the student's NEE and profile.
 "data" is the adaptation content (worksheet or class).
 {% endcomment %}
+{% with history=data.learning_history %}
+{% if history %}
+<details class="relevance-review learning-history"{% if history.recommendations %} open{% endif %}>
+    <summary><span class="icon" aria-hidden="true">timeline</span>Antecedentes del historial de aprendizaje
+        <span class="chip chip--secondary">Solo local</span></summary>
+    <div class="relevance-review__block">
+        {% if history.count %}
+            <p>{{ history.count }} actividad{{ history.count|pluralize:"es" }} evaluada{{ history.count|pluralize }} antes en esta materia{% if history.comparable_count %}, {{ history.comparable_count }} comparable{{ history.comparable_count|pluralize }} con esta (mismo tema o destreza){% endif %}.</p>
+            <ul>{% for item in history.related %}<li>{{ item.code }}{% if item.comparable %} <small class="rule-option__tag">Comparable</small>{% endif %} · {{ item.topic }}: {{ item.goal|default:"logro sin registrar" }}; {{ item.comprehension|default:"comprensión sin registrar" }}; {{ item.support|default:"apoyo sin registrar" }}{% if item.applied %}; apoyos aplicados: {{ item.applied|join:", " }}{% endif %}</li>{% endfor %}</ul>
+            {% for rec in history.recommendations %}<p class="field__help"><strong>{% if rec.pending %}Por revisar:{% else %}Revisada:{% endif %}</strong> {{ rec.text }} {{ rec.reason }}</p>{% endfor %}
+        {% else %}
+            <p>{{ history.message }}</p>
+        {% endif %}
+        <p class="field__help">{{ history.note }} Los objetivos curriculares de la actividad se conservan; tú decides si estos antecedentes cambian algo.</p>
+    </div>
+</details>
+{% endif %}
+{% endwith %}
 {% with relevance=data.relevance checks=data.review_checks justification=data.pedagogical_justification %}
 {% if relevance or checks or justification %}
 <details class="relevance-review"{% if checks.problems %} open{% endif %}>

@@ -13,6 +13,11 @@
         <h1>{% if object %}Editar la ficha de {{ object.name }}{% else %}Registrar un estudiante con NEE{% endif %}</h1>
         <p class="page-header__intro">Registra las necesidades del estudiante para que el sistema adapte la tipografía, los apoyos visuales y la carga cognitiva de cada ficha de trabajo.</p>
     </div>
+    {% if object %}
+    <div class="page-header__actions">
+        <a class="button button--secondary" href="{% url 'student_progress' object.pk %}"><span class="icon" aria-hidden="true">timeline</span>Historial de aprendizaje</a>
+    </div>
+    {% endif %}
 </div>
 
 <div class="students-layout">
@@ -145,6 +150,10 @@
                 {% if profile_shared %}El perfil pedagógico (solo categorías) se usa en las solicitudes a la IA: hay una autorización vigente y el envío está habilitado.
                 {% elif not profile_transfer_enabled %}El envío del perfil pedagógico a la IA está deshabilitado en el sistema: el perfil se usa solo dentro de la aplicación.
                 {% else %}El perfil pedagógico no se envía a la IA: falta una autorización vigente de este estudiante que lo cubra.{% endif %}</p>
+            <p class="consents__status"><span class="icon" aria-hidden="true">{% if evaluation_shared %}cloud_upload{% else %}lock{% endif %}</span>
+                {% if evaluation_shared %}Los indicadores de sus evaluaciones (nunca las observaciones) pueden usarse en las recomendaciones de la IA: hay una autorización vigente y el envío está habilitado.
+                {% elif not evaluation_transfer_enabled %}El envío de datos de evaluación a la IA está deshabilitado en el sistema: las recomendaciones se generan con reglas locales.
+                {% else %}Los datos de evaluación no se envían a la IA: falta una autorización vigente de este estudiante que cubra ese tratamiento. Las recomendaciones se generan con reglas locales.{% endif %}</p>
             {% if consents %}
                 <div class="table-wrap"><table class="consents__table">
                     <thead><tr><th>Versión</th><th>Fecha</th><th>Tratamientos</th><th>Estado</th><th></th></tr></thead>

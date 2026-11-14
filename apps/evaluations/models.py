@@ -1,8 +1,10 @@
 import uuid
 
+from django.contrib.postgres.fields import ArrayField
 from django.db import models
 
 from apps.adaptations.models import CurricularAdaptation
+from apps.adaptations.pedagogical_relevance import SUPPORTS
 from apps.core.choices import RecordStatus
 from apps.core.fields import EncryptedTextField
 
@@ -59,6 +61,13 @@ class AchievementLevel(models.TextChoices):
 COMPREHENSION_SCORE = {'YES': 100, 'DIFFICULTY': 50, 'NO': 0}
 
 
+# Supports the teacher can mark as used during the activity: the same categories the relevance engine uses
+# for the profile's supports, so a suggested support and an applied one can be told apart and compared.
+# What was suggested (the engine) or built into the worksheet (UDL rules) is never stored here.
+SUPPORT_CHOICES = [(key, label[0].upper() + label[1:]) for key, (label, _words, _targets) in SUPPORTS.items()]
+SUPPORT_KEYS = [key for key, _label in SUPPORT_CHOICES]
+
+
 class EvaluationStatus(models.TextChoices):
     DRAFT = 'DRAFT', 'Borrador'
     FINAL = 'FINAL', 'Finalizada'
@@ -95,9 +104,22 @@ class Evaluation(models.Model):
                                          choices=AchievementLevel.choices, blank=True)
     observation = EncryptedTextField('observación', blank=True, help_text='Se guarda cifrada.')
     regeneration_requested = models.BooleanField('solicita regeneración', default=False)
+    # Optional and new: the evaluations saved before these fields existed have them empty ("not recorded")
+    supports_applied = ArrayField(models.CharField(max_length=24, choices=SUPPORT_CHOICES), default=list, blank=True,
+                                  verbose_name='apoyos aplicados durante la actividad')
+    supports_useful = ArrayField(models.CharField(max_length=24, choices=SUPPORT_CHOICES), default=list, blank=True,
+                                 verbose_name='apoyos que el docente considera útiles')
+    supports_note = EncryptedTextField('descripción de los apoyos aplicados', blank=True, help_text='Se guarda cifrada.')
     status = models.CharField('estado', max_length=5, choices=Status.choices, default=Status.DRAFT)
     ai_recommendation = models.TextField('recomendación de la IA', blank=True)
     recommended_at = models.DateTimeField('fecha de la recomendación', null=True, blank=True)
+    # Task 4.1: where the latest recommendation came from. Blank in the evaluations saved before (their
+    # ai_recommendation, if any, was written by the AI and is kept as it is)
+    recommendation_source = models.CharField('origen de la recomendación', max_length=5, blank=True,
+                                             choices=[('AI', 'Generada por IA'), ('LOCAL', 'Generada con reglas locales')])
+    recommendation_note = models.CharField('motivo del origen', max_length=200, blank=True)  # technical, no personal data
+    local_recommendations = models.JSONField('recomendaciones locales', default=list, blank=True)
+    recommendation_reviewed_at = models.DateTimeField('recomendación revisada por el docente', null=True, blank=True)
     record_status = models.CharField('estado del registro', max_length=8, choices=RecordStatus.choices,
                                      default=RecordStatus.ACTIVE)
     created_at = models.DateTimeField('creado', auto_now_add=True)
@@ -145,6 +167,14 @@ class Evaluation(models.Model):
             models.CheckConstraint(
                 check=models.Q(record_status__in=RecordStatus.values), name='evaluation_record_status_valid'
             ),
+            models.CheckConstraint(
+                check=models.Q(supports_applied__contained_by=SUPPORT_KEYS), name='evaluation_supports_applied_valid'
+            ),
+            # A support can be judged useful only if it was applied
+            models.CheckConstraint(
+                check=models.Q(supports_useful__contained_by=models.F('supports_applied')),
+                name='evaluation_supports_useful_were_applied',
+            ),
         ]
 
     @property
@@ -171,5 +201,50 @@ class Evaluation(models.Model):
         ]
         return [(question, answer) for question, answer in rows if answer]
 
+    @property
+    def supports_applied_labels(self):
+        return [dict(SUPPORT_CHOICES)[key] for key in self.supports_applied if key in dict(SUPPORT_CHOICES)]
+
+    @property
+    def supports_useful_labels(self):
+        return [dict(SUPPORT_CHOICES)[key] for key in self.supports_useful if key in dict(SUPPORT_CHOICES)]
+
     def __str__(self):
         return f'Evaluación de {self.adaptation.code}'
+
+
+class RecommendationDecision(models.TextChoices):
+    CONSIDERED = 'CONSIDERED', 'La tendré en cuenta'
+    DISMISSED = 'DISMISSED', 'No aplica por ahora'
+
+
+class RecommendationReview(models.Model):
+    """
+    The teacher's review of one recommendation of the learning follow-up (learning_progress). The
+    recommendations themselves are computed on the fly from the evaluations; only the decision is kept, with
+    a fingerprint of the evidence it was taken on: when new evaluations change that evidence, the
+    recommendation is pending again. The key and fingerprint hold no personal data (codes and hashes).
+    """
+
+    Decision = RecommendationDecision
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey('students.Student', on_delete=models.CASCADE, related_name='recommendation_reviews',
+                                verbose_name='estudiante')
+    key = models.CharField('recomendación', max_length=120)
+    evidence = models.CharField('huella de la evidencia', max_length=64)
+    decision = models.CharField('decisión', max_length=10, choices=Decision.choices)
+    decided_at = models.DateTimeField('fecha de la revisión', auto_now=True)
+
+    class Meta:
+        db_table = 'trx_recommendation_review'
+        verbose_name = 'revisión de recomendación'
+        verbose_name_plural = 'revisiones de recomendaciones'
+        constraints = [
+            models.UniqueConstraint(fields=['student', 'key'], name='recommendation_review_unique'),
+            models.CheckConstraint(check=models.Q(decision__in=RecommendationDecision.values),
+                                   name='recommendation_review_decision_valid'),
+        ]
+
+    def __str__(self):
+        return f'{self.key} · {self.get_decision_display()}'

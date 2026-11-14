@@ -7,4 +7,4 @@ from .models import Evaluation
 class EvaluationAdmin(admin.ModelAdmin):
     list_display = ['adaptation', 'autonomy_level', 'comprehension', 'status', 'record_status', 'updated_at']
     list_filter = ['status', 'autonomy_level', 'comprehension']
-    exclude = ['observation']
+    exclude = ['observation', 'supports_note']

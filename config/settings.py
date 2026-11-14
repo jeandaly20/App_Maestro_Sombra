@@ -37,6 +37,9 @@ GEMINI_TIMEOUT_SECONDS = 60  # a whole week can take Flash about 30 s; more than
 # Sending the pedagogical profile (fixed categories, never the teacher's text) to the AI. Off unless set
 # explicitly; even then it needs each student's own authorization covering it (StudentConsent, AI_PROFILE).
 AI_PROFILE_TRANSFER_ENABLED = os.getenv('AI_PROFILE_TRANSFER_ENABLED', 'False') == 'True'
+# Sending the structured indicators of a classroom evaluation (never the observations) to the AI for its advice.
+# Off unless set explicitly; even then each student needs an authorization covering it (AI_EVALUATION).
+AI_EVALUATION_TRANSFER_ENABLED = os.getenv('AI_EVALUATION_TRANSFER_ENABLED', 'False') == 'True'
 
 
 # Applications

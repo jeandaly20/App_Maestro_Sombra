@@ -52,9 +52,26 @@
         <section class="card question">
             <h2 class="question__title"><span class="question__number" aria-hidden="true">6</span>
                 <label for="{{ form.observation.id_for_label }}">{{ form.observation.label }}</label></h2>
-            <p class="question__hint">Detalles que la IA debe considerar. Se guarda cifrada y el nombre del estudiante nunca se envía a la IA.</p>
+            <p class="question__hint">Para ti y tu equipo: se guarda cifrada y <strong>no se envía a la IA</strong>, ni siquiera con autorización.</p>
             {{ form.observation }}
             {% for error in form.observation.errors %}<p class="field__error" id="{{ form.observation.auto_id }}_error"><span class="icon" aria-hidden="true">error</span>{{ error }}</p>{% endfor %}
+        </section>
+
+        <section class="card question supports-used" aria-labelledby="supports-title">
+            <h2 class="question__title" id="supports-title"><span class="question__number" aria-hidden="true">7</span>Apoyos pedagógicos utilizados durante la actividad <span class="question__optional">(opcional)</span></h2>
+            <p class="question__hint">Marca solo lo que realmente aplicaste en clase. Lo que sugirió el sistema o lo que ya traía la ficha no se registra aquí. Esta información se usa solo en el historial del estudiante y no se envía a la IA.</p>
+            <fieldset class="support-options">
+                <legend class="sr-only">{{ form.supports_applied.label }}</legend>
+                {% for option in form.supports_applied %}<label class="support-option">{{ option.tag }}<span>{{ option.choice_label }}</span></label>{% endfor %}
+            </fieldset>
+            <fieldset class="support-options support-options--useful">
+                <legend>{{ form.supports_useful.label }}</legend>
+                {% for option in form.supports_useful %}<label class="support-option">{{ option.tag }}<span>{{ option.choice_label }}</span></label>{% endfor %}
+            </fieldset>
+            {% for error in form.supports_useful.errors %}<p class="field__error"><span class="icon" aria-hidden="true">error</span>{{ error }}</p>{% endfor %}
+            <label class="support-note__label" for="{{ form.supports_note.id_for_label }}">{{ form.supports_note.label }}</label>
+            {{ form.supports_note }}
+            <p class="question__hint">Se guarda cifrada.</p>
         </section>
 
         <section class="card regenerate-toggle">
@@ -88,16 +105,36 @@
                 <span class="icon" aria-hidden="true">open_in_new</span>Abrir la adaptación</a>
         </section>
 
-        {% if evaluation.ai_recommendation %}
-        <section class="card aside-card aside-card--advice">
-            <h2><span class="icon" aria-hidden="true">psychology</span>Sugerencia del asistente</h2>
-            <p>{{ evaluation.ai_recommendation }}</p>
-            <p class="aside-card__date">{{ evaluation.recommended_at|date:"j M Y, H:i" }}</p>
+        {% if evaluation.ai_recommendation or evaluation.local_recommendations %}
+        <section class="card aside-card aside-card--advice" aria-labelledby="advice-title">
+            <h2 id="advice-title"><span class="icon" aria-hidden="true">psychology</span>Recomendaciones</h2>
+            <p class="advice-status">{% if evaluation.recommendation_reviewed_at %}<span class="chip chip--primary">Revisada el {{ evaluation.recommendation_reviewed_at|date:"j M Y" }}</span>{% else %}<span class="chip chip--secondary">Pendiente de revisión</span>{% endif %}</p>
+            {% if evaluation.ai_recommendation %}
+                <div class="advice-block">
+                    <p class="advice-origin"><span class="icon icon--sm" aria-hidden="true">smart_toy</span><strong>Generada por IA</strong>{% if evaluation.recommendation_source != 'AI' %} · recomendación anterior{% endif %} · {{ evaluation.recommended_at|date:"j M Y, H:i" }}</p>
+                    <p>{{ evaluation.ai_recommendation }}</p>
+                    {% if evaluation.recommendation_source == 'AI' %}<p class="aside-card__date">La IA recibió solo los indicadores estructurados, sin observaciones ni historial.</p>{% endif %}
+                </div>
+            {% endif %}
+            {% if evaluation.local_recommendations %}
+                <div class="advice-block">
+                    <p class="advice-origin"><span class="icon icon--sm" aria-hidden="true">rule</span><strong>Generadas con reglas locales</strong> (sin IA)</p>
+                    <ul class="advice-list">{% for item in evaluation.local_recommendations %}<li>{{ item.text }}<br><small>Basada en: {{ item.basis }}</small></li>{% endfor %}</ul>
+                    {% if evaluation.recommendation_note %}<p class="aside-card__date">{{ evaluation.recommendation_note }}</p>{% endif %}
+                    <p class="aside-card__date">Orientaciones para tu revisión: no son conclusiones clínicas ni resultados demostrados.</p>
+                </div>
+            {% endif %}
+            {% if not evaluation.recommendation_reviewed_at %}
+            <form method="post" action="{% url 'evaluation_recommendation_review' adaptation.pk %}">{% csrf_token %}
+                <button type="submit" class="button button--secondary button--block">Marcar como revisada</button>
+            </form>
+            {% endif %}
         </section>
         {% endif %}
 
         <section class="card aside-card">
             <h2><span class="icon" aria-hidden="true">history</span>Historial en {{ adaptation.material.subject.name }}</h2>
+            <p><a href="{% url 'student_progress' student.pk %}?materia={{ adaptation.material.subject.code }}">Ver el historial de aprendizaje completo</a></p>
             {% for past in history %}
                 <p class="history-row"><span>{{ past.adaptation.code }} · {{ past.adaptation.material.topic }}</span><strong>{{ past.outcome.label }}</strong></p>
             {% empty %}

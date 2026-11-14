@@ -98,6 +98,9 @@
                 <a class="button button--secondary" href="{% url 'student_file' student.pk %}">
                     <span class="icon" aria-hidden="true">folder_zip</span>Descargar expediente
                 </a>
+                <a class="button button--secondary" href="{% url 'student_progress' student.pk %}">
+                    <span class="icon" aria-hidden="true">timeline</span>Historial
+                </a>
                 <a class="button button--secondary" href="{% url 'student_edit' student.pk %}">
                     <span class="icon" aria-hidden="true">edit</span>Editar
                 </a>
