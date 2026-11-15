@@ -4,6 +4,7 @@ a page with personal data, a filled-in name or date field, blue-pen handwriting,
 and the teacher sees what was detected. Made-up pages; Gemini simulated. Needs the local Tesseract reader.
 """
 import io
+import math
 import unittest
 from datetime import date
 from pathlib import Path
@@ -34,7 +35,21 @@ EXERCISE = ['Lee el texto y responde las preguntas.', 'El perro de Ana juega en 
 READY = tesseract() is not None and PRINT.exists() and HAND.exists()
 
 
-def page(*, printed_name=False, filled_name=False, blue_answer=False, coloured=False, blank=False):
+def blue_drawing(draw, cx, cy, r, answer=False):
+    """A mandala printed in thin blue lines, like the book's; optionally an answer written in blue pen inside."""
+    blue = (55, 110, 175)
+    for k in (1.0, 0.92, 0.55):
+        draw.ellipse((cx - r * k, cy - r * k, cx + r * k, cy + r * k), outline=blue, width=4)
+    for i in range(10):
+        a = 2 * math.pi * i / 10
+        tip = (cx + r * 0.9 * math.cos(a), cy + r * 0.9 * math.sin(a))
+        draw.line(((cx + r * 0.55 * math.cos(a - 0.3), cy + r * 0.55 * math.sin(a - 0.3)), tip,
+                   (cx + r * 0.55 * math.cos(a + 0.3), cy + r * 0.55 * math.sin(a + 0.3))), fill=blue, width=4)
+    if answer:
+        draw.text((cx - 50, cy - 45), '99', fill=(25, 40, 130), font=ImageFont.truetype(str(HAND), 70))
+
+
+def page(*, printed_name=False, filled_name=False, blue_answer=False, coloured=False, blank=False, mandala=None):
     image = Image.new('RGB', (1240, 1754), 'white')
     draw = ImageDraw.Draw(image)
     if blank:
@@ -55,6 +70,8 @@ def page(*, printed_name=False, filled_name=False, blue_answer=False, coloured=F
     if blue_answer:
         draw.text((200, y), 'mesa, casa y lápiz', fill=(25, 40, 130), font=ImageFont.truetype(str(HAND), 38))
         y += 60
+    if mandala is not None:
+        blue_drawing(draw, 620, y + 330, 280, answer=mandala == 'answer')
     if coloured:  # printed colour that must not be taken for handwriting: a leaf, an orange frame, a red box
         draw.ellipse((300, y + 20, 420, y + 80), fill=(80, 170, 70))
         draw.rectangle((500, y + 10, 760, y + 120), outline=(230, 120, 40), width=8)
@@ -84,6 +101,14 @@ class PhotoCheckTests(TestCase):
 
     def test_printed_colour_is_not_taken_for_handwriting(self):
         self.assertTrue(photo_check.check_image(page(coloured=True), [NAME]).allowed)
+
+    def test_a_blue_line_drawing_is_not_taken_for_handwriting(self):
+        self.assertTrue(photo_check.check_image(page(mandala='clean'), [NAME]).allowed)
+
+    def test_writing_inside_a_blue_drawing_is_still_found(self):
+        result = photo_check.check_image(page(mandala='answer'), [NAME])
+        self.assertFalse(result.allowed)
+        self.assertIn('escritura a mano', result.message)
 
     def test_a_registered_name_is_refused_and_shown(self):
         result = photo_check.check_image(page(printed_name=True), [NAME])

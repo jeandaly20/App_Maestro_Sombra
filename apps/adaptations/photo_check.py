@@ -155,6 +155,7 @@ def _coloured_ink(image):
                     and b > r + 25 and b > g + 10):
                 ink_px[x, y] = 255
     raw = ink.load()
+    drawing = _blue_drawings(small)
     px = ink.filter(ImageFilter.MaxFilter(7)).load()
     boxes, seen = [], set()
     for y in range(0, small.height, 2):
@@ -180,8 +181,50 @@ def _coloured_ink(image):
             height, width = box[3] - box[1], box[2] - box[0]
             if not (height < 0.06 * image.height and width > 1.3 * height):
                 continue  # filled shapes and drawings are not handwritten words
+            on_drawing = sum(1 for xx, yy in zip(xs, ys) if (xx // 2 * 2, yy // 2 * 2) in drawing)
+            if on_drawing > 0.5 * len(xs):
+                continue  # a stretch of a large printed line drawing (a mandala, a table's blue lines)
             boxes.append(box)
     return boxes
+
+
+DRAWING_MIN_WIDTH, DRAWING_MIN_HEIGHT = 0.12, 0.08  # share of the page: a blue figure this big in both directions
+
+
+def _blue_drawings(small):
+    """
+    The points of large printed blue line drawings. Seen with a wider blue tolerance, a drawing's lines join into
+    one figure that is big both across and down the page; a handwritten word stays small (a line may be long,
+    but it is low). Strokes that belong to such a figure are not handwriting; writing inside it is not joined to
+    its lines, so it is still detected.
+    """
+    pixels = small.load()
+    loose = Image.new('L', small.size, 0)
+    loose_px = loose.load()
+    for y in range(small.height):
+        for x in range(small.width):
+            r, g, b = pixels[x, y]
+            if b > r + 15 and b > g + 5 and max(r, g, b) - min(r, g, b) > 30 and max(r, g, b) < 230:
+                loose_px[x, y] = 255
+    px = loose.filter(ImageFilter.MaxFilter(3)).load()
+    points, seen = set(), set()
+    for y in range(0, small.height, 2):
+        for x in range(0, small.width, 2):
+            if not px[x, y] or (x, y) in seen:
+                continue
+            stack, component = [(x, y)], []
+            while stack:
+                cx, cy = stack.pop()
+                if (cx, cy) in seen or not (0 <= cx < small.width and 0 <= cy < small.height) or not px[cx, cy]:
+                    continue
+                seen.add((cx, cy))
+                component.append((cx, cy))
+                stack += [(cx + 2, cy), (cx - 2, cy), (cx, cy + 2), (cx, cy - 2)]
+            xs, ys = [p[0] for p in component], [p[1] for p in component]
+            if (max(xs) - min(xs) >= DRAWING_MIN_WIDTH * small.width
+                    and max(ys) - min(ys) >= DRAWING_MIN_HEIGHT * small.height):
+                points.update(component)
+    return points
 
 
 def check_image(image, names=()):
