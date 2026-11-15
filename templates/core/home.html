@@ -81,6 +81,18 @@
             <a class="button button--secondary button--block module__action" href="{% url 'adapt' %}">Cargar nueva tarea<span class="icon" aria-hidden="true">arrow_forward</span></a>
         </article>
         <article class="card module">
+            <span class="module__icon"><span class="icon" aria-hidden="true">school</span></span>
+            <h3>Adaptador de clases completas</h3>
+            <p>Sube tu planificación semanal y las páginas del libro; la IA prepara la adaptación curricular, la guía del docente sombra y la ficha de cada estudiante.</p>
+            <ul class="module__formats" aria-label="Formatos aceptados">
+                <li><span class="icon" aria-hidden="true">table_view</span>Excel</li>
+                <li><span class="icon" aria-hidden="true">description</span>Word</li>
+                <li><span class="icon" aria-hidden="true">picture_as_pdf</span>PDF</li>
+                <li><span class="icon" aria-hidden="true">photo_camera</span>Foto del libro</li>
+            </ul>
+            <a class="button button--secondary button--block module__action" href="{% url 'lesson_upload' %}">Adaptar una clase<span class="icon" aria-hidden="true">arrow_forward</span></a>
+        </article>
+        <article class="card module">
             <span class="module__icon"><span class="icon" aria-hidden="true">folder_special</span></span>
             <h3>Banco de adaptaciones</h3>
             <p>Consulta, descarga y evalúa las guías ya generadas, y regenera una versión más simple cuando haga falta.</p>
