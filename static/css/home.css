@@ -130,13 +130,6 @@
     margin-bottom: var(--space-xl);
 }
 
-/* Four modules: two by two, so none is left alone on its row (one column on phones) */
-@media (min-width: 700px) {
-    .modules {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-}
-
 .module {
     display: flex;
     flex-direction: column;
@@ -203,6 +196,48 @@
 .module__action {
     justify-content: space-between;
     margin-top: auto;
+}
+
+/* Four modules: all in one row on wide screens, two by two on tablets, one column on phones */
+@media (min-width: 700px) {
+    .modules {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 1400px) {
+    .modules {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .module {
+        padding: var(--space-md);
+    }
+
+    .module h3 {
+        font-size: 1.0625rem;
+    }
+
+    .module p {
+        font-size: 0.875rem;
+        line-height: 1.45;
+    }
+
+    .module__icon {
+        width: 40px;
+        height: 40px;
+    }
+
+    .module__detail {
+        padding: var(--space-xs) var(--space-sm);
+        font-size: 0.8125rem;
+    }
+
+    .module__action {
+        padding-inline: var(--space-sm) var(--space-md);
+        font-size: 0.875rem;
+        white-space: nowrap;
+    }
 }
 
 /* ---------- Recent activity ---------- */
