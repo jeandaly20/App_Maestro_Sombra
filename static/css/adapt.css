@@ -1506,3 +1506,8 @@
     align-items: flex-start;
     gap: var(--space-xs);
 }
+
+/* A refused photo with what the privacy check detected (framed in red) */
+.privacy-preview { margin: var(--space-sm) 0 0; max-width: 420px; }
+.privacy-preview img { width: 100%; height: auto; border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
+.privacy-preview figcaption { font-size: 0.85rem; color: var(--color-text-soft); margin-top: var(--space-xs); }

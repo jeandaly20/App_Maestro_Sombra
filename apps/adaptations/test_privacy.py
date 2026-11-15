@@ -131,10 +131,12 @@ class DocumentInspectionTests(TestCase):
         self.assertEqual((result.text, result.images), ('', []))
         self.assertIn('escaneado', result.message)
 
-    def test_07_photo_is_blocked(self):
+    def test_07_a_photo_that_cannot_be_checked_is_blocked(self):
+        # Since the local photo check, a photo is sent only if it can be read and nothing is found in it
         result = privacy.inspect_file(jpeg_bytes())
         self.assertEqual(result.status, privacy.BLOQUEADO)
-        self.assertIn('las fotos no se envían a la IA', result.message)
+        self.assertEqual(result.images, [])
+        self.assertIn('no se envió a la IA', result.message)
 
     def test_08_personal_metadata_never_leaves(self):
         result = privacy.inspect_file(pdf_bytes(CLEAN_LESSON, author=NAME), names=[NAME])
@@ -194,13 +196,13 @@ class PrivacyInTheAdaptationFlowTests(TestCase):
         material.refresh_from_db()
         return fake
 
-    def test_07b_a_photo_is_not_offered_and_a_scan_is_refused_at_upload(self):
+    def test_07b_a_scan_that_cannot_be_checked_is_refused_at_upload(self):
         form = AdaptMaterialForm({'students': [str(self.student.pk)], 'subject': self.math.pk, 'topic': 'Repartos',
                                   'input_type': 'PDF', f'rules_{self.student.pk}': []},
                                  {'file': SimpleUploadedFile('guia.pdf', scanned_pdf_bytes())}, teacher=self.teacher)
         self.assertFalse(form.is_valid())
         self.assertIn('escaneado', form.errors['file'][0])
-        self.assertNotIn('PHOTO', [value for value, _label in form.fields['input_type'].choices])
+        self.assertIn('no se envió a la IA', form.errors['file'][0])
 
     def test_10b_a_blocked_material_never_reaches_gemini(self):
         material = self.material(jpeg_bytes(), input_type='PHOTO', name='foto.jpg')

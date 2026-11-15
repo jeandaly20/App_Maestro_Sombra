@@ -51,11 +51,14 @@
         <h2 id="pages-title" class="adapt-section__title"><span class="icon" aria-hidden="true">auto_stories</span>2. Páginas de la clase</h2>
         <div class="upload-zone">
             {% include "includes/field.html" with field=form.book_files icon="picture_as_pdf" %}
-            <p class="field__help">Las páginas del libro del alumno en un PDF digital (por ejemplo, el texto escolar en PDF). Si eliges la semana completa, incluye las páginas de todas sus sesiones. Obligatorio. Por privacidad, las fotos y los PDF escaneados no se envían a la IA.</p>
+            <p class="field__help">Las páginas del libro del alumno: un PDF o varias fotos (hasta 10). Si eliges la semana completa, incluye las páginas de todas sus sesiones. Obligatorio.</p>
+            <p class="field__help privacy-help"><span class="icon" aria-hidden="true">shield</span>Puedes subir la foto de una página <strong>sin escribir</strong> (por ejemplo, de tu libro del docente). Antes de enviarla, el sistema la revisa en este equipo: si detecta nombres, fechas u otros datos personales, campos llenos o escritura a mano, no la envía y te pide otra. La revisión no detecta todo (por ejemplo, lápiz o rostros): revisa tú también que la página no tenga datos del estudiante.</p>
+            {% include "adaptations/_privacy_preview.html" with preview=form.privacy_previews.book_files %}
         </div>
         <div class="upload-zone lesson-guide">
             {% include "includes/field.html" with field=form.guide_files icon="menu_book" %}
-            <p class="field__help">La guía del docente para esta clase en un PDF digital. Si trae una sección de "Apoyo", la IA la usa. Antes de enviarla se quitan los datos personales.</p>
+            <p class="field__help">La guía del docente para esta clase, en PDF o fotos. Si trae una sección de "Apoyo", la IA la usa. Antes de enviarla se revisa que no tenga datos personales.</p>
+            {% include "adaptations/_privacy_preview.html" with preview=form.privacy_previews.guide_files %}
         </div>
     </section>
 

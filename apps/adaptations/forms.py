@@ -29,9 +29,10 @@ class AdaptMaterialForm(AccessibleFormMixin, forms.Form):
     topic = forms.CharField(label='Tema', max_length=150,
                             help_text='El tema que trabaja la guía. La IA comprueba que el material trate este tema y la materia elegida antes de adaptarlo.',
                             widget=forms.TextInput(attrs={'placeholder': 'Ej.: Fracciones simples y reparto equitativo'}))
-    # Photos are not offered: their personal data cannot be checked reliably before sending them to the AI
+    # Photos are checked locally before anything is sent (photo_check): a page with personal data or writing is
+    # refused and the teacher is asked for a clean page
     input_type = forms.ChoiceField(label='Tipo de entrada', initial=InputType.PDF, widget=forms.RadioSelect,
-                                   choices=[c for c in InputType.choices if c[0] != InputType.PHOTO])
+                                   choices=InputType.choices)
     file = forms.FileField(label='Archivo de la guía', required=False)
     input_text = forms.CharField(label='Texto de la guía', required=False,
                                  widget=forms.Textarea(attrs={'rows': 8, 'placeholder': 'Escribe o pega aquí el texto de la guía...'}))
@@ -41,6 +42,7 @@ class AdaptMaterialForm(AccessibleFormMixin, forms.Form):
         self.student_objects = {str(s.pk): s for s in teacher.students.filter(record_status=RecordStatus.ACTIVE).order_by('created_at')}
         # Names the privacy check removes from the material (every student of this teacher)
         self.private_names = [s.name for s in teacher.students.all()]
+        self.privacy_previews = {}  # field -> a refused photo with what was detected framed in red
         self.fields['students'].choices = [(pk, s.name) for pk, s in self.student_objects.items()]
         # The UDL rules are chosen per student: each starts with the ones recommended for their own NEE
         for pk, student in self.student_objects.items():
@@ -99,6 +101,8 @@ class AdaptMaterialForm(AccessibleFormMixin, forms.Form):
         upload.seek(0)
         if not inspection.allowed:
             self.add_error(field, inspection.message)
+            if inspection.preview:
+                self.privacy_previews[field] = inspection.preview
         return inspection
 
     def requests(self):
@@ -133,10 +137,10 @@ class MultipleFileInput(forms.ClearableFileInput):
 
 
 class MultipleFileField(forms.FileField):
-    """The pages of the class: one digital PDF (photos are refused by the privacy check of the form)."""
+    """The pages of the class: one PDF or several photos (each one goes through the privacy check of the form)."""
 
     def __init__(self, *args, **kwargs):
-        kwargs.setdefault('widget', MultipleFileInput(attrs={'accept': 'application/pdf'}))
+        kwargs.setdefault('widget', MultipleFileInput(attrs={'accept': 'application/pdf,image/jpeg,image/png,image/webp'}))
         super().__init__(*args, **kwargs)
 
     def clean(self, data, initial=None):
@@ -216,11 +220,12 @@ class LessonSetupForm(AdaptMaterialForm):
             uploads = data.get(field) or []
             if not uploads or field in self.errors:
                 continue
-            if len(uploads) > 1:
-                self.add_error(field, 'Sube las páginas en un solo PDF digital: por privacidad, las fotos no se '
-                                      'envían a la IA.')
-            else:
-                self.check_privacy(field, uploads[0])
+            for number, upload in enumerate(uploads, start=1):
+                inspection = self.check_privacy(field, upload)
+                if not inspection.allowed:
+                    if len(uploads) > 1:  # say which photo it was
+                        self.errors[field][-1] = f'Foto {number} ({Path(upload.name).name}): {self.errors[field][-1]}'
+                    break  # one refused page is enough: the teacher uploads that page again
         return data
 
     def chosen_session(self):

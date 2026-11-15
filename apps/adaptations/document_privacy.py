@@ -14,8 +14,11 @@ By format:
 - typed text: identifiers replaced;
 - Word: text of body, tables, headers and footers, replaced; its embedded images and metadata are not sent;
 - digital PDF: text replaced, and the page images redacted with the exact position of that text;
-- scanned PDF, photos, and anything not inspectable: blocked (handwriting, faces or signatures in an image
-  cannot be found reliably on this server).
+- photos and scanned PDF pages: checked locally (photo_check: the local Tesseract reader plus the same identifier
+  rules). A page where nothing is detected is sent as it is; a page with personal data, a filled-in name or date
+  field, blue-pen handwriting, or that cannot be read clearly is blocked, and the teacher is asked for a page
+  without writing. Nothing in an image is covered or edited;
+- anything not inspectable: blocked.
 The identifiers looked for are a minimum, not every possible personal datum: the teacher still reviews.
 """
 import io
@@ -28,7 +31,7 @@ import pypdfium2 as pdfium
 import pypdfium2.raw as pdfium_c
 from django.conf import settings
 from docx import Document
-from PIL import ImageDraw
+from PIL import Image, ImageDraw
 
 APTO, DEPURADO, BLOQUEADO = 'APTO', 'DEPURADO', 'BLOQUEADO'
 MAX_PAGES = 10
@@ -81,6 +84,7 @@ class Inspection:
     images: list = field(default_factory=list)
     findings: Counter = field(default_factory=Counter)
     reasons: list = field(default_factory=list)
+    preview: str = ''  # a refused photo with what was detected framed in red, for the teacher (never stored or sent)
 
     @property
     def allowed(self):
@@ -179,17 +183,25 @@ def inspect_file(raw, names=()):
             return blocked(f'El archivo supera los {settings.MAX_UPLOAD_MB} MB.')
         kind = file_kind(raw)
         if kind == 'image':
-            return blocked('Por privacidad, las fotos no se envían a la IA: en una imagen no se puede comprobar de '
-                           'forma confiable que no haya nombres, firmas, rostros u otros datos personales. Sube el '
-                           'material como PDF digital o Word, o escribe el texto.')
+            return _inspect_photo(Image.open(io.BytesIO(raw)), names)
         if kind == 'docx':
             return _inspect_docx(raw, names)
         if kind == 'pdf':
             return _inspect_pdf(raw, names)
         return blocked('El tipo de archivo no se reconoce: sube un PDF digital, un Word (.docx) o escribe el texto.')
     except Exception:  # noqa: BLE001 - safe by default: an error never lets the original through
-        return blocked('No se pudo revisar el archivo, así que no se envió a la IA. Sube otra versión (PDF digital '
-                       'o Word) o escribe el texto.')
+        return blocked('No se pudo revisar el archivo, así que no se envió a la IA. Sube otra versión del archivo.')
+
+
+def _inspect_photo(image, names):
+    """A photo of a page: sent as it is only if the local check finds nothing (see photo_check)."""
+    from . import photo_check  # imported here: photo_check uses this module's identifier rules
+    check = photo_check.check_image(image, names)
+    if not check.allowed:
+        refused = blocked(check.message)
+        refused.preview = check.preview()
+        return refused
+    return Inspection(status=APTO, images=[check.image])
 
 
 def _person_metadata(values):
@@ -273,12 +285,18 @@ def _inspect_pdf(raw, names):
             has_images = any(True for _ in page.get_objects(filter=(pdfium_c.FPDF_PAGEOBJ_IMAGE,)))
             if len(text.strip()) < MIN_PAGE_TEXT:
                 if has_images:
-                    return blocked('El PDF es escaneado (sus páginas son imágenes): no se puede comprobar que no '
-                                   'tenga datos personales. Sube un PDF digital, un Word o escribe el texto.')
+                    # A scanned page: checked like a photo, and sent as it is only if nothing is detected in it
+                    from . import photo_check
+                    check = photo_check.check_image(page.render(scale=RENDER_SCALE).to_pil(), names)
+                    if not check.allowed:
+                        refused = blocked(f'Página {index + 1} del PDF escaneado: {check.message}')
+                        refused.preview = check.preview()
+                        return refused
+                    images.append(check.image)
                 continue  # a blank or drawing-only page: nothing personal can be read in it
             if _unreadable(text):
                 return blocked('El texto del PDF no se puede leer con seguridad (fuentes sin codificación). Sube '
-                               'otra versión del PDF, un Word o escribe el texto.')
+                               'otra versión del PDF o fotos de las páginas sin escribir.')
             for _start, _end, kind in spans:
                 found[kind] += 1
             image, blanked = _redacted_page(page, textpage, spans)
@@ -286,8 +304,9 @@ def _inspect_pdf(raw, names):
                 found['imagenes'] += blanked
             images.append(image)
             texts.append(sanitize_text(text, names)[0])
-        if not texts:
-            return blocked('El PDF no tiene texto que se pueda revisar. Sube un PDF digital, un Word o escribe el texto.')
+        if not texts and not images:
+            return blocked('El PDF no tiene nada que se pueda revisar. Sube otra versión del PDF o fotos de las páginas '
+                           'sin escribir.')
         metadata = pdf.get_metadata_dict()
         if _person_metadata([metadata.get('Author'), metadata.get('Creator') if '@' in str(metadata.get('Creator')) else '']):
             found['metadatos'] += 1  # never sent: only the rendered, redacted pages and the cleaned text leave

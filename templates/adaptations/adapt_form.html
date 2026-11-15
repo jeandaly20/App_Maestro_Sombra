@@ -12,7 +12,7 @@
     <div>
         <p class="badge-line"><span class="icon" aria-hidden="true">auto_fix_high</span>Paso 1 de 2 · Carga del material</p>
         <h1>Adaptar material curricular</h1>
-        <p class="page-header__intro">Sube la guía en PDF digital, Word o texto. Antes de enviarla a la inteligencia artificial, el sistema revisa y quita los datos personales; después la IA propone una versión adaptada para cada estudiante, que podrás revisar antes de imprimir.</p>
+        <p class="page-header__intro">Sube la guía en PDF, Word, foto o texto. Antes de enviarla a la inteligencia artificial, el sistema revisa y quita los datos personales; después la IA propone una versión adaptada para cada estudiante, que podrás revisar antes de imprimir.</p>
     </div>
 </div>
 
@@ -83,8 +83,9 @@
                    data-accept-word="{{ accept_by_type.WORD }}" accept="{{ accept_by_type.PDF }}"
                    {% if form.file.errors %}aria-invalid="true" aria-describedby="{{ form.file.auto_id }}_error"{% endif %}>
             <p class="field__help" data-file-help>Sube la guía en PDF digital (con texto que se pueda seleccionar). Máximo 10 MB.</p>
-            <p class="field__help privacy-help"><span class="icon" aria-hidden="true">shield</span>Por privacidad, las fotos y los PDF escaneados no se envían a la IA: en una imagen no se puede comprobar de forma confiable que no haya nombres, firmas u otros datos personales.</p>
+            <p class="field__help privacy-help"><span class="icon" aria-hidden="true">shield</span>Puedes subir la foto de una página <strong>sin escribir</strong> (por ejemplo, de tu libro del docente). Antes de enviarla, el sistema la revisa en este equipo: si detecta nombres, fechas u otros datos personales, campos llenos o escritura a mano, no la envía y te pide otra. La revisión no detecta todo (por ejemplo, lápiz o rostros): revisa tú también que la página no tenga datos del estudiante.</p>
             {% for error in form.file.errors %}<p class="field__error" id="{{ form.file.auto_id }}_error"><span class="icon" aria-hidden="true">error</span>{{ error }}</p>{% endfor %}
+            {% include "adaptations/_privacy_preview.html" with preview=form.privacy_previews.file %}
         </div>
         <div data-text-zone hidden>
             {% include "includes/field.html" with field=form.input_text %}

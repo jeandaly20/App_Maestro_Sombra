@@ -1,0 +1,7 @@
+{% comment %}A refused photo with what the local check detected framed in red. Built in memory, never stored or sent.{% endcomment %}
+{% if preview %}
+<figure class="privacy-preview">
+    <img src="{{ preview }}" alt="La foto que subiste, con lo detectado marcado en rojo">
+    <figcaption>Lo marcado en rojo es lo que detectó la revisión de privacidad. Esta foto no se envió a la IA.</figcaption>
+</figure>
+{% endif %}
