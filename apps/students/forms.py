@@ -3,14 +3,13 @@ from types import SimpleNamespace
 
 from django import forms
 from django.conf import settings
-from django.core.files.base import ContentFile
 
 from apps.core.choices import Condition, DiagnosisSource, Grade
 from apps.core.forms import AccessibleFormMixin
 
 from . import documents
 from .consent import check_signed
-from .documents import ACCEPT, MAX_DOCUMENT_MB, MAX_ZIP_MB, ZIP_ACCEPT, detect_type, is_zip
+from .documents import ACCEPT, MAX_DOCUMENT_MB, detect_type
 from .models import MAX_AGE, MIN_AGE, Student, StudentConsent, Treatment
 
 
@@ -29,7 +28,7 @@ def years_ago(years, today=None):
 class StudentForm(AccessibleFormMixin, forms.ModelForm):
     diagnosis_document = forms.FileField(
         label='Documento de respaldo', required=False,  # required in clean(): an edit may keep the stored one
-        widget=forms.ClearableFileInput(attrs={'accept': ZIP_ACCEPT}),  # a ZIP: its report is found inside
+        widget=forms.ClearableFileInput(attrs={'accept': ACCEPT}),
     )
     consent_document = forms.FileField(
         label='Autorización firmada por el representante', required=False,  # required in clean() with a document
@@ -126,16 +125,7 @@ class StudentForm(AccessibleFormMixin, forms.ModelForm):
         return uploaded, kind
 
     def clean_diagnosis_document(self):
-        uploaded = self.cleaned_data.get('diagnosis_document')
-        if uploaded:
-            head = uploaded.read(8)
-            uploaded.seek(0)
-            if is_zip(head):  # the student's report is looked for inside it in check_backing
-                if uploaded.size > MAX_ZIP_MB * 1024 * 1024:
-                    raise forms.ValidationError(f'El ZIP supera los {MAX_ZIP_MB} MB.')
-                self.document_type = documents.ZIP
-                return uploaded
-        uploaded, self.document_type = self._checked_file(uploaded, 'El documento')
+        uploaded, self.document_type = self._checked_file(self.cleaned_data.get('diagnosis_document'), 'El documento')
         return uploaded
 
     def clean_consent_document(self):
@@ -178,17 +168,7 @@ class StudentForm(AccessibleFormMixin, forms.ModelForm):
             return  # their own errors are shown first
         student = SimpleNamespace(name=data['name'], diagnosis_source=data['diagnosis_source'],
                                   conditions=data['conditions'])
-        if uploaded and 'diagnosis_document' not in self.errors and self.document_type == documents.ZIP:
-            uploaded.seek(0)
-            try:
-                content, self.document_type, self.document_check, _name = documents.find_in_zip(student, uploaded.read())
-            except documents.ZipError as error:
-                self.add_error('diagnosis_document', str(error))
-            else:
-                # Only this student's report goes on: the other files of the ZIP are not kept anywhere
-                chosen = ContentFile(content, name=f'respaldo.{documents.EXTENSIONS[self.document_type]}')
-                self.cleaned_data['diagnosis_document'] = data['diagnosis_document'] = chosen
-        elif uploaded and 'diagnosis_document' not in self.errors:
+        if uploaded and 'diagnosis_document' not in self.errors:
             uploaded.seek(0)
             self.document_check = documents.check_document(student, uploaded.read(), self.document_type)
             uploaded.seek(0)
