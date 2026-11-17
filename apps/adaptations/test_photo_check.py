@@ -1,7 +1,8 @@
 """
-Photos of book pages: checked locally (photo_check) before anything is sent to the AI. A clean page is sent as it is;
-a page with personal data, a filled-in name or date field, blue-pen handwriting, or that cannot be read is refused,
-and the teacher sees what was detected. Made-up pages; Gemini simulated. Needs the local Tesseract reader.
+Photos of book pages: checked locally (photo_check) before anything is sent to the AI. The page is sent as it is
+unless the FULL name of one of the teacher's registered students appears in it; then it is refused and the teacher
+sees where. Colours, fonts, drawings, handwriting and the book's example names never stop a page.
+Made-up pages; Gemini simulated. Needs the local Tesseract reader.
 """
 import io
 import math
@@ -32,6 +33,7 @@ EXERCISE = ['Lee el texto y responde las preguntas.', 'El perro de Ana juega en 
             'Su dueño lo cuida mucho y lo lleva al veterinario.', '1. Subraya los sustantivos del texto.',
             '2. Escribe tres sustantivos comunes en tu cuaderno.', '3. Clasifica las palabras: perro, Quito, mesa.',
             '4. Escribe una oración con un sustantivo propio.']
+OTHER = 'Pedro Andrade Ruiz'  # a registered student who is not on the page
 READY = tesseract() is not None and PRINT.exists() and HAND.exists()
 
 
@@ -49,7 +51,8 @@ def blue_drawing(draw, cx, cy, r, answer=False):
         draw.text((cx - 50, cy - 45), '99', fill=(25, 40, 130), font=ImageFont.truetype(str(HAND), 70))
 
 
-def page(*, printed_name=False, filled_name=False, blue_answer=False, coloured=False, blank=False, mandala=None):
+def page(*, printed_name=False, first_name=False, filled_name=False, blue_answer=False, coloured=False, blank=False,
+         mandala=None):
     image = Image.new('RGB', (1240, 1754), 'white')
     draw = ImageDraw.Draw(image)
     if blank:
@@ -58,6 +61,9 @@ def page(*, printed_name=False, filled_name=False, blue_answer=False, coloured=F
     y = 180
     if printed_name:
         draw.text((90, y), f'Estudiante: {NAME}', fill='black', font=ImageFont.truetype(str(PRINT), 30))
+        y += 60
+    if first_name:  # the book's example: a first name alone
+        draw.text((90, y), 'Ximena compra 3 lápices y 2 cuadernos.', fill='black', font=ImageFont.truetype(str(PRINT), 30))
         y += 60
     if filled_name:
         draw.text((90, y), 'Nombre:', fill='black', font=ImageFont.truetype(str(PRINT), 30))
@@ -91,6 +97,24 @@ def scanned_pdf(image):
     return buffer.getvalue()
 
 
+class FullNameTests(unittest.TestCase):
+    """Which words of a line make a registered student's full name (no reader needed)."""
+    def marked(self, line, names=(NAME,)):
+        words = [{'text': w} for w in line.split()]
+        return [words[i]['text'] for i in photo_check.full_names(words, names)]
+
+    def test_two_words_of_the_same_name_together(self):
+        self.assertEqual(self.marked('Estudiante: Ximena Quilumba'), ['Ximena', 'Quilumba'])
+        self.assertEqual(self.marked('QUILUMBA XIMENA, 5.º EGB'), ['QUILUMBA', 'XIMENA,'])
+        self.assertEqual(self.marked('María de los Ángeles', ['Maria de los Angeles Paz']),
+                         ['María', 'de', 'los', 'Ángeles'])
+
+    def test_a_first_name_alone_is_the_book_example(self):
+        self.assertEqual(self.marked('Ximena compra 3 lápices'), [])
+        self.assertEqual(self.marked('Ximena y Pedro juegan'), [])
+        self.assertEqual(self.marked('Ximena Ximena'), [])
+
+
 @unittest.skipUnless(READY, 'needs the local Tesseract reader and the test fonts')
 class PhotoCheckTests(TestCase):
     def test_a_clean_page_is_allowed_as_it_is(self):
@@ -99,57 +123,43 @@ class PhotoCheckTests(TestCase):
         self.assertEqual(result.preview(), '')
         self.assertEqual(result.image.size, (1240, 1754))
 
-    def test_printed_colour_is_not_taken_for_handwriting(self):
-        self.assertTrue(photo_check.check_image(page(coloured=True), [NAME]).allowed)
+    def test_colours_fonts_drawings_and_handwriting_do_not_stop_a_page(self):
+        for kwargs in ({'coloured': True}, {'mandala': 'clean'}, {'mandala': 'answer'}, {'blue_answer': True},
+                       {'filled_name': True}, {'blank': True}):
+            with self.subTest(**kwargs):
+                result = photo_check.check_image(page(**kwargs), [OTHER])
+                self.assertTrue(result.allowed, result.reasons)
 
-    def test_a_blue_line_drawing_is_not_taken_for_handwriting(self):
-        self.assertTrue(photo_check.check_image(page(mandala='clean'), [NAME]).allowed)
+    def test_a_first_name_alone_is_allowed(self):
+        result = photo_check.check_image(page(first_name=True), [NAME])
+        self.assertTrue(result.allowed, result.reasons)
 
-    def test_writing_inside_a_blue_drawing_is_still_found(self):
-        result = photo_check.check_image(page(mandala='answer'), [NAME])
-        self.assertFalse(result.allowed)
-        self.assertIn('escritura a mano', result.message)
-
-    def test_a_registered_name_is_refused_and_shown(self):
+    def test_a_registered_full_name_is_refused_and_shown(self):
         result = photo_check.check_image(page(printed_name=True), [NAME])
         self.assertFalse(result.allowed)
-        self.assertIn('nombres', result.message)
+        self.assertIn('nombre completo de un estudiante registrado', result.message)
         self.assertIn(photo_check.ASK_CLEAN_PAGE, result.message)
         self.assertTrue(result.preview().startswith('data:image/jpeg;base64,'))
         self.assertNotIn('Ximena', result.message)  # the message never repeats the data
 
-    def test_a_filled_name_field_is_refused(self):
-        result = photo_check.check_image(page(filled_name=True), [])  # not even a registered name is needed
-        self.assertFalse(result.allowed)
-        self.assertIn('campos de datos personales llenos', result.message)
-
-    def test_blue_pen_handwriting_is_refused(self):
-        result = photo_check.check_image(page(blue_answer=True), [])
-        self.assertFalse(result.allowed)
-        self.assertIn('escritura a mano', result.message)
-
-    def test_a_page_that_cannot_be_read_is_refused(self):
-        result = photo_check.check_image(page(blank=True), [])
-        self.assertEqual((result.allowed, result.reasons), (False, [photo_check.UNREADABLE]))
-
     def test_without_the_local_reader_nothing_is_sent(self):
         with mock.patch('apps.students.documents.tesseract', return_value=None):
-            result = photo_check.check_image(page(), [])
+            result = photo_check.check_image(page(), [NAME])
         self.assertEqual((result.allowed, result.reasons), (False, [photo_check.UNCHECKABLE]))
 
     def test_any_error_refuses(self):
         with mock.patch.object(photo_check, '_ocr', side_effect=OSError('fallo')):
-            self.assertFalse(photo_check.check_image(page(), []).allowed)
+            self.assertFalse(photo_check.check_image(page(), [NAME]).allowed)
 
     def test_the_document_check_uses_it_for_photos_and_scanned_pdfs(self):
-        clean = document_privacy.inspect_file(jpeg(page()), [NAME])
+        clean = document_privacy.inspect_file(jpeg(page(blue_answer=True)), [NAME])
         self.assertEqual((clean.status, len(clean.images)), (document_privacy.APTO, 1))
         refused = document_privacy.inspect_file(jpeg(page(printed_name=True)), [NAME])
         self.assertEqual(refused.status, document_privacy.BLOQUEADO)
         self.assertTrue(refused.preview)
-        scan = document_privacy.inspect_file(scanned_pdf(page()), [NAME])
+        scan = document_privacy.inspect_file(scanned_pdf(page(coloured=True)), [NAME])
         self.assertEqual((scan.status, len(scan.images), scan.text), (document_privacy.APTO, 1, ''))
-        scan = document_privacy.inspect_file(scanned_pdf(page(filled_name=True)), [NAME])
+        scan = document_privacy.inspect_file(scanned_pdf(page(printed_name=True)), [NAME])
         self.assertEqual(scan.status, document_privacy.BLOQUEADO)
         self.assertIn('Página 1 del PDF escaneado', scan.message)
 
@@ -179,7 +189,7 @@ class PhotoUploadTests(TestCase):
 
     def test_the_form_refuses_a_photo_with_data_and_shows_what_was_found(self):
         before = OriginalMaterial.objects.count()
-        form = self.form(page(filled_name=True))
+        form = self.form(page(printed_name=True))
         self.assertFalse(form.is_valid())
         self.assertIn('Por privacidad no se envía a la IA', form.errors['file'][0])
         self.assertTrue(form.privacy_previews['file'].startswith('data:image/jpeg;base64,'))

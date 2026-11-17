@@ -17,7 +17,7 @@ function setUpForm() {
     const textZone = form.querySelector('[data-text-zone]');
     const help = form.querySelector('[data-file-help]');
     const helpTexts = {
-        PHOTO: 'Sube una foto nítida de la página, de frente y con buena luz, sin nada escrito. Máximo 10 MB.',
+        PHOTO: 'Sube una foto nítida de la página, de frente y con buena luz. Máximo 10 MB.',
         PDF: 'Sube la guía en PDF (digital o escaneado). Máximo 10 MB.',
         WORD: 'Sube la guía en Word (.docx). Se leerá su texto. Máximo 10 MB.',
     };

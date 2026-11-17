@@ -52,7 +52,7 @@
         <div class="upload-zone">
             {% include "includes/field.html" with field=form.book_files icon="picture_as_pdf" %}
             <p class="field__help">Las páginas del libro del alumno: un PDF o varias fotos (hasta 10). Si eliges la semana completa, incluye las páginas de todas sus sesiones. Obligatorio.</p>
-            <p class="field__help privacy-help"><span class="icon" aria-hidden="true">shield</span>Puedes subir la foto de una página <strong>sin escribir</strong> (por ejemplo, de tu libro del docente). Antes de enviarla, el sistema la revisa en este equipo: si detecta nombres, fechas u otros datos personales, campos llenos o escritura a mano, no la envía y te pide otra. La revisión no detecta todo (por ejemplo, lápiz o rostros): revisa tú también que la página no tenga datos del estudiante.</p>
+            <p class="field__help privacy-help"><span class="icon" aria-hidden="true">shield</span>Puedes subir la foto de la página del libro tal como está. Antes de enviarla, el sistema la revisa en este equipo: solo la detiene si aparece el <strong>nombre completo</strong> de uno de tus estudiantes registrados (los nombres de ejemplo del libro no son problema). Revisa tú también que no se vea el nombre ni la cara del estudiante.</p>
             {% include "adaptations/_privacy_preview.html" with preview=form.privacy_previews.book_files %}
         </div>
         <div class="upload-zone lesson-guide">

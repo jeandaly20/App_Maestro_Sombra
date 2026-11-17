@@ -13,7 +13,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.utils import timezone
 from docx import Document
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
@@ -64,7 +64,7 @@ def pdf_bytes(lines, author='', photo=False):
 
 def scanned_pdf_bytes():
     image = Image.new('RGB', (1240, 1754), 'white')
-    ImageDraw.Draw(image).text((100, 100), f'Nombre: {NAME}', fill='black')
+    ImageDraw.Draw(image).text((100, 100), f'Nombre: {NAME}', fill='black', font=ImageFont.load_default(size=48))
     buffer = io.BytesIO()
     image.save(buffer, 'PDF')
     return buffer.getvalue()
@@ -132,8 +132,9 @@ class DocumentInspectionTests(TestCase):
         self.assertIn('escaneado', result.message)
 
     def test_07_a_photo_that_cannot_be_checked_is_blocked(self):
-        # Since the local photo check, a photo is sent only if it can be read and nothing is found in it
-        result = privacy.inspect_file(jpeg_bytes())
+        # Without the local reader a photo cannot be checked for the students' full names, so it is not sent
+        with mock.patch('apps.students.documents.tesseract', return_value=None):
+            result = privacy.inspect_file(jpeg_bytes(), names=[NAME])
         self.assertEqual(result.status, privacy.BLOQUEADO)
         self.assertEqual(result.images, [])
         self.assertIn('no se envió a la IA', result.message)
@@ -200,13 +201,15 @@ class PrivacyInTheAdaptationFlowTests(TestCase):
         form = AdaptMaterialForm({'students': [str(self.student.pk)], 'subject': self.math.pk, 'topic': 'Repartos',
                                   'input_type': 'PDF', f'rules_{self.student.pk}': []},
                                  {'file': SimpleUploadedFile('guia.pdf', scanned_pdf_bytes())}, teacher=self.teacher)
-        self.assertFalse(form.is_valid())
+        with mock.patch('apps.students.documents.tesseract', return_value=None):
+            self.assertFalse(form.is_valid())
         self.assertIn('escaneado', form.errors['file'][0])
         self.assertIn('no se envió a la IA', form.errors['file'][0])
 
     def test_10b_a_blocked_material_never_reaches_gemini(self):
         material = self.material(jpeg_bytes(), input_type='PHOTO', name='foto.jpg')
-        fake = self.adapt(material)
+        with mock.patch('apps.students.documents.tesseract', return_value=None):
+            fake = self.adapt(material)
         self.assertEqual(material.status, MaterialStatus.ERROR)
         self.assertTrue(material.ai_error.startswith(ai.PRIVACY_BLOCK))
         self.assertEqual(fake.requests, [])

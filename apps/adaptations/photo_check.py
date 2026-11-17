@@ -1,54 +1,71 @@
 """
 Local check of a photo (or of a scanned PDF page) BEFORE anything of it can be sent to the AI.
 
-The photo is not covered or edited: it is either clean and sent as it is, or it is refused and the teacher is asked
-for a page without writing (for example, their own copy of the book). Everything runs on this server with the local
-Tesseract reader; the AI never looks at a photo that has not passed this check.
+The photo is not covered or edited: it is either sent as it is, or it is refused and the teacher is asked to cover
+the name or take another photo. Everything runs on this server with the local Tesseract reader.
 
-A photo is refused when:
-- it cannot be checked: the local reader is not installed, or the page cannot be read clearly enough;
-- the app's identifier rules find personal data (names of the teacher's students, ID numbers, e-mails, phones,
-  dates, "Nombre: …");
-- a personal-data field is filled in (something written after "Nombre:", "Fecha:", "Estudiante:"…);
-- there is handwriting in blue pen (thin strokes of blue ink that are not printed text).
+A photo is refused only when the FULL name of one of the teacher's registered students appears in it (at least two
+words of the same registered name together, e.g. "Mateo Benítez"). A first name alone ("Mateo compra 3 lápices")
+is taken as the example of the book's exercise, and the page is sent. Printed colours, fonts, drawings and filled-in
+fields are not judged, so a clean class page is never refused for how it looks.
 
-Limits: handwriting in pencil, black or red pen away from those fields, faces and signatures are not detected
-reliably, so the teacher is also told to upload pages without writing. Safe by default: any error refuses.
+If the local reader is not installed or the check fails, the photo is not sent (nothing could be verified).
 """
 import base64
 import io
 import logging
 import re
 import subprocess
+import unicodedata
 from dataclasses import dataclass, field
 
 from PIL import Image, ImageDraw, ImageFilter, ImageMath, ImageOps
 
-from . import document_privacy
-
 logger = logging.getLogger('maestro_sombra')
 
 MAX_SIDE = 2000             # the photo is read at most this size (enough for printed book text)
-READABLE_CONFIDENCE = 80    # a word read with this confidence counts as clearly read
-MIN_READABLE_WORDS = 15     # fewer clearly read words: the page cannot be checked, so it is refused
-# Blue pen ink. Neat handwriting is read as confidently as print, so it is not excused for being legible: a
-# dark-blue printed title may cause a false alarm (the teacher is asked for another photo), never a leak.
-INK_MAX_BRIGHTNESS = 150    # pen ink is dark...
-INK_MIN_SATURATION = 60     # ...and clearly coloured (the mixed edges of a drawing's fill are not)
-INK_MIN_PIXELS = 20         # a few stray pixels are not a handwritten word
-MAX_STROKE_DENSITY = 0.45   # handwriting is thin strokes; a filled shape (a leaf, a coloured box) is denser
 OCR_TIMEOUT = 60
-LABEL = re.compile(r'^(nombres?|apellidos?|estudiante|alumn[oa]|fecha|curso|paralelo|grado|docente|profesora?|'
-                   r'representante|c[eé]dula|correo|tel[eé]fono|firma)[:.]?$', re.IGNORECASE)
-BLANK = re.compile(r'^[_.\-–—·…:|]+$')  # the printed line of an empty field
+NAME_PARTICLES = {'de', 'del', 'la', 'las', 'los', 'y'}  # "María de los Ángeles": not name words on their own
 
 UNCHECKABLE = ('No se pudo revisar la foto en este equipo, así que no se envió a la IA. Sube la página en un PDF '
                'digital.')
-UNREADABLE = ('La foto no se lee con claridad (borrosa, inclinada, con poca luz o con sombras), así que no se puede '
-              'comprobar que no tenga datos personales y no se envió a la IA. Toma la foto de frente, con buena luz '
-              'y con la página completa, o sube un PDF digital.')
-ASK_CLEAN_PAGE = ('Por privacidad no se envía a la IA. Sube una foto de la página sin escribir (por ejemplo, de tu '
-                  'libro del docente o de una copia en blanco) o un PDF digital.')
+ASK_CLEAN_PAGE = ('Por privacidad no se envía a la IA. Tapa el nombre o sube otra foto de la página; los nombres de '
+                  'ejemplo del libro no son problema.')
+FOUND_NAME = 'Detectamos el nombre completo de un estudiante registrado en la foto (marcado en rojo).'
+
+
+def _plain(word):
+    """A word without accents, punctuation or case, to compare names as the reader sees them."""
+    word = unicodedata.normalize('NFKD', word)
+    return re.sub(r'[^a-z0-9]', '', ''.join(c for c in word if not unicodedata.combining(c)).lower())
+
+
+def _name_words(names):
+    """For each registered name, the set of its words that identify (no particles, at least 3 letters)."""
+    result = []
+    for name in names:
+        words = {_plain(w) for w in str(name).split()}
+        words = {w for w in words if len(w) >= 3 and w not in NAME_PARTICLES}
+        if len(words) >= 2:
+            result.append(words)
+    return result
+
+
+def full_names(line_words, names):
+    """Indexes of the words in this line that form a full registered name: two different words of the same name
+    next to each other (a particle such as "de" may sit between them)."""
+    plain = [_plain(w['text']) for w in line_words]
+    marked = set()
+    for words in _name_words(names):
+        for i, first in enumerate(plain):
+            if first not in words:
+                continue
+            j = i + 1
+            while j < len(plain) and plain[j] in NAME_PARTICLES:
+                j += 1
+            if j < len(plain) and plain[j] in words and plain[j] != first:
+                marked.update(range(i, j + 1))
+    return sorted(marked)
 
 
 @dataclass
@@ -138,141 +155,32 @@ def _rotate_box(box, angle, size):
     return (int(min(xs)), int(min(ys)), int(max(xs)), int(max(ys)))
 
 
-def _coloured_ink(image):
-    """Boxes of blue pen strokes (dark, saturated, blue) shaped like handwritten words."""
-    # Thin strokes keep their colour when the copy is reduced: each pixel first takes the darkest of its neighbours
-    small = image.filter(ImageFilter.MinFilter(3))
-    small.thumbnail((620, 620))
-    sx, sy = image.width / small.width, image.height / small.height
-    pixels = small.load()
-    ink = Image.new('L', small.size, 0)
-    ink_px = ink.load()
-    for y in range(small.height):
-        for x in range(small.width):
-            r, g, b = pixels[x, y]
-            # Blue pen ink: dark, saturated and blue-dominant (green leaves, orange borders, teal titles are not)
-            if (max(r, g, b) < INK_MAX_BRIGHTNESS and max(r, g, b) - min(r, g, b) > INK_MIN_SATURATION
-                    and b > r + 25 and b > g + 10):
-                ink_px[x, y] = 255
-    raw = ink.load()
-    drawing = _blue_drawings(small)
-    px = ink.filter(ImageFilter.MaxFilter(7)).load()
-    boxes, seen = [], set()
-    for y in range(0, small.height, 2):
-        for x in range(0, small.width, 2):
-            if not px[x, y] or (x, y) in seen:
-                continue
-            stack, xs, ys = [(x, y)], [], []
-            while stack:
-                cx, cy = stack.pop()
-                if (cx, cy) in seen or not (0 <= cx < small.width and 0 <= cy < small.height) or not px[cx, cy]:
-                    continue
-                seen.add((cx, cy))
-                xs.append(cx)
-                ys.append(cy)
-                stack += [(cx + 2, cy), (cx - 2, cy), (cx, cy + 2), (cx, cy - 2)]
-            if len(xs) < INK_MIN_PIXELS:
-                continue
-            x0, y0, x1, y1 = min(xs), min(ys), max(xs), max(ys)
-            strokes = sum(1 for yy in range(y0, y1 + 1) for xx in range(x0, x1 + 1) if raw[xx, yy])
-            if strokes / ((x1 - x0 + 1) * (y1 - y0 + 1)) > MAX_STROKE_DENSITY:
-                continue  # a filled shape of a drawing, not handwritten strokes
-            box = (int(x0 * sx), int(y0 * sy), int(x1 * sx), int(y1 * sy))
-            height, width = box[3] - box[1], box[2] - box[0]
-            if not (height < 0.06 * image.height and width > 1.3 * height):
-                continue  # filled shapes and drawings are not handwritten words
-            on_drawing = sum(1 for xx, yy in zip(xs, ys) if (xx // 2 * 2, yy // 2 * 2) in drawing)
-            if on_drawing > 0.5 * len(xs):
-                continue  # a stretch of a large printed line drawing (a mandala, a table's blue lines)
-            boxes.append(box)
-    return boxes
-
-
-DRAWING_MIN_WIDTH, DRAWING_MIN_HEIGHT = 0.12, 0.08  # share of the page: a blue figure this big in both directions
-
-
-def _blue_drawings(small):
-    """
-    The points of large printed blue line drawings. Seen with a wider blue tolerance, a drawing's lines join into
-    one figure that is big both across and down the page; a handwritten word stays small (a line may be long,
-    but it is low). Strokes that belong to such a figure are not handwriting; writing inside it is not joined to
-    its lines, so it is still detected.
-    """
-    pixels = small.load()
-    loose = Image.new('L', small.size, 0)
-    loose_px = loose.load()
-    for y in range(small.height):
-        for x in range(small.width):
-            r, g, b = pixels[x, y]
-            if b > r + 15 and b > g + 5 and max(r, g, b) - min(r, g, b) > 30 and max(r, g, b) < 230:
-                loose_px[x, y] = 255
-    px = loose.filter(ImageFilter.MaxFilter(3)).load()
-    points, seen = set(), set()
-    for y in range(0, small.height, 2):
-        for x in range(0, small.width, 2):
-            if not px[x, y] or (x, y) in seen:
-                continue
-            stack, component = [(x, y)], []
-            while stack:
-                cx, cy = stack.pop()
-                if (cx, cy) in seen or not (0 <= cx < small.width and 0 <= cy < small.height) or not px[cx, cy]:
-                    continue
-                seen.add((cx, cy))
-                component.append((cx, cy))
-                stack += [(cx + 2, cy), (cx - 2, cy), (cx, cy + 2), (cx, cy - 2)]
-            xs, ys = [p[0] for p in component], [p[1] for p in component]
-            if (max(xs) - min(xs) >= DRAWING_MIN_WIDTH * small.width
-                    and max(ys) - min(ys) >= DRAWING_MIN_HEIGHT * small.height):
-                points.update(component)
-    return points
-
-
 def check_image(image, names=()):
-    """Whether this photo may be sent to the AI as it is. Any error refuses it."""
+    """Whether this photo may be sent to the AI as it is: refused only for a registered student's full name."""
     try:
         image = prepared(image)
+        if not _name_words(names):
+            return PhotoCheck(True, image=image)  # no full name to look for
         gray = image.convert('L')
         angle = _skew(gray)
         straight = _even(gray.rotate(angle, fillcolor=255, resample=Image.BICUBIC))
         words = _ocr(straight)
         if words is None:
             return PhotoCheck(False, [UNCHECKABLE], image=image)
-        readable = [w for w in words if w['conf'] >= READABLE_CONFIDENCE and sum(c.isalpha() for c in w['text']) >= 3]
-        if len(readable) < MIN_READABLE_WORDS:
-            return PhotoCheck(False, [UNREADABLE], image=image)
-        found, highlights = set(), []
         lines = {}
         for word in words:
             lines.setdefault(word['line'], []).append(word)
+        highlights = []
         for line_words in lines.values():
             line_words.sort(key=lambda w: w['box'][0])
-            text, offsets = '', []
-            for word in line_words:
-                offsets.append((len(text), len(text) + len(word['text'])))
-                text += word['text'] + ' '
-            for start, end, kind in document_privacy._spans(text, names):
-                found.add(document_privacy.KIND_NAMES.get(kind, 'datos personales'))
-                highlights += [(_rotate_box(w['box'], angle, image.size), kind)
-                               for w, (a, b) in zip(line_words, offsets) if a < end and b > start]
-            for index, word in enumerate(line_words):
-                if not LABEL.match(word['text']):
-                    continue
-                after = [w for w in line_words[index + 1:index + 4] if not BLANK.match(w['text'])
-                         and not LABEL.match(w['text'])]
-                if after:
-                    found.add('campos de datos personales llenos (Nombre, Fecha…)')
-                    highlights.append((_rotate_box((word['box'][0], word['box'][1], after[-1]['box'][2],
-                                                    max(w['box'][3] for w in after)), angle, image.size), 'campo lleno'))
-
-        ink = _coloured_ink(image)
-        if ink:
-            found.add('escritura a mano')
-            highlights += [(box, 'escritura a mano') for box in ink]
-        if found:
-            detected = ', '.join(sorted(found))
-            return PhotoCheck(False, [f'Detectamos {detected} en la foto (marcado en rojo).', ASK_CLEAN_PAGE],
-                              highlights=highlights, image=image)
+            marked = full_names(line_words, names)
+            if marked:
+                box = (min(line_words[i]['box'][0] for i in marked), min(line_words[i]['box'][1] for i in marked),
+                       max(line_words[i]['box'][2] for i in marked), max(line_words[i]['box'][3] for i in marked))
+                highlights.append((_rotate_box(box, angle, image.size), 'nombre'))
+        if highlights:
+            return PhotoCheck(False, [FOUND_NAME, ASK_CLEAN_PAGE], highlights=highlights, image=image)
         return PhotoCheck(True, image=image)
-    except Exception:  # noqa: BLE001 - safe by default: an error never lets the photo through
+    except Exception:  # noqa: BLE001 - an error never lets an unchecked photo through
         logger.warning('Photo check failed', exc_info=False)
         return PhotoCheck(False, [UNCHECKABLE])

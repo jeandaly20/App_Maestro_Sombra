@@ -194,8 +194,8 @@ def inspect_file(raw, names=()):
 
 
 def _inspect_photo(image, names):
-    """A photo of a page: sent as it is only if the local check finds nothing (see photo_check)."""
-    from . import photo_check  # imported here: photo_check uses this module's identifier rules
+    """A photo of a page: sent as it is unless a registered student's full name is in it (see photo_check)."""
+    from . import photo_check  # imported here: it is only needed for photos and scanned pages
     check = photo_check.check_image(image, names)
     if not check.allowed:
         refused = blocked(check.message)
@@ -285,7 +285,7 @@ def _inspect_pdf(raw, names):
             has_images = any(True for _ in page.get_objects(filter=(pdfium_c.FPDF_PAGEOBJ_IMAGE,)))
             if len(text.strip()) < MIN_PAGE_TEXT:
                 if has_images:
-                    # A scanned page: checked like a photo, and sent as it is only if nothing is detected in it
+                    # A scanned page: checked like a photo (refused only for a registered student's full name)
                     from . import photo_check
                     check = photo_check.check_image(page.render(scale=RENDER_SCALE).to_pil(), names)
                     if not check.allowed:
@@ -296,7 +296,7 @@ def _inspect_pdf(raw, names):
                 continue  # a blank or drawing-only page: nothing personal can be read in it
             if _unreadable(text):
                 return blocked('El texto del PDF no se puede leer con seguridad (fuentes sin codificación). Sube '
-                               'otra versión del PDF o fotos de las páginas sin escribir.')
+                               'otra versión del PDF o fotos de las páginas.')
             for _start, _end, kind in spans:
                 found[kind] += 1
             image, blanked = _redacted_page(page, textpage, spans)
@@ -305,8 +305,8 @@ def _inspect_pdf(raw, names):
             images.append(image)
             texts.append(sanitize_text(text, names)[0])
         if not texts and not images:
-            return blocked('El PDF no tiene nada que se pueda revisar. Sube otra versión del PDF o fotos de las páginas '
-                           'sin escribir.')
+            return blocked('El PDF no tiene nada que se pueda revisar. Sube otra versión del PDF o fotos de las '
+                           'páginas.')
         metadata = pdf.get_metadata_dict()
         if _person_metadata([metadata.get('Author'), metadata.get('Creator') if '@' in str(metadata.get('Creator')) else '']):
             found['metadatos'] += 1  # never sent: only the rendered, redacted pages and the cleaned text leave
