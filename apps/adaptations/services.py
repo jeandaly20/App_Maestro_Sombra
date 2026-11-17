@@ -227,8 +227,11 @@ def read_material(material, say, session_text, check_topic, title_from_ai, priva
                                           subject=material.subject.name, topic=material.topic,
                                           session_text=session_text, check_topic=check_topic)
     if session_text and analysis.get('matches_lesson') is False:
-        raise ai.AIError(f'{ai.TOPIC_MISMATCH}: las páginas del libro son de otro tema. '
-                         f'{analysis.get("lesson_mismatch", "")}'.strip())
+        # Always say why: the AI's reason or, without one, what it read in the pages
+        why = (analysis.get('lesson_mismatch') or '').strip() or (
+            f'Según la IA, las páginas tratan de: {analysis["summary"].strip()}' if (analysis.get('summary') or '').strip()
+            else '')
+        raise ai.AIError(f'{ai.TOPIC_MISMATCH}: las páginas del libro son de otro tema. {why}'.strip())
     if check_topic and (mismatch := material_mismatch(material, analysis)):
         raise ai.AIError(f'{ai.MATERIAL_MISMATCH}: {mismatch}.')
     analysis = scrubbed_analysis(analysis, private_names)

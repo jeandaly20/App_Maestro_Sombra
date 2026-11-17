@@ -110,3 +110,26 @@ class ClassTests(SimpleTestCase):
         self.assertIn('Ventana de cartulina', rows[0][1])
         self.assertEqual(len(lesson_plan.class_sections(analysis={}, content={}, subject='M', grade='g', pseudonym='p',
                                                         condition='c', adaptation_grade='a', plan_row='')), 5)
+
+
+class WeekTopicCheckTests(SimpleTestCase):
+    """A week has several sessions: the pages of the last one must not be taken for another topic."""
+    WEEK = ('Sesión 37 · Estimamos. ' + 'Calculamos restas aproximadas. ' * 60
+            + 'Sesión 38 · Multiplicamos con el geoplano: áreas de rectángulos.')
+
+    def test_the_whole_week_is_read_not_only_the_first_session(self):
+        self.assertGreater(len(self.WEEK), 1500)
+        note = ai.topic_note(self.WEEK, 'las páginas', 'matches_lesson', 'lesson_mismatch')
+        self.assertIn('Multiplicamos con el geoplano', note)
+        self.assertIn('CUALQUIERA de sus sesiones', note)
+
+    def test_a_mismatch_always_says_why(self):
+        from types import SimpleNamespace
+        from . import document_privacy, services
+        material = SimpleNamespace(subject=SimpleNamespace(name='Matemática'), topic='Semana 23')
+        allowed = document_privacy.Inspection(status=document_privacy.APTO, text='Página del libro')
+        answer = {'matches_lesson': False, 'summary': 'Fracciones con dibujos de pizzas.'}
+        with mock.patch.object(document_privacy, 'inspect_material', return_value=allowed), \
+                mock.patch.object(ai, 'analyze_material', return_value=(answer, 'fake')):
+            with self.assertRaisesMessage(ai.AIError, 'Según la IA, las páginas tratan de: Fracciones con dibujos'):
+                services.read_material(material, lambda text: None, self.WEEK, False, False)

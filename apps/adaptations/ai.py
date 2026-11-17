@@ -399,14 +399,22 @@ def generate_json(system, parts, schema):
 
 
 TOPIC_MISMATCH = 'Las páginas no corresponden a la clase elegida'
+TOPIC_TEXT_LIMIT = 9000  # characters of the plan the topic check reads: a whole week (several sessions) fits
 MATERIAL_MISMATCH = 'El material no coincide con lo que escribiste'
 PRIVACY_BLOCK = 'El material no se envió a la IA por privacidad'
 
 
 def topic_note(session_text, images, ok_field, why_field):
-    """Asks the model to check that some images (the book pages, the guide) belong to the chosen session."""
+    """
+    Asks the model to check that some images (the book pages, the guide) belong to the chosen session or week.
+    The whole plan is sent (up to TOPIC_TEXT_LIMIT): a week has several sessions, and pages of the last one must
+    not be taken for another topic because only the first one was read.
+    """
     return (
-        f'Esta es la clase (sesión) de la planificación que el docente eligió:\n{session_text[:1500]}\n'
+        f'Esta es la clase (o la semana de clases) de la planificación que el docente eligió:\n'
+        f'{session_text[:TOPIC_TEXT_LIMIT]}\n'
+        'Si la planificación tiene varias sesiones (una semana), las imágenes corresponden si trabajan el contenido '
+        'de CUALQUIERA de sus sesiones; no tienen que cubrirlas todas.\n'
         f'Indica en "{ok_field}" si {images} corresponden a esa clase (true) o no (false). Compara con el '
         'objetivo específico y las actividades de la sesión, no solo con la materia, el eje o la destreza '
         'general (muchas planificaciones repiten la misma destreza en todas las sesiones). Responde false si '
