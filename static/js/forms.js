@@ -1,6 +1,28 @@
 // Form helpers: show password, strength meter and confirmation check.
 'use strict';
 
+// "Volver": goes back to the previous page of the app, so the teacher lands where they were (with the same
+// filters and scroll). It follows its own link instead (the page's parent) when there is no such page: opened
+// directly or from another site, coming from the sign-in, or the same page reloaded after a form error.
+document.addEventListener('click', (event) => {
+    const link = event.target.closest('[data-back]');
+    if (!link || event.defaultPrevented || event.button !== 0
+        || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    let previous;
+    try {
+        previous = new URL(document.referrer);
+    } catch (error) {
+        return;  // no previous page: the link's own address
+    }
+    const here = new URL(window.location.href);
+    const fromApp = previous.origin === here.origin && !previous.pathname.startsWith('/cuenta/');
+    const samePage = previous.pathname + previous.search === here.pathname + here.search;
+    if (fromApp && !samePage && window.history.length > 1) {
+        event.preventDefault();
+        window.history.back();
+    }
+});
+
 document.addEventListener('DOMContentLoaded', () => {
     // "Eye" button to show or hide the password
     document.querySelectorAll('[data-toggle-password]').forEach((button) => {

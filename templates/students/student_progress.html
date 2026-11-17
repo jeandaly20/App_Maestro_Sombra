@@ -4,8 +4,8 @@
 {% block title %}Historial de aprendizaje{% endblock %}
 {% block styles %}{{ block.super }}<link rel="stylesheet" href="{% asset 'css/students.css' %}">{% endblock %}
 
+{% block back_url %}{% url 'student_list' %}{% endblock %}
 {% block content %}
-<a class="button button--ghost student-back" href="{% url 'student_list' %}"><span class="icon" aria-hidden="true">arrow_back</span>Gestión de estudiantes</a>
 <div class="page-header">
     <div>
         <p class="badge-line"><span class="icon" aria-hidden="true">lock</span>Uso exclusivo del docente · no se envía a la IA</p>

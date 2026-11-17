@@ -6,6 +6,7 @@
     <script src="{% asset 'js/lesson.js' %}" defer></script>
 {% endblock %}
 
+{% block back_url %}{% url 'lesson_upload' %}{% endblock %}
 {% block content %}
 <div class="page-header">
     <div>

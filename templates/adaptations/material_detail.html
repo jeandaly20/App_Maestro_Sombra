@@ -5,6 +5,7 @@
 {% block styles %}{{ block.super }}<link rel="stylesheet" href="{% asset 'css/adapt.css' %}">{% endblock %}
 {% block scripts %}<script src="{% asset 'js/adapt.js' %}" defer></script>{% endblock %}
 
+{% block back_url %}{% url 'bank' %}{% endblock %}
 {% block content %}
 <div class="page-header">
     <div>

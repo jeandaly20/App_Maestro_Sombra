@@ -5,6 +5,7 @@
 {% block styles %}{{ block.super }}<link rel="stylesheet" href="{% asset 'css/bank.css' %}">{% endblock %}
 {% block scripts %}<script src="{% asset 'js/bank.js' %}" defer></script>{% endblock %}
 
+{% block back_url %}{% url 'material_detail' adaptation.material_id %}?a={{ adaptation.pk }}{% endblock %}
 {% block content %}
 <nav class="breadcrumb" aria-label="Ruta">
     <a href="{% url 'bank' %}">Banco de adaptaciones</a>

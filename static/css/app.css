@@ -120,6 +120,11 @@
     padding: var(--space-xl);
 }
 
+/* "Volver": at the top of every page but Inicio */
+.back-link {
+    margin-bottom: var(--space-md);
+}
+
 .content__header {
     margin-bottom: var(--space-xl);
 }

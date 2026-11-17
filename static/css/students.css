@@ -4,10 +4,6 @@
     max-width: 920px;
 }
 
-.student-back {
-    margin-bottom: var(--space-md);
-}
-
 /* ---------- Form ---------- */
 
 .student-form__header {
