@@ -95,7 +95,7 @@
                     {% endwith %}
                 {% endif %}
                 {% include "includes/field.html" with field=form.diagnosis_document icon="upload_file" %}
-                <p class="field__help">PDF, JPG o PNG de máximo 5 MB.{% if object.has_document %} Si subes otro, reemplaza al guardado.{% elif form.document_required %} Obligatorio.{% else %} Opcional.{% endif %}</p>
+                <p class="field__help">PDF, JPG o PNG de máximo 5 MB, o un ZIP con varios informes: se guarda solo el de este estudiante.{% if object.has_document %} Si subes otro, reemplaza al guardado.{% elif form.document_required %} Obligatorio.{% else %} Opcional.{% endif %}</p>
 
                 <div class="consent-box">
                     <p class="consent-box__title"><span class="icon" aria-hidden="true">draw</span>Autorización del representante legal</p>

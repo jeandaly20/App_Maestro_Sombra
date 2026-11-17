@@ -8,6 +8,8 @@ Diagnosis backing document (UDAI report, MSP certificate...). Optional and prote
 - Read locally (never by the AI) to check that it matches the student: their name, the declared institution
   and one of their conditions; the registration is not saved otherwise. Digital PDFs give their text
   directly; photos and scanned PDFs are read with Tesseract OCR on the same server.
+- It may come inside a ZIP with several reports: only the one of this student is kept; the others (other
+  children's reports) are read in memory to find it and never stored.
 """
 import functools
 import io
@@ -18,6 +20,7 @@ import shutil
 import subprocess
 import unicodedata
 import uuid
+import zipfile
 from collections import namedtuple
 from pathlib import Path
 
@@ -47,6 +50,69 @@ EXTENSIONS = {'application/pdf': 'pdf', 'image/png': 'png', 'image/jpeg': 'jpg'}
 
 def detect_type(head):
     return next((kind for signature, kind in SIGNATURES.items() if head.startswith(signature)), None)
+
+
+# ---------- Reports inside a ZIP ----------
+
+ZIP = 'application/zip'
+ZIP_SIGNATURE = b'PK\x03\x04'
+ZIP_ACCEPT = ACCEPT + ',.zip,application/zip,application/x-zip-compressed'
+MAX_ZIP_MB = 25          # the whole ZIP as uploaded
+MAX_ZIP_FILES = 40       # documents looked at inside it
+MAX_ZIP_TOTAL_MB = 80    # all of them unpacked: a "ZIP bomb" is refused before reading
+
+
+class ZipError(ValueError):
+    """Why the ZIP cannot be used; the message is shown to the teacher."""
+
+
+def is_zip(head):
+    return head.startswith(ZIP_SIGNATURE)
+
+
+def zip_documents(content):
+    """[(name, bytes, real type)] of the PDF, JPG and PNG files in the ZIP (folders and other files are skipped)."""
+    try:
+        archive = zipfile.ZipFile(io.BytesIO(content))
+    except zipfile.BadZipFile as error:
+        raise ZipError('El ZIP está dañado o no se puede abrir. Vuelve a comprimir los informes.') from error
+    entries = [info for info in archive.infolist()
+               if not info.is_dir() and not Path(info.filename).name.startswith(('.', '__MACOSX'))
+               and '__MACOSX' not in info.filename]
+    if sum(info.file_size for info in entries) > MAX_ZIP_TOTAL_MB * 1024 * 1024:
+        raise ZipError(f'El contenido del ZIP supera los {MAX_ZIP_TOTAL_MB} MB: comprime solo los informes.')
+    found = []
+    for info in entries:
+        if info.flag_bits & 0x1:
+            raise ZipError('El ZIP tiene contraseña: comprímelo sin contraseña.')
+        if info.file_size > MAX_DOCUMENT_MB * 1024 * 1024:
+            continue
+        data = archive.read(info)
+        kind = detect_type(data[:8])
+        if kind:
+            found.append((Path(info.filename).name, data, kind))
+        if len(found) >= MAX_ZIP_FILES:
+            break
+    if not found:
+        raise ZipError(f'El ZIP no tiene documentos en PDF, JPG o PNG de máximo {MAX_DOCUMENT_MB} MB.')
+    return found
+
+
+def find_in_zip(student, content):
+    """
+    (bytes, type, check, file name) of this student's report inside the ZIP: the first document whose name,
+    institution and NEE match (files named after the student are read first). Raises ZipError if none does.
+    """
+    found = zip_documents(content)
+    words = [word for word in plain(student.name).split() if len(word) > 2]
+    found.sort(key=lambda item: -sum(word in plain(item[0]) for word in words))
+    for name, data, kind in found:
+        check = check_document(student, data, kind)
+        if document_error(check, student.name) is None:
+            return data, kind, check, name
+    raise ZipError(f'Ninguno de los {len(found)} documentos del ZIP coincide con {student.name}: se buscó su nombre, '
+                   'la institución del tipo de documento elegido y su condición NEE. Revisa los datos de la ficha o '
+                   'sube su informe directamente.')
 
 
 def _store(student, content, prefix):
