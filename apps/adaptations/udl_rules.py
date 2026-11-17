@@ -23,7 +23,9 @@ CONDITION_RULES = {
         'Estas reglas se aplican SOLO a los números y cálculos que ya tiene la guía. Si la guía no tiene '
         'números ni cálculos (por ejemplo, una lectura), no agregues ninguno: aplica solo instrucciones claras y cortas.',
         'Presenta un solo cálculo por paso y explica qué operación hacer con palabras.',
-        'Ancla cada número a un objeto concreto (porciones, bloques, objetos del aula).',
+        'Ancla cada número pequeño (hasta 20) a un objeto concreto (porciones, bloques, objetos del aula). Para '
+        'números grandes nunca pidas contar objetos: usa la tabla de valor posicional, los bloques de base 10 '
+        '(centenas, decenas y unidades), la recta numérica o la calculadora.',
         'Describe un apoyo visual para cada cantidad (barras, círculos divididos, recta numérica).',
         'Escribe los números en cifras, nunca en letras, y mantén las unidades visibles.',
         'Evita enunciados con datos que no se usan.',
@@ -69,11 +71,55 @@ ADJUSTMENT_RULES = {
 
 # Always sent, whatever the condition: they protect the content of the original worksheet
 GENERAL_RULES = [
-    'Conserva todos los datos de la guía original: personajes, números, cantidades y preguntas. '
-    'Nunca agregues ni cambies números, cantidades, nombres o hechos que no estén en el original.',
+    'Mantén el tema, el tipo de actividad y el objetivo de la guía original. Nunca cambies hechos, conceptos, '
+    'personajes ni la información de una lectura.',
+    'Adaptar NO es copiar la guía con otras palabras: corrige cada ejercicio para que ESTE estudiante pueda hacerlo. '
+    'Según sus condiciones puedes reducir la cantidad de ejercicios repetidos (por ejemplo 2 divisiones en lugar '
+    'de 4), dar ya elegidos los datos que la guía pide inventar o elegir, dar la pista o el dato clave en lugar de '
+    'pedir que lo descubra, usar números más pequeños del mismo tipo, o cambiar una pregunta abierta por una '
+    'concreta. Cada cambio debe servir a una barrera de sus condiciones y quedar explicado para el docente.',
     'Aplica una regla solo si corresponde al contenido; si una regla no tiene sentido para esta guía, ignórala.',
-    'Cada pregunta o ejercicio del original debe seguir presente en la adaptación (puede dividirse en pasos).',
 ]
+
+# Mathematics: how each condition corrects the exercises themselves (what an expert teacher would change)
+MATH_CONDITION_RULES = {
+    Condition.DYSCALCULIA: [
+        'Calculadora: si la guía la usa, da una regla visual para leer la pantalla (por ejemplo "Si en la pantalla '
+        'sale un punto, como 934.28, la división tiene residuo; si no sale punto, es exacta").',
+        'Si la guía pide elegir o inventar números (consecutivos, una pareja, un ejemplo propio), dalos ya elegidos '
+        'y pequeños (por ejemplo 10, 11 y 12) y explica la palabra con un ejemplo ("consecutivos son los que van '
+        'seguidos al contar").',
+        'Si la guía pide descubrir un patrón o una pista, da el dato clave y pide solo comprobarlo.',
+        'Escribe los números de más de 4 cifras separados en grupos de 3 con un espacio (102 564).',
+        'En multiplicaciones en cuadrícula o rejilla, indica qué parte es decenas y qué parte unidades, y permite '
+        'tener a mano la tabla pitagórica (tabla de multiplicar en cuadrícula).',
+        'Reduce los ejercicios repetidos del mismo tipo a 2 y conserva uno de cada tipo.',
+    ],
+    Condition.ADHD: [
+        'Un solo ejercicio a la vista por paso; reduce las operaciones repetidas a la mitad (por ejemplo 2 de 4).',
+        'Resalta en "keyword" el verbo que el estudiante podría saltarse (decide, escribe, divide).',
+        'Cambia las preguntas abiertas como "¿Qué observas?" por una frase para completar o por elegir entre '
+        'opciones.',
+    ],
+    Condition.DYSLEXIA: [
+        'Escribe los números largos separados en grupos de 3 con un espacio (102 564) para que no los confunda al '
+        'copiarlos; pide marcar cada cifra al teclearla.',
+        'Cambia la escritura de "¿Qué observas?" por una frase para completar o por una respuesta oral.',
+    ],
+    Condition.ID_MILD: [
+        'Usa números de 1 o 2 cifras del mismo tipo de operación (por ejemplo 2 × 3 × 4 en lugar de números de 3 '
+        'cifras) y quita los números de 5 o 6 cifras.',
+        'Permite la calculadora y la tabla pitagórica en todos los pasos con cálculos.',
+        'Cambia las deducciones abstractas ("¿Qué observas?", "¿Pasará lo mismo con otros números?", "Invéntate…") '
+        'por preguntas concretas de comparar (rodea el resultado más grande, ¿cuál es igual?).',
+        'En una cuadrícula o rejilla de multiplicar, deja escrita la descomposición de los números (30 y 4) para que '
+        'solo multiplique y sume.',
+    ],
+    Condition.ID_MODERATE: [
+        'Usa números de 1 cifra o cantidades hasta 20 que se puedan contar con objetos.',
+        'Deja solo el procedimiento esencial: elimina las deducciones y los patrones.',
+    ],
+}
 
 
 # When a student has several conditions their rules are applied together; if two of them pull in
@@ -100,6 +146,8 @@ def rules_for(conditions, adjustments, subject_code=None, grade=None):
     for condition in conditions:
         lines.append(f'Reglas obligatorias para {Condition(condition).label}:')
         lines += [f'- {rule}' for rule in CONDITION_RULES[condition]]
+        if subject_code == 'MAT':
+            lines += [f'- {rule}' for rule in MATH_CONDITION_RULES.get(condition, [])]
     if adjustments:
         lines.append('Ajustes DUA seleccionados por el docente:')
         lines += [f'- {UdlAdjustment(value).label}: {ADJUSTMENT_RULES[value]}' for value in adjustments]

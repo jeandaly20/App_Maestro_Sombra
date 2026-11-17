@@ -93,6 +93,19 @@ actions return to that page (the class in "Adaptar clase") instead of the materi
         {% if content.udl_justification %}
             <div class="udl-box"><span class="icon" aria-hidden="true">psychology</span><p><strong>Justificación DUA:</strong> {{ content.udl_justification }}</p></div>
         {% endif %}
+        {% if content.exercise_adaptations %}
+            <details class="relevance-review exercise-adaptations" open>
+                <summary><span class="icon" aria-hidden="true">checklist</span>Adaptaciones específicas por ejercicio
+                    <span class="chip chip--secondary">Para el docente</span></summary>
+                <div class="relevance-review__block">
+                    <div class="table-wrap"><table class="relevance-review__table">
+                        <thead><tr><th>Ejercicio de la guía</th><th>Barrera para el estudiante</th><th>Qué cambia en la ficha</th><th>Apoyo del docente sombra</th></tr></thead>
+                        <tbody>{% for item in content.exercise_adaptations %}<tr><td>{{ item.exercise }}</td><td>{{ item.barrier }}</td><td><strong>{{ item.action_label|default:item.action }}:</strong> {{ item.adaptation }}</td><td>{{ item.teacher_support }}</td></tr>{% endfor %}</tbody>
+                    </table></div>
+                    <p class="field__help">Lo propone la IA a partir de las condiciones del estudiante; revísalo y ajústalo antes de usar la ficha.</p>
+                </div>
+            </details>
+        {% endif %}
         {% if content.nee_check %}
             {% if content.nee_check.passed %}
                 <p class="nee-check nee-check--ok"><span class="icon" aria-hidden="true">verified</span>Revisión automática: cumple las reglas obligatorias de {{ worksheet.conditions_label }}.</p>

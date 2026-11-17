@@ -127,7 +127,10 @@ def worksheet_answer(schema):
                'concepts': [], 'check_questions': [], 'udl_principle': 'p', 'udl_justification': 'j',
                'steps': [{'title': 'Subraya', 'instruction': 'Subraya los sustantivos.', 'hint': 'Busca nombres.',
                           'keyword': 'subraya', 'answer_type': 'ESPACIO', 'minutes': 4}],
-               'active_break': 'Estírate.', 'break_after_step': 1}
+               'active_break': 'Estírate.', 'break_after_step': 1,
+               'exercise_adaptations': [{'exercise': 'Ejercicio 1 · Subrayar sustantivos', 'barrier': 'Textos largos.',
+                                         'action': 'REDUCE', 'adaptation': 'Subraya 3 sustantivos en lugar de 6.',
+                                         'teacher_support': 'Ventana de cartulina para ver una línea a la vez.'}]}
     if 'pedagogical_justification' in schema['properties']:
         content['pedagogical_justification'] = [
             {'barrier': 'Atención sostenida (TDAH)', 'adjustment': 'Bloques de 4 minutos', 'reason': 'Muchos ejercicios.',

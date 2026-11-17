@@ -355,7 +355,8 @@ def review_checks(content, *, kind, conditions, student_name='', original=None):
         if not str(content.get('learning_goal', '')).strip():
             problems.append('no tiene objetivo de aprendizaje')
         expected = original.get('exercise_count') or 0
-        if expected >= 4 and len(content.get('steps', [])) < expected // 2 and \
+        explained = len(content.get('exercise_adaptations') or [])
+        if expected >= 4 and len(content.get('steps', [])) < expected // 2 and explained < expected // 2 and \
                 Condition.ID_MODERATE not in conditions:
             problems.append(f'tiene {len(content.get("steps", []))} pasos y la guía original {expected} ejercicios: '
                             'revisa que no se haya perdido contenido esencial')

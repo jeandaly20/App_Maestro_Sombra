@@ -299,11 +299,60 @@ def general_problems(content):
     return found
 
 
+# "6540 bloques repartidos en 7 grupos", "cuadrícula de 34 filas": nobody counts that many objects
+COUNTABLE = (r'bloques|objetos|tapas|tapitas|fichas|c[ií]rculos|palitos|semillas|cubos|piedras|cuadros|cuadritos|'
+             r'botones|granos|fr[eé]joles|canicas|puntos|filas|columnas|vasos|cajas|caramelos')
+TOO_MANY_OBJECTS = re.compile(rf'\b(\d[\d .]*\d|\d)\s+(?:{COUNTABLE})\b', re.IGNORECASE)
+MAX_COUNTABLE = 20
+
+
+def counts_too_many(text):
+    """A concrete support that asks to count more than 20 objects (useless for a student with dyscalculia)."""
+    for match in TOO_MANY_OBJECTS.finditer(str(text or '')):
+        if int(re.sub(r'\D', '', match.group(1))) > MAX_COUNTABLE:
+            return True
+    return False
+
+
+# "1. Decide…", "2. Resuelve…", "Practicamos. 1. Calcula…": the numbered exercises of the original
+EXERCISE_MARK = re.compile(r'(?:^|(?<=[.:;!?]\s)|(?<=\n))(\d{1,2})\s*[.)]\s+(?=[¿¡A-Za-zÁÉÍÓÚÑáéíóúñ])')
+BIG_NUMBER = re.compile(r'\b\d{1,3}(?: \d{3})+\b|\b\d{4,}\b')
+
+
+def exercise_count(text):
+    """How many numbered exercises the original has: a number that opens a sentence and follows on (1, 2, 3…) or
+    starts again at 1, so "divide entre 6. Haz…" or "102564 x 4. Practicamos" are not counted."""
+    count, last = 0, 0
+    for match in EXERCISE_MARK.finditer(str(text or '')):
+        number = int(match.group(1))
+        if number == 1 or number == last + 1:
+            count, last = count + 1, number
+    return count
+
+
+def exercise_problems(content, expected=0):
+    """The teacher's per-exercise corrections: one per exercise of the original, concrete, with a classroom support."""
+    items = content.get('exercise_adaptations') or []
+    if not items:
+        return ['falta "exercise_adaptations": una corrección por cada ejercicio de la guía original, con la barrera, '
+                'qué cambiaste y el apoyo del docente sombra']
+    if expected and len(items) < expected:
+        return [f'la guía original tiene {expected} ejercicios numerados y "exercise_adaptations" explica solo '
+                f'{len(items)}; agrega una corrección por cada ejercicio que falta, también los de "Practicamos" o '
+                'los que eliminaste (con "action" ELIMINA y el motivo)']
+    empty = [n for n, item in enumerate(items, 1)
+             if len(str(item.get('adaptation', '')).strip()) < 15 or len(str(item.get('teacher_support', '')).strip()) < 15]
+    if empty:
+        return [f'las correcciones por ejercicio {", ".join(map(str, empty))} no dicen qué se cambió o qué apoyo concreto '
+                'prepara el docente']
+    return []
+
+
 def _digits(text):
     return set(re.findall(r'\d+', str(text or '')))
 
 
-def problems(content, conditions):
+def problems(content, conditions, subject_code=None, expected_exercises=0):
     """What the answer misses of the student's condition modules ([] when it complies)."""
     found = []
     steps = content.get('steps', [])
@@ -312,6 +361,7 @@ def problems(content, conditions):
     if unaccented := missing_accents(content):
         found.append(f'faltan tildes en: {", ".join(unaccented[:8])}; escribe todas las palabras con sus tildes')
     found += general_problems(content)
+    found += exercise_problems(content, expected_exercises)
     if needs_one_operation(conditions):
         double = [n for n, s in enumerate(steps, 1) if len(operations_in(s.get('instruction', ''))) >= 2]
         if double:
@@ -339,6 +389,11 @@ def problems(content, conditions):
                    if DIGIT.search(str(s.get('instruction', ''))) and not str(s.get('concrete_support', '')).strip()]
         if missing:
             found.append(f'los pasos {", ".join(map(str, missing))} tienen números pero no "concrete_support"')
+        too_many = [n for n, s in enumerate(steps, 1) if counts_too_many(s.get('concrete_support'))]
+        if too_many:
+            found.append(f'el apoyo concreto de los pasos {", ".join(map(str, too_many))} pide contar más de '
+                         f'{MAX_COUNTABLE} objetos; para números grandes usa la tabla de valor posicional, bloques de '
+                         'base 10 (centenas, decenas, unidades), la recta numérica o la calculadora')
     if Condition.ADHD in present:
         limit = MODULES[Condition.ADHD]['max_minutes']
         wrong = [n for n, s in enumerate(steps, 1) if not isinstance(s.get('minutes'), int) or not 1 <= s['minutes'] <= limit]
@@ -369,6 +424,11 @@ def problems(content, conditions):
                          'opciones del paso; usa un ejemplo con otros datos')
         if not content.get('glossary'):
             found.append('falta el glosario ("glossary") con las palabras difíciles')
+    if subject_code == 'MAT' and present & {Condition.ID_MILD, Condition.ID_MODERATE}:
+        big = [n for n, s in enumerate(steps, 1) if BIG_NUMBER.search(str(s.get('instruction', '')))]
+        if big:
+            found.append(f'los pasos {", ".join(map(str, big))} tienen números de 4 cifras o más; usa números de 1 o 2 '
+                         'cifras de la misma operación (por ejemplo 65 : 7 en lugar de 6540 : 7)')
     if Condition.ID_MODERATE in present:
         limit = MODULES[Condition.ID_MODERATE]['max_steps']
         if len(steps) > limit:

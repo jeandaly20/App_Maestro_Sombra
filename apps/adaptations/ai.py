@@ -100,6 +100,20 @@ VISUAL_SCHEMA = {
     'required': ['type'],
 }
 
+EXERCISE_ACTIONS = {'MANTIENE': 'Se mantiene', 'SIMPLIFICA': 'Se simplifica', 'REDUCE': 'Se reduce',
+                    'REEMPLAZA': 'Se reemplaza', 'ELIMINA': 'Se elimina'}
+EXERCISE_ADAPTATION_SCHEMA = {
+    'type': 'OBJECT',
+    'properties': {
+        'exercise': {'type': 'STRING'},
+        'barrier': {'type': 'STRING'},
+        'action': {'type': 'STRING', 'enum': list(EXERCISE_ACTIONS)},
+        'adaptation': {'type': 'STRING'},
+        'teacher_support': {'type': 'STRING'},
+    },
+    'required': ['exercise', 'barrier', 'action', 'adaptation', 'teacher_support'],
+}
+
 ADAPTATION_SCHEMA = {
     'type': 'OBJECT',
     'properties': {
@@ -152,9 +166,11 @@ ADAPTATION_SCHEMA = {
         'closing_message': {'type': 'STRING'},
         'udl_principle': {'type': 'STRING'},
         'udl_justification': {'type': 'STRING'},
+        # For the teacher (never in the student's worksheet): how each exercise of the original was corrected
+        'exercise_adaptations': {'type': 'ARRAY', 'items': EXERCISE_ADAPTATION_SCHEMA},
     },
     'required': ['title', 'summary', 'intro', 'learning_goal', 'concepts', 'steps', 'check_questions',
-                 'udl_principle', 'udl_justification'],
+                 'udl_principle', 'udl_justification', 'exercise_adaptations'],
 }
 
 # The pedagogical justification the teacher reviews (asked only when the relevance engine is used)
@@ -205,8 +221,11 @@ ADAPTATION_SYSTEM = (
     'especiales APRENDA el tema y pueda HACER la tarea de la guía. Para eso: (1) le explicas los conceptos '
     'que necesita con palabras sencillas y ejemplos de su vida diaria; (2) lo guías paso a paso en las '
     'actividades de la guía, con pistas que lo ayuden a pensar sin darle la respuesta; y (3) compruebas con '
-    'preguntas cortas que entendió. Mantienes el mismo objetivo de aprendizaje de la guía original. No '
-    'inventes datos que no estén en la guía. Las figuras sirven para explicar: úsalas como apoyo, nunca como '
+    'preguntas cortas que entendió. Mantienes el mismo objetivo de aprendizaje de la guía original, pero '
+    'CORRIGES cada ejercicio para este estudiante, como lo haría un docente experto en NEE: menos ejercicios '
+    'repetidos, datos ya elegidos, números más manejables, el dato clave en lugar de descubrirlo o preguntas '
+    'concretas en lugar de abiertas, según sus condiciones. No inventes hechos ni temas nuevos. Las figuras '
+    'sirven para explicar: úsalas como apoyo, nunca como '
     'la actividad en sí. No des formato visual (tipografía, colores, tamaños): el sistema lo aplica. Escribe '
     'en español del Ecuador con ortografía correcta, incluidas todas las tildes y los signos ¿ ¡, dirigiéndote '
     'al estudiante de "tú". La adaptación será revisada por el docente.'
@@ -236,7 +255,15 @@ PEDAGOGY_RULES = (
     'tema, nunca absurdas. Cada opción es solo la respuesta (una palabra, un número o una frase corta), sin '
     'repetir la pregunta.\n'
     '- Nunca escribas una instrucción que solo diga "Observa la figura" o que describa la imagen: la '
-    'descripción para accesibilidad va únicamente en "figure_description".'
+    'descripción para accesibilidad va únicamente en "figure_description".\n'
+    '- "exercise_adaptations" (PARA EL DOCENTE, el estudiante no lo ve): un elemento por cada ejercicio de la '
+    'guía original, en su orden. "exercise": su número y de qué trata (por ejemplo "Ejercicio 1 · Divisiones con '
+    'calculadora"). "barrier": qué le costará a ESTE estudiante y por qué, según sus condiciones, en una frase. '
+    '"action": MANTIENE, SIMPLIFICA, REDUCE, REEMPLAZA o ELIMINA. "adaptation": qué cambiaste en la ficha, '
+    'concreto y con los datos nuevos (por ejemplo "Se dan los números ya elegidos: 10 × 11 × 12" o "Hace 2 de '
+    'las 4 divisiones"). "teacher_support": qué prepara o hace el docente sombra en el aula: un material concreto '
+    '(tabla pitagórica, regla visual pegada en la mesa, ventana de cartulina, colores para decenas y unidades) o '
+    'una estrategia (modelar el primer ejercicio, respuesta oral). Nada genérico como "brindar apoyo".'
 )
 
 IMAGE_RULES = (
@@ -452,6 +479,7 @@ def adapt_worksheet(*, analysis, subject, topic, grade, conditions, adjustments,
     # still carries one of those numbers (normalize_adaptation)
     solved = [item for item in (analysis.get('handwritten') or []) if str(item).strip()]
     forbidden = handwritten_numbers(analysis)
+    expected_exercises = nee_modules.exercise_count(analysis.get('extracted_text', ''))
     prompt = [
         f'Materia: {subject}. Tema: {topic}. Grado: {Grade(grade).label}.',
         rules_for(conditions, adjustments, subject_code, grade),
@@ -465,6 +493,11 @@ def adapt_worksheet(*, analysis, subject, topic, grade, conditions, adjustments,
         worksheet_rules(subject_code),
         image_rules(subject_code),
         nee_modules.instructions_for(conditions),
+        (f'La guía original tiene {expected_exercises} ejercicios numerados: "exercise_adaptations" lleva '
+         f'{expected_exercises} elementos, uno por ejercicio y en su orden, aunque alguno se elimine.'
+         if expected_exercises else ''),
+        'Si cambias un número, el nuevo es del mismo tipo de operación y del mismo ejercicio de la guía: no crees '
+        'ejercicios que la guía no tiene.',
         'Devuelve la guía adaptada. En "summary" escribe una frase para el banco de adaptaciones. '
         'En "udl_principle" indica el principio DUA principal aplicado y en "udl_justification" explica '
         'en una o dos frases por qué la adaptación reduce las barreras.',
@@ -487,7 +520,8 @@ def adapt_worksheet(*, analysis, subject, topic, grade, conditions, adjustments,
         content, model = generate_json(ADAPTATION_SYSTEM, [{'text': text + extra}], schema)
         content = normalize_adaptation(content, figure_count=len(figures), forbidden=forbidden,
                                        subject_code=subject_code)
-        return content, model, nee_modules.problems(content, conditions)
+        return content, model, nee_modules.problems(content, conditions, subject_code=subject_code,
+                                                    expected_exercises=expected_exercises)
 
     content, model, missing = ask()
     if missing:
@@ -505,6 +539,8 @@ def adapt_worksheet(*, analysis, subject, topic, grade, conditions, adjustments,
             logger.warning('The correction call failed; the first version of the worksheet is kept')
     content['nee_check'] = {'passed': not missing, 'problems': missing}
     content['total_minutes'] = nee_modules.total_minutes(content)
+    for item in content.get('exercise_adaptations') or []:
+        item['action_label'] = EXERCISE_ACTIONS.get(item.get('action'), item.get('action', ''))
     return content, model
 
 
@@ -648,8 +684,14 @@ def analyze_lesson(*, session_text, guide_parts=(), book_summary='', subject, gr
     return data, model
 
 
+def worksheet_changes(content):
+    """The corrections made in the student's worksheet, in one line each, for the class adaptation."""
+    return '\n'.join(f'- {item.get("exercise", "")}: {item.get("adaptation", "")} Apoyo: {item.get("teacher_support", "")}'
+                     for item in (content or {}).get('exercise_adaptations') or [] if item.get('adaptation'))
+
+
 def adapt_lesson(*, lesson, book_summary, subject, subject_code, grade, conditions, adjustments, chosen_grade='',
-                 whole_week=False, relevance=None):
+                 whole_week=False, relevance=None, worksheet=None):
     """
     Adapts the whole class (or week) for ONE student and all their conditions. Receives no personal data.
     With `relevance`, adds its authorized part (no profile) and asks for the pedagogical justification.
@@ -665,6 +707,9 @@ def adapt_lesson(*, lesson, book_summary, subject, subject_code, grade, conditio
         f'Materiales: {lesson.get("materials", "")}',
         f'Apoyo sugerido por la guía del docente: {lesson.get("guide_support", "")}' if lesson.get('guide_support') else '',
         f'Lo que trabaja el alumno en su libro: {book_summary}' if book_summary else '',
+        (f'Correcciones ya hechas en la ficha del alumno para este estudiante (úsalas en los momentos en que '
+         f'trabaja el libro, en "supports" y en "plan_row", y no las contradigas):\n{worksheet_changes(worksheet)}'
+         if worksheet_changes(worksheet) else ''),
         f'Preguntas de metacognición de la clase: {"; ".join(lesson.get("metacognition", []))}',
         (f'El docente decidió una adaptación de {AdaptationGrade(chosen_grade).label}: aplícala.' if chosen_grade
          else 'Sugiere el grado de adaptación más adecuado y aplícalo.'),

@@ -340,9 +340,11 @@ def adapted_workbook(sheets):
     return buffer.getvalue()
 
 
-def class_sections(*, analysis, content, subject, grade, pseudonym, condition, adaptation_grade, plan_row):
+def class_sections(*, analysis, content, subject, grade, pseudonym, condition, adaptation_grade, plan_row,
+                   exercises=()):
     """
-    The class adapted for one student, in five sections, shared by the Excel, PDF and Word downloads:
+    The class adapted for one student, in five sections (six with the worksheet's corrections per exercise),
+    shared by the Excel, PDF and Word downloads:
     [('fields', title, [(label, value, bold)]) or ('moments', title, [[the 7 columns]])].
     """
     originals = {plain(m.get('name')): m.get('activities', '') for m in analysis.get('moments', [])}
@@ -372,7 +374,11 @@ def class_sections(*, analysis, content, subject, grade, pseudonym, condition, a
         ('fields', '5. Adaptación curricular (para la planificación)', [
             ('Adaptación curricular', plan_row, True),
         ]),
-    ]
+    ] + ([('fields', '6. Adaptaciones específicas por ejercicio (ficha del alumno)', [
+        (item.get('exercise', ''),
+         f'Barrera: {item.get("barrier", "")}\n{item.get("action_label") or item.get("action", "")}: '
+         f'{item.get("adaptation", "")}\nApoyo del docente sombra: {item.get("teacher_support", "")}', False)
+        for item in exercises])] if exercises else [])
 
 
 TITLE = 'PLAN DE CLASE ADAPTADO'

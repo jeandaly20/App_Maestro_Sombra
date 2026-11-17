@@ -889,6 +889,7 @@ def class_sheet(adaptation):
         'grade': adaptation.student.get_grade_display(), 'pseudonym': adaptation.student.pseudonym,
         'condition': adaptation.conditions_label, 'adaptation_grade': adaptation.get_grade_display(),
         'plan_row': plan_row_text(adaptation),
+        'exercises': (adaptation.worksheet.content.get('exercise_adaptations') or []) if adaptation.worksheet else [],
     }
 
 

@@ -367,19 +367,19 @@ def process_lesson(lesson_id, requests, adjustments, chosen_grade='', check_topi
                    else 'Adaptando la clase…')
             student_rules = rules.get(str(student_id), [])
             relevance = lesson_relevance(lesson, analysis, book_summary, student, conditions, student_rules)
+            worksheet = (material.adaptations.filter(student=student, condition=conditions[0])
+                         .order_by('-version').first())
             content, model = ai.adapt_lesson(
                 lesson=analysis, book_summary=book_summary, subject=lesson.subject.name,
                 subject_code=lesson.subject.code, grade=student.grade, conditions=conditions,
                 adjustments=student_rules, chosen_grade=chosen_grade, whole_week=lesson.is_week,
-                relevance=relevance,
+                relevance=relevance, worksheet=worksheet.content if worksheet else None,
             )
             content['relevance'] = pedagogical_relevance.storable(relevance)
             content['review_checks'] = pedagogical_relevance.review_checks(
                 content, kind='lesson', conditions=conditions, student_name=student.name, original=analysis)
             content['learning_history'] = learning_progress.adaptation_context(  # local only, after the AI call
                 student, lesson.subject.code, skill=analysis.get('skill', ''), topic=lesson.title)
-            worksheet = (material.adaptations.filter(student=student, condition=conditions[0])
-                         .order_by('-version').first())
             # Saved at once: if the next student fails, this one is kept for the retry
             LessonAdaptation.objects.update_or_create(lesson=lesson, student=student, defaults={
                 'condition': conditions[0], 'conditions': list(conditions),
