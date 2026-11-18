@@ -14,10 +14,9 @@ By format:
 - typed text: identifiers replaced;
 - Word: text of body, tables, headers and footers, replaced; its embedded images and metadata are not sent;
 - digital PDF: text replaced, and the page images redacted with the exact position of that text;
-- photos and scanned PDF pages: checked locally (photo_check: the local Tesseract reader plus the same identifier
-  rules). A page where nothing is detected is sent as it is; a page with personal data, a filled-in name or date
-  field, blue-pen handwriting, or that cannot be read clearly is blocked, and the teacher is asked for a page
-  without writing. Nothing in an image is covered or edited;
+- photos and scanned PDF pages: checked locally (photo_check, with the local Tesseract reader). A page is sent as
+  it is unless the full name of one of the teacher's registered students appears in it; then it is blocked and
+  the teacher is asked to cover the name or take another photo. Nothing in an image is covered or edited;
 - anything not inspectable: blocked.
 The identifiers looked for are a minimum, not every possible personal datum: the teacher still reviews.
 """
