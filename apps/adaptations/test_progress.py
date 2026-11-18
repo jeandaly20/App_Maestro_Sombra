@@ -136,13 +136,20 @@ class LearningProgressTests(TestCase):
         everything = self.page('?materia=XYZ').content.decode()  # an unknown subject shows everything
         self.assertIn('Sustantivos del cuento', everything)
 
-    def test_06_different_objectives_are_not_compared(self):
+    def test_06_the_classes_of_one_subject_are_compared_whatever_their_skill(self):
+        # Each week works another skill: the evolution is followed across all the classes of the subject
         self.evaluate(self.lesson_worksheet('M.2.1.1. Contar colecciones.', 'Conteo'), 1, goal_attainment='LESS')
         self.evaluate(self.lesson_worksheet('M.2.1.5. Reconocer fracciones.', 'Fracciones'), 2, goal_attainment='EXPECTED')
         self.evaluate(self.lesson_worksheet('M.2.2.3. Medir longitudes.', 'Medidas'), 3, goal_attainment='MORE')
+        self.evaluate(self.worksheet(topic='Sílabas'), 4, goal_attainment='MUCH_LESS')  # Lengua: never mixed in
         groups = progress.progress(self.student)['groups']
-        self.assertEqual(len(groups), 3)
-        self.assertTrue(all(not g['comparable'] and not g['series'] for g in groups))
+        self.assertEqual(len(groups), 2)
+        math = next(g for g in groups if g['subject_code'] == 'MAT')
+        self.assertTrue(math['comparable'])
+        self.assertEqual([e.topic for e in math['entries']], ['Conteo', 'Fracciones', 'Medidas'])
+        self.assertEqual(next(s for s in math['series'] if s['indicator'] == 'goal_attainment')['trend'], 'up')
+        language = next(g for g in groups if g['subject_code'] == 'LEN')
+        self.assertFalse(language['comparable'])
         entry = progress.history(self.student)[0]
         self.assertEqual((entry.skill, entry.objective, entry.objective_source),
                          ('M.2.1.1. Contar colecciones.', 'Objetivo de Conteo', 'Objetivo de la clase'))
@@ -275,7 +282,7 @@ class LearningProgressTests(TestCase):
         self.evaluate(self.worksheet(topic='Comprensión lectora'), 6, comprehension='NO')
         self.evaluate(self.worksheet(topic='Comprensión lectora'), 9, comprehension='YES')
         rec = next(r for r in progress.progress(self.student)['recommendations'] if r['key'].startswith('dificultad:'))
-        self.assertIn('Conviene revisar las actividades del tema «Comprensión lectora»', rec['text'])
+        self.assertIn('Conviene revisar las actividades de esta asignatura', rec['text'])
         self.assertIn('En 2 de 3 actividades', rec['reason'])
         self.assertEqual(len(rec['activities']), 2)
         self.assertIn(first.code, rec['evidence'])

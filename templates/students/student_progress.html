@@ -77,11 +77,12 @@
 
 {# ---------- Comparable activities ---------- #}
 <section class="card progress-section" aria-labelledby="groups-title">
-    <h2 id="groups-title"><span class="icon" aria-hidden="true">compare_arrows</span>Evolución observada por destreza o tema</h2>
-    <p class="progress-note">Solo se comparan actividades de la misma asignatura y la misma destreza (o, si no tienen destreza, el mismo tema), con al menos {{ min_for_trend }} evaluaciones. {{ observed_note }}</p>
+    <h2 id="groups-title"><span class="icon" aria-hidden="true">compare_arrows</span>Evolución observada por asignatura</h2>
+    <p class="progress-note">Se comparan todas las clases evaluadas de la misma asignatura, en orden, con al menos {{ min_for_trend }} evaluaciones; las asignaturas no se mezclan. Cada clase puede trabajar otra destreza: tenlo en cuenta al leer la evolución. {{ observed_note }}</p>
     {% for group in groups %}
         <article class="progress-group">
             <h3>{{ group.subject_name }} · {{ group.label }} <span class="chip chip--{% if group.comparable %}primary{% else %}secondary{% endif %}">{{ group.count }} evaluaci{{ group.count|pluralize:"ón,ones" }}</span></h3>
+            <ol class="progress-classes">{% for e in group.entries %}<li>{{ e.date|date:"j M" }} · {{ e.topic }}{% if e.skill %} <span class="progress-note">({{ e.skill|truncatechars:60 }})</span>{% endif %}</li>{% endfor %}</ol>
             {% if group.comparable %}
                 <ul class="progress-series">{% for s in group.series %}<li><strong>{{ s.label }}:</strong> {{ s.text }}{% if s.missing %} <span class="progress-note">({{ s.missing }} sin registrar)</span>{% endif %}</li>{% endfor %}</ul>
             {% else %}

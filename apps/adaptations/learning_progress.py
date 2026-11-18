@@ -11,8 +11,10 @@ Design decisions (documented thresholds, not statistical tests):
   always as "evolución observada", never as a demonstrated improvement.
 - REPEATED = 2. "Reiterado" means it was registered in at least two evaluations, the smallest number that
   is not a single event. It triggers a recommendation to review, never a conclusion.
-- Activities are compared only inside the same subject and the same curricular skill (destreza) or, when the
-  activity has none, the same topic. Different subjects are never mixed into a general result.
+- Activities are compared inside the same subject (all its classes): each week usually works another skill
+  (destreza), so comparing by skill would rarely reach three evaluations. Each group lists its classes and their
+  skills, and the note reminds that the topic and difficulty change between classes. Different subjects are
+  never mixed into a general result.
 - Every indicator uses its own fixed scale (models.py of evaluations); a value that was not registered is
   left out, never filled in.
 """
@@ -64,7 +66,6 @@ DIFFICULTY = {'comprehension': {Comprehension.DIFFICULTY, Comprehension.NO},
               'goal_attainment': {GoalAttainment.MUCH_LESS, GoalAttainment.LESS}}
 OVERLOAD_SIGNS = {Overload.MILD, Overload.EVIDENT}
 SUPPORT_LABELS = dict(SUPPORT_CHOICES)
-SKILL_CODE = re.compile(r'\b([A-Z]{1,4}\.\d+\.\d+\.\d+(?:\.\d+)?)\b')
 
 
 def normalized(text):
@@ -121,20 +122,17 @@ class Entry:
 
     @property
     def comparison_key(self):
-        """Activities are compared only within one subject and one skill (or, without a skill, one topic)."""
-        if self.skill:
-            code = SKILL_CODE.search(self.skill)
-            return (self.subject_code, 'skill', code.group(1) if code else normalized(self.skill))
-        return (self.subject_code, 'topic', normalized(self.topic))
+        """Activities are compared within one subject: all its classes, whatever their skill or topic."""
+        return (self.subject_code, 'subject', self.subject_code)
 
     @property
     def comparison_label(self):
-        return f'Destreza: {self.skill.rstrip(". ")}' if self.skill else f'Tema: {self.topic}'
+        return 'todas sus clases'
 
     @property
     def comparison_phrase(self):
-        """'de la destreza «…»' or 'del tema «…»', for the recommendations."""
-        return f'de la destreza «{self.skill.rstrip(". ")}»' if self.skill else f'del tema «{self.topic}»'
+        """For the recommendations: 'de esta asignatura'."""
+        return 'de esta asignatura'
 
 
 def valid_evaluations(student):
@@ -239,8 +237,8 @@ def describe_series(entries, name):
 
 def comparable_groups(entries):
     """
-    The activities that can be compared: same subject and same skill (or topic). A group with a single
-    activity is shown on its own, without any trend.
+    The activities that can be compared: all the classes of one subject. A group with a single activity is
+    shown on its own, without any trend.
     """
     groups = OrderedDict()
     for entry in entries:
@@ -250,7 +248,7 @@ def comparable_groups(entries):
         series = [describe_series(items, name) for name in INDICATORS]
         result.append({
             'key': short_hash(*key), 'subject_code': key[0], 'subject_name': items[0].subject_name,
-            'label': items[0].comparison_label, 'by_skill': key[1] == 'skill', 'entries': items,
+            'label': items[0].comparison_label, 'by_skill': False, 'entries': items,
             'count': len(items), 'comparable': len(items) >= MIN_FOR_TREND,
             'series': series if len(items) >= MIN_FOR_TREND else [],
             'message': '' if len(items) >= MIN_FOR_TREND else (
@@ -451,15 +449,13 @@ def adaptation_context(student, subject_code, *, skill='', topic=''):
     """
     A short local summary of the student's related history, shown to the teacher next to a new adaptation.
     It is stored with the adaptation for the review screen and is NEVER part of what the AI receives.
-    Related means the same subject; the activities of the same skill (or topic) are marked as comparable.
+    Related means the same subject, and all of them are comparable (see comparison_key).
     """
     entries = history(student, subject_code)
     if not entries:
         return {'count': 0, 'related': [], 'recommendations': [], 'note': LOCAL_ONLY,
                 'message': 'Sin evaluaciones anteriores en esta materia.'}
-    code = SKILL_CODE.search(skill or '')
-    target = (subject_code, 'skill', code.group(1) if code else normalized(skill)) if skill else \
-        (subject_code, 'topic', normalized(topic))
+    target = (subject_code, 'subject', subject_code)  # the same rule as the history (comparison_key)
     related = [{'code': e.code, 'date': e.date.isoformat(), 'topic': e.topic, 'comparable': e.comparison_key == target,
                 'goal': e.labels['goal_attainment'], 'comprehension': e.labels['comprehension'],
                 'support': e.labels['autonomy_level'], 'overload': e.labels['overload'],
