@@ -9,14 +9,12 @@ from django.db import IntegrityError, InternalError, transaction
 from django.core.files.storage import default_storage
 from django.db.models import Count
 from django.http import Http404, HttpResponse
-from django.template.loader import render_to_string
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.generic import CreateView, TemplateView, UpdateView
-from xhtml2pdf import pisa
 
 from apps.core.choices import CONDITION_DESCRIPTIONS, CONDITION_GROUPS, CONDITION_SHORT_NAMES, Grade, RecordStatus
 
@@ -201,6 +199,44 @@ class StudentProgressView(LoginRequiredMixin, TemplateView):
         return context
 
 
+def report_period(query):
+    """(start, end, error) from the optional ?desde=&hasta= dates (YYYY-MM-DD) of the progress report."""
+    from datetime import date
+    dates = []
+    for key in ('desde', 'hasta'):
+        value = query.get(key, '').strip()
+        try:
+            dates.append(date.fromisoformat(value) if value else None)
+        except ValueError:
+            return None, None, 'La fecha del periodo no es válida.'
+    start, end = dates
+    if start and end and start > end:
+        return None, None, 'La fecha «desde» debe ser anterior a la fecha «hasta».'
+    return start, end, ''
+
+
+class StudentProgressReportView(LoginRequiredMixin, View):
+    """
+    The progress report of one student (PDF, APA 7) for the institution: every final evaluation of the period, by
+    subject. Only the student's own teacher (404 for anyone else); every download is logged without the name.
+    """
+
+    def get(self, request, pk):
+        from apps.evaluations.progress_report import progress_file_name, progress_report_pdf
+        student = get_object_or_404(Student, pk=pk, teacher=request.user, record_status=RecordStatus.ACTIVE)
+        start, end, error = report_period(request.GET)
+        pdf = None if error else progress_report_pdf(student, start, end)
+        if pdf is None:
+            messages.error(request, error or 'No hay evaluaciones finalizadas en ese periodo: el informe de avance se '
+                                             'forma con las evaluaciones que finalizas después de cada clase.')
+            return redirect('student_progress', pk=student.pk)
+        logger.info('Progress report of %s downloaded by teacher=%s', student.pseudonym, request.user.pk)
+        response = HttpResponse(pdf, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{progress_file_name(student)}"'
+        response['Cache-Control'] = 'private, no-store'
+        return response
+
+
 class StudentRecommendationReviewView(LoginRequiredMixin, View):
     """The teacher's decision on one current recommendation. Nothing in the student's profile changes."""
 
@@ -271,22 +307,69 @@ class StudentConsentFormView(LoginRequiredMixin, View):
         return response
 
 
+RECORDS_CONFIDENTIAL = ('Este documento es confidencial: contiene datos personales de menores de edad protegidos por '
+                        'la Ley Orgánica de Protección de Datos Personales (LOPDP). No debe compartirse fuera de la '
+                        'institución.')
+
+
+def record_rows(student):
+    """(label, value) rows of one student's record."""
+    check = student.document_check
+    if student.has_signed_consent:
+        signed_at = student.diagnosis_consent_at
+        consent = f'Firmada y adjunta ({signed_at:%d/%m/%Y})' if signed_at else 'Firmada y adjunta'
+    else:
+        consent = 'Falta la autorización firmada' if student.has_document else 'No aplica (sin documento)'
+    source = student.get_diagnosis_source_display()
+    if student.diagnosis_date:
+        source += f' ({student.diagnosis_date:%d/%m/%Y})'
+    return [
+        ('Seudónimo', student.pseudonym),
+        ('Fecha de nacimiento', f'{student.birth_date:%d/%m/%Y} ({student.age} años)'),
+        ('Grado', student.get_grade_display()),
+        ('Necesidades educativas específicas', ', '.join(student.condition_labels)),
+        ('Respaldo del diagnóstico', f'{source} · {student.diagnosis_status}'),
+        ('Revisión automática del documento', check[1] if check else 'Sin documento adjunto.'),
+        ('Autorización del representante', consent),
+        ('Pautas de adaptación DUA', ', '.join(student.recommended_adjustments)),
+        ('Observaciones', student.notes or 'Sin observaciones.'),
+        ('Adaptaciones realizadas', str(getattr(student, 'adaptation_count', student.adaptations.count()))),
+        ('Registrado / actualizado', f'{timezone.localtime(student.created_at):%d/%m/%Y} / '
+                                     f'{timezone.localtime(student.updated_at):%d/%m/%Y}'),
+    ]
+
+
 def records_pdf(students, teacher, title):
-    """The students' records as PDF bytes, or None if xhtml2pdf fails."""
-    html = render_to_string('students/records_pdf.html', {
-        'students': students, 'teacher': teacher, 'generated_at': timezone.localtime(), 'title': title,
-    })
-    pdf = BytesIO()
-    return None if pisa.CreatePDF(html, dest=pdf, encoding='utf-8').err else pdf.getvalue()
+    """The students' records as PDF bytes (APA 7, core.apa), or None if the document could not be built."""
+    from apps.core.apa import ApaDocument
+    try:
+        students = list(students)
+        doc = ApaDocument(title, f'Docente: {teacher.full_name} · Generado el {timezone.localdate():%d/%m/%Y}')
+        doc.text(RECORDS_CONFIDENTIAL)
+        for student in students:
+            if len(students) > 1:
+                doc.heading(student.name)
+                doc.fields(f'Expediente de {student.name}', record_rows(student))
+            else:
+                doc.heading('Datos del Estudiante')
+                doc.fields('Expediente del estudiante con necesidades educativas específicas', record_rows(student))
+        if not students:
+            doc.text('No hay estudiantes registrados.')
+        return doc.pdf()
+    except Exception as error:  # noqa: BLE001 - the caller tells the teacher
+        logger.error('Student records PDF could not be built: %s', type(error).__name__)  # never the data itself
+        return None
 
 
 class StudentFileView(LoginRequiredMixin, View):
     """
-    One student's complete file as a ZIP: the record (PDF) plus the diagnosis document and the signed authorization,
-    decrypted, for any review. Personal data of a minor: only their teacher, every download is logged.
+    One student's complete file as a ZIP: the record (PDF), the diagnosis document, the signed authorization (decrypted)
+    and the progress report when there are final evaluations. Personal data of a minor: only their teacher, every
+    download is logged.
     """
 
     def get(self, request, pk):
+        from apps.evaluations.progress_report import progress_report_pdf
         student = get_object_or_404(students_of(request.user), pk=pk)
         record = records_pdf([student], request.user, f'Expediente de {student.name}')
         if record is None:
@@ -303,6 +386,9 @@ class StudentFileView(LoginRequiredMixin, View):
             if student.has_signed_consent:
                 extension = documents.EXTENSIONS.get(student.consent_file_type, 'bin')
                 zipped.writestr(f'3 - Autorizacion firmada del representante.{extension}', documents.read_consent(student))
+            progress = progress_report_pdf(student)
+            if progress is not None:  # only when there are final evaluations
+                zipped.writestr('4 - Informe de avance del estudiante.pdf', progress)
         logger.info('Student file downloaded: %s by teacher=%s', student.pseudonym, request.user.pk)
         response = HttpResponse(archive.getvalue(), content_type='application/zip')
         response['Content-Disposition'] = f'attachment; filename="expediente-{student.pseudonym}.zip"'

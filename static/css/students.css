@@ -639,6 +639,9 @@
 .progress-section h3 { font-size: 1rem; margin: var(--space-md) 0 var(--space-xs); }
 .progress-section--warning { background: var(--color-tertiary-soft); }
 .progress-note { color: var(--color-text-muted); font-size: 0.9rem; }
+.progress-report__form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-md); }
+.progress-report__form .field { margin-bottom: 0; flex: 1 1 160px; max-width: 220px; }
+.progress-report__form .button { flex: 0 0 auto; }
 .progress-footer { display: flex; align-items: center; gap: var(--space-xs); }
 .progress-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-lg); }
 .progress-columns .progress-section { margin-bottom: var(--space-lg); }

@@ -7,24 +7,21 @@ The form comes out with the student's name and grade printed, so the uploaded co
 server (check_signed): that it is this form, for this student, with the signature and the representative's
 name written in. Software cannot prove a signature is genuine: the teacher still looks at it.
 """
-import functools
 import io
 import logging
 import re
-from pathlib import Path
 from xml.sax.saxutils import escape
 
 from django.utils import timezone
-from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
-from reportlab.lib.fonts import addMapping
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import cm
 from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 from PIL import Image
+
+from apps.core import apa
 
 from . import documents
 
@@ -32,48 +29,45 @@ logger = logging.getLogger('maestro_sombra')
 
 BLANK = '______________________________'
 SHORT_BLANK = '________________'  # inside a justified line: a long blank would stretch the words around it
-# Arial where the server has it (Windows, or Linux with the Microsoft core fonts); otherwise Helvetica, which
-# has the same metrics and looks almost the same
-ARIAL_FOLDERS = [Path('C:/Windows/Fonts'), Path('/usr/share/fonts/truetype/msttcorefonts')]
+# Forms printed before the APA style used Arial, whose bold has the same widths as Helvetica-Bold: the check still
+# measures their labels with it, so a copy printed back then can be uploaded now
+LEGACY_BOLD = 'Helvetica-Bold'
 
 # The signature table: the check below finds these labels in the photo and looks for handwriting beside them
 FONT_SIZE = 12
 SIGNATURE_LABEL = 'Firma del representante legal:'
 NAME_LABEL = 'Nombres y apellidos:'
-LABEL_WIDTH, VALUE_WIDTH = 6.5 * cm, 9.5 * cm
+LABEL_WIDTH, VALUE_WIDTH = 6.5 * cm, 9.4 * cm  # 15.9 cm: the width inside the APA margins
 SIGNATURE_ROW, ROW = 1.5 * cm, 1.05 * cm
 CELL_PADDING = 6  # reportlab's default cell padding, in points
 
 
-@functools.lru_cache(maxsize=1)
 def body_fonts():
-    """(regular, bold) font names for the form."""
-    for folder in ARIAL_FOLDERS:
-        regular, bold = folder / 'arial.ttf', folder / 'arialbd.ttf'
-        if regular.exists() and bold.exists():
-            pdfmetrics.registerFont(TTFont('Arial', str(regular)))
-            pdfmetrics.registerFont(TTFont('Arial-Bold', str(bold)))
-            addMapping('Arial', 0, 0, 'Arial')
-            addMapping('Arial', 1, 0, 'Arial-Bold')
-            return 'Arial', 'Arial-Bold'
-    return 'Helvetica', 'Helvetica-Bold'
+    """(regular, bold) font names for the form: Times New Roman, like every document for the institution."""
+    regular, bold, *_rest = apa.fonts()
+    return regular, bold
 
 
 def consent_form_pdf(*, teacher_name, student_name, grade_label):
-    """The authorization as PDF bytes (Arial 12, justified), with the student's name and grade printed."""
+    """
+    The authorization as PDF bytes in the APA 7 style of the institution's documents (Times New Roman 12, black,
+    2.54 cm margins), with the student's name and grade printed. A signature form stays on one page, so its text
+    uses 1.5 spacing instead of double.
+    """
     regular, bold = body_fonts()
-    title = ParagraphStyle('t', fontName=bold, fontSize=14, leading=18, alignment=TA_CENTER, spaceAfter=4)
-    subtitle = ParagraphStyle('s', fontName=regular, fontSize=10, leading=13, alignment=TA_CENTER,
-                              textColor=colors.HexColor('#3d4947'), spaceAfter=12)
-    body = ParagraphStyle('b', fontName=regular, fontSize=12, leading=17, alignment=TA_JUSTIFY, spaceAfter=8)
-    item = ParagraphStyle('i', parent=body, leftIndent=16, bulletIndent=4, spaceAfter=4)
-    small = ParagraphStyle('m', parent=body, fontSize=9, leading=12, textColor=colors.HexColor('#3d4947'))
+    title = ParagraphStyle('t', fontName=bold, fontSize=12, leading=18, alignment=TA_CENTER)
+    subtitle = ParagraphStyle('s', fontName=regular, fontSize=12, leading=18, alignment=TA_CENTER, spaceAfter=10)
+    body = ParagraphStyle('b', fontName=regular, fontSize=12, leading=18, alignment=TA_JUSTIFY, spaceAfter=6,
+                          firstLineIndent=apa.INDENT)
+    item = ParagraphStyle('i', parent=body, firstLineIndent=0, leftIndent=apa.INDENT, bulletIndent=apa.INDENT - 12,
+                          spaceAfter=2)
+    small = ParagraphStyle('m', parent=body, firstLineIndent=0)
 
     name = escape(student_name)
     grade = escape(grade_label) or '____________'
     teacher = escape(teacher_name or '') or BLANK
     story = [
-        Paragraph('AUTORIZACIÓN DEL REPRESENTANTE LEGAL', title),
+        Paragraph('Autorización del Representante Legal', title),
         Paragraph('Tratamiento de datos personales y del documento de diagnóstico de un estudiante con necesidades '
                   'educativas específicas · Maestro Sombra', subtitle),
         Paragraph(f'Yo, {BLANK}, en calidad de {SHORT_BLANK} (madre, padre o representante legal) del estudiante '
@@ -110,8 +104,8 @@ def consent_form_pdf(*, teacher_name, student_name, grade_label):
                   f'Formato generado por Maestro Sombra el {timezone.localdate():%d/%m/%Y}.', small),
     ]
     buffer = io.BytesIO()
-    SimpleDocTemplate(buffer, pagesize=A4, leftMargin=2.5 * cm, rightMargin=2.5 * cm, topMargin=2.2 * cm,
-                      bottomMargin=2 * cm, title='Autorización del representante legal').build(story)
+    SimpleDocTemplate(buffer, pagesize=A4, leftMargin=apa.MARGIN, rightMargin=apa.MARGIN, topMargin=apa.MARGIN,
+                      bottomMargin=apa.MARGIN, title='Autorización del representante legal').build(story)
     return buffer.getvalue()
 
 
@@ -156,10 +150,10 @@ def _token(text):
     return re.sub(r'[^a-z0-9]', '', documents.plain(text))
 
 
-def find_label(words, label):
+def find_label(words, label, bold=None):
     """(left, top, right, bottom, scale in pixels per point) of a printed label among the OCR words, or None."""
     tokens = [_token(word) for word in label.split()]
-    bold = body_fonts()[1]
+    bold = bold or body_fonts()[1]
     for start in range(len(words)):
         run = words[start:start + len(tokens)]
         if len(run) < len(tokens) or len({word.line for word in run}) > 1:
@@ -222,13 +216,20 @@ def check_signed(content, content_type, *, student_name, grade_label):
         problems.append(f'no tiene impreso el nombre de {student_name}')
     elif not grade_found(text, grade_label):
         problems.append(f'el grado impreso no es {grade_label}')
-    signature, name = find_label(words, SIGNATURE_LABEL), find_label(words, NAME_LABEL)
+    # Measured as printed now (Times) and as printed before (Arial): the reading that finds the handwriting wins
+    readings = []
+    for bold in dict.fromkeys((body_fonts()[1], LEGACY_BOLD)):
+        signature, name = find_label(words, SIGNATURE_LABEL, bold), find_label(words, NAME_LABEL, bold)
+        readings.append((signature, name,
+                         handwriting(image, signature, SIGNATURE_ROW) if signature else 0,
+                         handwriting(image, name, ROW) if name else 0))
+    signature, name, signature_ink, name_ink = max(readings, key=lambda r: (r[2] >= INK_MIN) + (r[3] >= INK_MIN))
     if not (signature or name):
         problems.append('no se distingue la parte de las firmas')
     else:
-        if signature and handwriting(image, signature, SIGNATURE_ROW) < INK_MIN:
+        if signature and signature_ink < INK_MIN:
             problems.append('falta la firma del representante legal')
-        if name and handwriting(image, name, ROW) < INK_MIN:
+        if name and name_ink < INK_MIN:
             problems.append('faltan los nombres y apellidos del representante')
     if not problems:
         return None

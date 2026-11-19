@@ -37,6 +37,27 @@
 <div class="alert alert--info" role="status"><span class="icon" aria-hidden="true">draft</span><p>Hay {{ drafts }} evaluaci{{ drafts|pluralize:"ón,ones" }} en borrador: no se usa{{ drafts|pluralize:",n" }} en este análisis hasta que se finalice{{ drafts|pluralize:",n" }}.</p></div>
 {% endif %}
 
+{% if total %}
+{# ---------- The whole progress in one document, for the institution ---------- #}
+<section class="card progress-section progress-report" aria-labelledby="report-title">
+    <div class="progress-report__intro">
+        <h2 id="report-title"><span class="icon" aria-hidden="true">picture_as_pdf</span>Informe de avance (PDF)</h2>
+        <p class="progress-note">Todo lo registrado en un solo documento en formato APA 7, para entregar al DECE o a coordinación: resumen por asignatura, resultados clase por clase, apoyos, observaciones y recomendaciones. Deja las fechas vacías para incluir todas las evaluaciones.</p>
+    </div>
+    <form class="progress-report__form" method="get" action="{% url 'student_progress_report' student.pk %}">
+        <div class="field">
+            <label class="field__label" for="report-from">Desde</label>
+            <input class="field__control" type="date" id="report-from" name="desde">
+        </div>
+        <div class="field">
+            <label class="field__label" for="report-to">Hasta</label>
+            <input class="field__control" type="date" id="report-to" name="hasta">
+        </div>
+        <button type="submit" class="button button--primary"><span class="icon" aria-hidden="true">download</span>Descargar informe de avance</button>
+    </form>
+</section>
+{% endif %}
+
 {% if not total %}
 <section class="card progress-empty">
     <span class="icon" aria-hidden="true">timeline</span>
