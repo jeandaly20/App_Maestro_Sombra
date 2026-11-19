@@ -361,57 +361,79 @@ def records_pdf(students, teacher, title):
         return None
 
 
+def file_entries(student, teacher):
+    """
+    [(file name, bytes)] of one student's complete file: the record (PDF), the diagnosis document and the signed
+    authorization (decrypted) and the progress report when there are final evaluations. None if the record fails.
+    """
+    from apps.evaluations.progress_report import progress_report_pdf
+    record = records_pdf([student], teacher, f'Expediente de {student.name}')
+    if record is None:
+        return None
+    entries = [('1 - Ficha del estudiante.pdf', record)]
+    if student.has_document:
+        extension = documents.EXTENSIONS.get(student.diagnosis_file_type, 'bin')
+        entries.append((f'2 - Documento de respaldo ({student.get_diagnosis_source_display()}).{extension}'
+                        .replace('/', '-'), documents.read_document(student)))
+    if student.has_signed_consent:
+        extension = documents.EXTENSIONS.get(student.consent_file_type, 'bin')
+        entries.append((f'3 - Autorizacion firmada del representante.{extension}', documents.read_consent(student)))
+    progress = progress_report_pdf(student)
+    if progress is not None:  # only when there are final evaluations
+        entries.append(('4 - Informe de avance del estudiante.pdf', progress))
+    return entries
+
+
+def zip_download(files, name):
+    """A ZIP of [(path inside, bytes)] as a private download that the browser does not keep."""
+    archive = BytesIO()
+    with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as zipped:
+        for path, content in files:
+            zipped.writestr(path, content)
+    response = HttpResponse(archive.getvalue(), content_type='application/zip')
+    response['Content-Disposition'] = f'attachment; filename="{name}"'
+    response['Cache-Control'] = 'private, no-store'
+    return response
+
+
 class StudentFileView(LoginRequiredMixin, View):
     """
-    One student's complete file as a ZIP: the record (PDF), the diagnosis document, the signed authorization (decrypted)
-    and the progress report when there are final evaluations. Personal data of a minor: only their teacher, every
+    One student's complete file as a ZIP (file_entries). Personal data of a minor: only their teacher, every
     download is logged.
     """
 
     def get(self, request, pk):
-        from apps.evaluations.progress_report import progress_report_pdf
         student = get_object_or_404(students_of(request.user), pk=pk)
-        record = records_pdf([student], request.user, f'Expediente de {student.name}')
-        if record is None:
+        entries = file_entries(student, request.user)
+        if entries is None:
             logger.error('Student file PDF failed for %s', student.pseudonym)
             messages.error(request, 'No se pudo generar el expediente. Inténtalo de nuevo.')
             return redirect('student_list')
-        archive = BytesIO()
-        with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as zipped:
-            zipped.writestr('1 - Ficha del estudiante.pdf', record)
-            if student.has_document:
-                extension = documents.EXTENSIONS.get(student.diagnosis_file_type, 'bin')
-                zipped.writestr(f'2 - Documento de respaldo ({student.get_diagnosis_source_display()}).{extension}'
-                                .replace('/', '-'), documents.read_document(student))
-            if student.has_signed_consent:
-                extension = documents.EXTENSIONS.get(student.consent_file_type, 'bin')
-                zipped.writestr(f'3 - Autorizacion firmada del representante.{extension}', documents.read_consent(student))
-            progress = progress_report_pdf(student)
-            if progress is not None:  # only when there are final evaluations
-                zipped.writestr('4 - Informe de avance del estudiante.pdf', progress)
         logger.info('Student file downloaded: %s by teacher=%s', student.pseudonym, request.user.pk)
-        response = HttpResponse(archive.getvalue(), content_type='application/zip')
-        response['Content-Disposition'] = f'attachment; filename="expediente-{student.pseudonym}.zip"'
-        response['Cache-Control'] = 'private, no-store'
-        return response
+        return zip_download(entries, f'expediente-{student.pseudonym}.zip')
 
 
-class StudentRecordsPdfView(LoginRequiredMixin, View):
-    """Downloads the teacher's student records as a PDF (personal data: teacher only)."""
+class StudentFilesView(LoginRequiredMixin, View):
+    """
+    The complete files of all the teacher's students in one ZIP: a folder per student (by pseudonym) with the same
+    content as their own download. Only the teacher's active students; every download is logged.
+    """
 
     def get(self, request):
-        students = students_of(request.user)
-        pdf = records_pdf(students, request.user, 'Expedientes de estudiantes con NEE')
-        if pdf is None:
-            logger.error('Student records PDF failed for teacher=%s', request.user.pk)
-            messages.error(request, 'No se pudo generar el PDF. Inténtalo de nuevo.')
-            return HttpResponse(status=500)
-        logger.info('Student records exported by teacher=%s (%s students)', request.user.pk, students.count())
-        filename = f'expedientes_{timezone.localdate():%Y-%m-%d}.pdf'
-        response = HttpResponse(pdf, content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="{filename}"'
-        response['Cache-Control'] = 'no-store'  # personal data: do not keep it in the browser cache
-        return response
+        students = list(students_of(request.user))
+        if not students:
+            messages.error(request, 'Todavía no hay estudiantes registrados.')
+            return redirect('student_list')
+        files = []
+        for student in students:
+            entries = file_entries(student, request.user)
+            if entries is None:
+                logger.error('Student file PDF failed for %s', student.pseudonym)
+                messages.error(request, 'No se pudieron generar los expedientes. Inténtalo de nuevo.')
+                return redirect('student_list')
+            files += [(f'Expediente {student.pseudonym}/{name}', content) for name, content in entries]
+        logger.info('All student files downloaded by teacher=%s (%s students)', request.user.pk, len(students))
+        return zip_download(files, f'expedientes-{timezone.localdate():%Y-%m-%d}.zip')
 
 
 def own_student(request, pk):

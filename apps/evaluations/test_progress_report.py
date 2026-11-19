@@ -103,6 +103,25 @@ class ProgressReportTests(TestCase):
         names = zipfile.ZipFile(io.BytesIO(response.content)).namelist()
         self.assertIn('4 - Informe de avance del estudiante.pdf', names)
 
+    def test_all_the_files_come_in_one_zip_with_a_folder_per_student(self):
+        Student(teacher=self.teacher, name='Otro Estudiante Ficticio', birth_date=date(2015, 5, 2), grade='EGB_6',
+                conditions=['DYSLEXIA'], diagnosis_source='IN_EVALUATION').save()
+        response = self.client.get(reverse('student_files'))
+        self.assertEqual(response['Content-Type'], 'application/zip')
+        self.assertNotIn('Ficticio', response['Content-Disposition'])
+        names = zipfile.ZipFile(io.BytesIO(response.content)).namelist()
+        folders = {name.split('/')[0] for name in names}
+        self.assertEqual(len(folders), 2)
+        self.assertIn(f'Expediente {self.student.pseudonym}/4 - Informe de avance del estudiante.pdf', names)
+        self.assertNotIn('Ficticio', ' '.join(names))
+        self.assertEqual(sum(name.endswith('1 - Ficha del estudiante.pdf') for name in names), 2)
+
+    def test_the_list_offers_all_the_files_instead_of_the_records(self):
+        page = self.client.get(reverse('student_list')).content.decode()
+        self.assertIn(reverse('student_files'), page)
+        self.assertIn('Descargar todos los expedientes', page)
+        self.assertNotIn('Exportar todas las fichas', page)
+
     def test_without_evaluations_there_is_no_report(self):
         Evaluation.objects.update(status=EvaluationStatus.DRAFT)
         self.assertIsNone(progress_report.progress_report_pdf(self.student))
@@ -132,10 +151,12 @@ class ApaDocumentsTests(TestCase):
 
     def test_the_records_use_the_apa_style(self):
         self.client.force_login(self.teacher)
-        response = self.client.get(reverse('student_records_pdf'))
+        response = self.client.get(reverse('student_files'))
         self.assertEqual(response.status_code, 200)
-        self.assertIn('Seudónimo', text_of(response.content))
-        fonts = self.fonts_of(response.content)
+        archive = zipfile.ZipFile(io.BytesIO(response.content))
+        record = archive.read(next(name for name in archive.namelist() if name.endswith('Ficha del estudiante.pdf')))
+        self.assertIn('Seudónimo', text_of(record))
+        fonts = self.fonts_of(record)
         self.assertTrue(fonts and all('Times' in font for font in fonts), fonts)
 
     def test_the_authorization_uses_the_apa_style_on_one_page(self):

@@ -288,18 +288,31 @@
 
 .student-card__footer {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-sm);
+    flex-direction: column;
+    gap: var(--space-md);
 }
 
 .student-card__updated {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: var(--space-xs);
-    margin-right: auto;
     color: var(--color-text-muted);
     font-size: 0.8125rem;
+}
+
+/* The record's actions in one centered row (Historial, Editar, Descargar expediente); stacked on a phone */
+.student-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-sm);
+}
+
+@media (max-width: 420px) {
+    .student-card__actions .button {
+        width: 100%;
+    }
 }
 
 .student-card__updated--editing {

@@ -19,5 +19,5 @@ urlpatterns = [
     path('<uuid:pk>/autorizaciones/<uuid:consent_pk>/documento/', views.StudentConsentFileView.as_view(),
          name='student_consent_record_file'),
     path('autorizacion.pdf', views.StudentConsentFormView.as_view(), name='consent_form'),
-    path('expedientes.pdf', views.StudentRecordsPdfView.as_view(), name='student_records_pdf'),
+    path('expedientes.zip', views.StudentFilesView.as_view(), name='student_files'),
 ]

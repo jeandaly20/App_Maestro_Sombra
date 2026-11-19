@@ -10,12 +10,12 @@
     <div>
         <p class="badge-line"><span class="icon" aria-hidden="true">verified_user</span>Expediente pedagógico confidencial · LOPDP</p>
         <h1>Gestión de estudiantes con NEE</h1>
-        <p class="page-header__intro">Todo lo registrado de cada estudiante: sus NEE, el respaldo del diagnóstico, la autorización del representante y las pautas de adaptación. Desde aquí descargas su expediente completo.</p>
+        <p class="page-header__intro">Todo lo registrado de cada estudiante: sus NEE, el respaldo del diagnóstico, la autorización del representante y las pautas de adaptación. Desde aquí descargas el expediente completo de un estudiante o los de todos a la vez.</p>
     </div>
     <div class="page-header__actions">
         {% if students %}
-            <a class="button button--secondary" href="{% url 'student_records_pdf' %}">
-                <span class="icon" aria-hidden="true">picture_as_pdf</span>Exportar todas las fichas (PDF)
+            <a class="button button--secondary" href="{% url 'student_files' %}">
+                <span class="icon" aria-hidden="true">folder_zip</span>Descargar todos los expedientes
             </a>
         {% endif %}
         {% if not is_full %}
@@ -95,18 +95,17 @@
 
             <footer class="student-card__footer">
                 <span class="student-card__updated"><span class="icon" aria-hidden="true">schedule</span>Actualizado hace {{ student.updated_at|timesince }}</span>
-                <a class="button button--secondary" href="{% url 'student_file' student.pk %}">
-                    <span class="icon" aria-hidden="true">folder_zip</span>Descargar expediente
-                </a>
-                <a class="button button--secondary" href="{% url 'student_progress' student.pk %}">
-                    <span class="icon" aria-hidden="true">timeline</span>Historial
-                </a>
-                <a class="button button--secondary" href="{% url 'student_edit' student.pk %}">
-                    <span class="icon" aria-hidden="true">edit</span>Editar
-                </a>
-                <a class="button button--primary" href="{% url 'adapt' %}?alumno={{ student.pk }}">
-                    <span class="icon" aria-hidden="true">add_task</span>Adaptar tarea
-                </a>
+                <div class="student-card__actions">
+                    <a class="button button--secondary" href="{% url 'student_progress' student.pk %}">
+                        <span class="icon" aria-hidden="true">timeline</span>Historial
+                    </a>
+                    <a class="button button--secondary" href="{% url 'student_edit' student.pk %}">
+                        <span class="icon" aria-hidden="true">edit</span>Editar
+                    </a>
+                    <a class="button button--secondary" href="{% url 'student_file' student.pk %}">
+                        <span class="icon" aria-hidden="true">folder_zip</span>Descargar expediente
+                    </a>
+                </div>
             </footer>
         </article>
     {% empty %}
