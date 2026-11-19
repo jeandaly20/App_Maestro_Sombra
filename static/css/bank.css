@@ -79,10 +79,57 @@
 
 /* ---------- Cards ---------- */
 
+/*
+ * Cards in balanced rows (it asks the width left by the sidebar and the zoom: container query):
+ * - very wide: three per row, and a last row of one or two cards centered under the others;
+ * - medium: two per row, and a last card alone centered;
+ * - narrow (phone): one per row.
+ * Each card spans two tracks of a grid of 6 (or 4), so a centered card can sit between two others.
+ */
+.bank-grid-area {
+    container: bank / inline-size;
+}
+
 .bank-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--space-lg);
+    align-items: stretch;
+}
+
+@container bank (min-width: 700px) {
+    .bank-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .bank-grid > .bank-card {
+        grid-column: span 2;
+    }
+
+    .bank-grid > .bank-card:last-child:nth-child(odd) {
+        grid-column: 2 / span 2;
+    }
+}
+
+@container bank (min-width: 1400px) {
+    .bank-grid {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+
+    .bank-grid > .bank-card,
+    .bank-grid > .bank-card:last-child:nth-child(odd) {
+        grid-column: span 2;
+    }
+
+    /* Last row with one card: in the middle */
+    .bank-grid > .bank-card:last-child:nth-child(3n + 1) {
+        grid-column: 3 / span 2;
+    }
+
+    /* Last row with two cards: both centered */
+    .bank-grid > .bank-card:nth-last-child(2):nth-child(3n + 1) {
+        grid-column: 2 / span 2;
+    }
 }
 
 .bank-card {
@@ -214,11 +261,17 @@
     font-size: 0.9375rem;
 }
 
+/* Icon, then the student; the evaluation link under them, on the right: the icon never stays alone on a line */
 .lesson-card__students li {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-xs);
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    column-gap: var(--space-xs);
+}
+
+.lesson-card__students li > a {
+    grid-column: 2;
+    justify-self: end;
 }
 
 .lesson-card__students .icon {
@@ -227,7 +280,6 @@
 }
 
 .lesson-card__students a {
-    margin-left: auto;
     color: var(--color-primary);
     font-size: 0.875rem;
     font-weight: 600;
@@ -279,6 +331,42 @@
 
 .bank-card__actions form {
     display: contents;
+}
+
+/* The class cards: their three actions side by side in one row, compact, sharing the width */
+.lesson-card {
+    container: lesson-card / inline-size;
+}
+
+.bank-card__actions--row {
+    flex-wrap: nowrap;
+}
+
+/* A narrow card keeps the row: "Eliminar" shows only its icon (its name stays for screen readers) */
+@container lesson-card (max-width: 470px) {
+    .bank-card__actions--row .button--danger .bank-card__label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+    }
+}
+
+.bank-card__actions--row .button {
+    flex: 1 1 auto;
+    gap: 0.4rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    white-space: nowrap;
+}
+
+.bank-card__actions--row .button .icon {
+    font-size: 1.15rem;
+}
+
+.bank-card__actions--row .button--danger {
+    flex: 0 0 auto;
 }
 
 .button--warning {
@@ -648,6 +736,10 @@
 }
 
 @media (max-width: 600px) {
+    .bank-card__actions--row {
+        flex-wrap: wrap;
+    }
+
     .bank-card__actions .button,
     .evaluation-actions .button {
         flex: 1 1 100%;

@@ -84,7 +84,7 @@
 
 {% if tab == 'clases' %}
 {% if lessons %}
-<div class="bank-grid">
+<div class="bank-grid-area"><div class="bank-grid">
     {% for lesson in lessons %}
     <article class="card bank-card lesson-card" aria-labelledby="lesson-{{ lesson.pk }}">
         <div class="bank-card__body">
@@ -107,23 +107,23 @@
             </ul>
         </div>
         <footer class="bank-card__footer">
-            <div class="bank-card__actions">
+            <div class="bank-card__actions bank-card__actions--row">
                 <a class="button button--{% if lesson.state == 'ready' %}secondary{% else %}primary{% endif %}" href="{{ lesson.continue_url }}">
                     <span class="icon" aria-hidden="true">{% if lesson.state == 'ready' %}visibility{% else %}arrow_forward{% endif %}</span>{% if lesson.state == 'ready' %}Ver la clase{% else %}Continuar revisión{% endif %}</a>
                 {% if lesson.state == 'ready' %}
-                <a class="button button--primary" href="{% url 'lesson_zip' lesson.pk %}"><span class="icon" aria-hidden="true">folder_zip</span>Descargar clase completa</a>
+                <a class="button button--primary" href="{% url 'lesson_zip' lesson.pk %}"><span class="icon" aria-hidden="true">folder_zip</span>Descargar clase</a>
                 {% endif %}
                 <form method="post" action="{% url 'lesson_delete' lesson.pk %}"
                       data-confirm="¿Eliminar la clase {{ lesson.session_label }}? Se quitan la clase y las fichas de sus estudiantes, y no se puede deshacer desde la app.">
                     {% csrf_token %}
                     <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                    <button type="submit" class="button button--danger"><span class="icon" aria-hidden="true">delete</span>Eliminar</button>
+                    <button type="submit" class="button button--danger" aria-label="Eliminar la clase {{ lesson.session_label }}"><span class="icon" aria-hidden="true">delete</span><span class="bank-card__label">Eliminar</span></button>
                 </form>
             </div>
         </footer>
     </article>
     {% endfor %}
-</div>
+</div></div>
 {% elif lesson_total %}
 <div class="card bank-empty">
     <span class="icon" aria-hidden="true">filter_alt_off</span>
@@ -139,7 +139,7 @@
 {% endif %}
 
 {% elif cards %}
-<div class="bank-grid">
+<div class="bank-grid-area"><div class="bank-grid">
     {% for card in cards %}
     <article class="card bank-card" aria-labelledby="card-{{ card.pk }}">
         <div class="bank-card__body">
@@ -193,7 +193,7 @@
         </footer>
     </article>
     {% endfor %}
-</div>
+</div></div>
 {% elif total %}
 <div class="card bank-empty">
     <span class="icon" aria-hidden="true">filter_alt_off</span>
