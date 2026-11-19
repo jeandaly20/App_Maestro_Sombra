@@ -12,9 +12,6 @@
         <h1>Historial de aprendizaje de {{ student.name }}</h1>
         <p class="page-header__intro">Resultados registrados por el docente después de cada actividad. El sistema los describe; no emite diagnósticos ni atribuye los resultados a un apoyo.</p>
     </div>
-    <div class="page-header__actions">
-        <a class="button button--secondary" href="{% url 'student_edit' student.pk %}"><span class="icon" aria-hidden="true">badge</span>Ficha del estudiante</a>
-    </div>
 </div>
 
 {% if subjects %}

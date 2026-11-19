@@ -13,11 +13,6 @@
         <h1>{% if object %}Editar la ficha de {{ object.name }}{% else %}Registrar un estudiante con NEE{% endif %}</h1>
         <p class="page-header__intro">Registra las necesidades del estudiante para que el sistema adapte la tipografía, los apoyos visuales y la carga cognitiva de cada ficha de trabajo.</p>
     </div>
-    {% if object %}
-    <div class="page-header__actions">
-        <a class="button button--secondary" href="{% url 'student_progress' object.pk %}"><span class="icon" aria-hidden="true">timeline</span>Historial de aprendizaje</a>
-    </div>
-    {% endif %}
 </div>
 
 <div class="students-layout">
