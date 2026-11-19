@@ -62,19 +62,29 @@ function setUpForm() {
 function setUpPolling() {
     const status = document.querySelector('[data-poll-url]');
     if (!status) return;
+    const progress = () => status.querySelector('[data-progress]');
+    let offline = false;
+    let lastProgress = '';
     const check = async () => {
         try {
             const response = await fetch(status.dataset.pollUrl, { headers: { Accept: 'application/json' } });
             const data = await response.json();
+            if (offline && progress()) progress().textContent = lastProgress;
+            offline = false;
             if (data.status === 'PROCESSED' || data.status === 'ERROR') {
                 window.location.reload();
                 return;
             }
             // What the AI is doing now ("Leyendo el material…", "Adaptando la ficha 2 de 3…")
-            const progress = status.querySelector('[data-progress]');
-            if (progress && data.progress) progress.textContent = data.progress;
+            if (progress() && data.progress) progress().textContent = data.progress;
+            lastProgress = progress() ? progress().textContent : '';
         } catch (error) {
-            // Network hiccup: keep trying
+            // No connection: the work goes on in the server; say so and keep trying
+            if (progress()) {
+                if (!offline) lastProgress = progress().textContent;
+                progress().textContent = 'Sin conexión con el servidor, reintentando… La adaptación sigue en curso.';
+            }
+            offline = true;
         }
         setTimeout(check, 2000);
     };

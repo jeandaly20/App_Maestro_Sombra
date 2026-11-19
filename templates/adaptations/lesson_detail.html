@@ -92,7 +92,7 @@
 
 {% if step == '1' %}
 {# ---------- Step 1: the adapted class, as it will be in its file; the teacher can correct it ---------- #}
-<form method="post" action="{% url 'lesson_save' selected.pk %}" class="card class-sheet">
+<form method="post" action="{% url 'lesson_save' selected.pk %}" class="card class-sheet" data-draft="clase-{{ selected.pk }}">
     {% csrf_token %}
     <header class="class-sheet__header">
         <h2><span class="lesson-step__number">1</span>Revisa la clase adaptada de {{ selected.student.name }}

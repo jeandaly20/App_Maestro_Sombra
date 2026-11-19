@@ -41,7 +41,7 @@
 {% endif %}
 
 <div class="evaluation-layout">
-    <form method="post" class="evaluation-form" novalidate data-busy="Guardando… el asistente está preparando la recomendación">
+    <form method="post" class="evaluation-form" novalidate data-busy="Guardando… el asistente está preparando la recomendación" data-draft="evaluacion">
         {% csrf_token %}
         {% if form.non_field_errors %}
             <div class="alert alert--error" role="alert"><span class="icon" aria-hidden="true">error</span><p>{{ form.non_field_errors|join:" " }}</p></div>

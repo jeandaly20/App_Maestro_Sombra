@@ -500,3 +500,8 @@ select.field__control {
         gap: 0;
     }
 }
+
+/* A form's work in progress put back after a reload (forms.js, data-draft) */
+.draft-notice { align-items: center; flex-wrap: wrap; }
+.draft-notice p { flex: 1 1 260px; margin: 0; }
+.draft-notice .button { margin-left: auto; }

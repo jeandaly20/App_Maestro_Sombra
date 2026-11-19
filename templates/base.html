@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="{% asset 'css/base.css' %}">
     {% block styles %}{% endblock %}
 </head>
-<body>
+<body{% if user.is_authenticated %} data-user="{{ user.pk }}"{% endif %}>
     <a class="skip-link" href="#content">Saltar al contenido</a>
     {% block body %}{% endblock %}
     <script src="{% asset 'js/forms.js' %}" defer></script>

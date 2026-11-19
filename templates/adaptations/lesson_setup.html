@@ -25,7 +25,7 @@
         </div>
     </div>
 {% else %}
-<form method="post" enctype="multipart/form-data" novalidate class="adapt-form" data-lesson-form data-busy>
+<form method="post" enctype="multipart/form-data" novalidate class="adapt-form" data-lesson-form data-busy data-draft="adaptar-clase">
     {% csrf_token %}
     {% if form.non_field_errors %}<div class="alert alert--error" role="alert"><span class="icon" aria-hidden="true">error</span><p>{{ form.non_field_errors|join:" " }}</p></div>{% endif %}
     {% if topic_mismatch %}

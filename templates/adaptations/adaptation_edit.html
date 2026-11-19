@@ -14,7 +14,7 @@
     </div>
 </div>
 
-<form method="post" class="card edit-form">
+<form method="post" class="card edit-form" data-draft="ficha">
     {% if back_url %}<input type="hidden" name="next" value="{{ back_url }}">{% endif %}
     {% csrf_token %}
     <div class="field">
