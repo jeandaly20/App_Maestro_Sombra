@@ -36,6 +36,7 @@
 <div class="alert alert--success" role="status">
     <span class="icon" aria-hidden="true">verified</span>
     <p>Esta evaluación ya está finalizada. Si la cambias, el asistente actualizará su recomendación.</p>
+    <a class="button button--secondary" href="{% url 'evaluation_report' adaptation.pk %}"><span class="icon" aria-hidden="true">picture_as_pdf</span>Descargar informe (PDF)</a>
 </div>
 {% endif %}
 

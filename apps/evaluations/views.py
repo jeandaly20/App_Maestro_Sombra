@@ -2,6 +2,7 @@ import logging
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.urls import reverse
@@ -11,11 +12,31 @@ from apps.adaptations import ai
 from apps.adaptations.views import own_adaptation
 from apps.core.choices import RecordStatus
 
-from . import services
+from . import report, services
 from .forms import EvaluationForm
 from .models import Evaluation, EvaluationStatus
 
 logger = logging.getLogger('maestro_sombra')
+
+
+PENDING_DOWNLOAD = 'pending_download'
+
+
+class EvaluationReportView(LoginRequiredMixin, View):
+    """The PDF report of a finished evaluation, for the school's paperwork. Only the student's own teacher."""
+
+    def get(self, request, pk):
+        adaptation = own_adaptation(request, pk)  # 404 for another teacher's adaptation
+        evaluation = Evaluation.objects.filter(adaptation=adaptation, status=EvaluationStatus.FINAL,
+                                               record_status=RecordStatus.ACTIVE).first()
+        if evaluation is None:
+            messages.error(request, 'El informe se puede descargar cuando la evaluación está finalizada.')
+            return redirect('evaluation', pk=adaptation.pk)
+        pdf = report.evaluation_report_pdf(evaluation)
+        logger.info('Evaluation report of %s downloaded by teacher=%s', adaptation.code, request.user.pk)
+        response = HttpResponse(pdf, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{report.report_file_name(evaluation)}"'
+        return response
 
 
 class EvaluationRecommendationReviewView(LoginRequiredMixin, View):
@@ -70,6 +91,8 @@ class EvaluationView(LoginRequiredMixin, View):
             return redirect('evaluation', pk=adaptation.pk)
 
         services.recommend(evaluation)  # never fails because of the AI: local rules take over
+        # The report for the school's paperwork downloads by itself on the next page (see core.context_processors)
+        request.session[PENDING_DOWNLOAD] = reverse('evaluation_report', args=[adaptation.pk])
         if evaluation.recommendation_source == 'AI':
             messages.success(request, 'Evaluación guardada. La IA preparó una recomendación con los indicadores '
                                       '(sin observaciones) y hay orientaciones de reglas locales.')

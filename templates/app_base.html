@@ -61,6 +61,12 @@
             the page's parent, set by each template in the block back_url.{% endcomment %}
             {% block back %}<a class="button button--ghost back-link" href="{% block back_url %}{% url 'home' %}{% endblock %}" data-back><span class="icon" aria-hidden="true">arrow_back</span>Volver</a>{% endblock %}
             {% block messages %}{% include "includes/messages.html" %}{% endblock %}
+            {% if pending_download %}
+                <div class="alert alert--success" role="status">
+                    <span class="icon" aria-hidden="true">download</span>
+                    <p>Se está descargando el informe de la evaluación (PDF). Si no empieza, <a href="{{ pending_download }}" data-auto-download>descárgalo aquí</a>.</p>
+                </div>
+            {% endif %}
             {% block content %}{% endblock %}
         </main>
     </div>

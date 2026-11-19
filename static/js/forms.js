@@ -23,6 +23,12 @@ document.addEventListener('click', (event) => {
     }
 });
 
+// A file the previous action prepared (the report of an evaluation just finished) downloads by itself, once
+document.addEventListener('DOMContentLoaded', () => {
+    const download = document.querySelector('[data-auto-download]');
+    if (download) window.location.assign(download.href);
+});
+
 document.addEventListener('DOMContentLoaded', () => {
     // "Eye" button to show or hide the password
     document.querySelectorAll('[data-toggle-password]').forEach((button) => {
