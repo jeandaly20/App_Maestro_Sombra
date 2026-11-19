@@ -32,7 +32,7 @@ from apps.materials.models import InputType, MaterialStatus, OriginalMaterial
 
 from . import ai, figures, lesson_plan, nee_modules, services, visuals
 from .curriculum import curriculum_warnings
-from .forms import ACCEPT_BY_TYPE, AdaptMaterialForm, LessonSetupForm, LessonUploadForm
+from .forms import ACCEPT_BY_TYPE, MAX_WORKSHEET_PHOTOS, AdaptMaterialForm, LessonSetupForm, LessonUploadForm
 from .models import AdaptationStatus, CurricularAdaptation, LessonAdaptation, LessonPlan
 
 logger = logging.getLogger('maestro_sombra')
@@ -140,7 +140,7 @@ class AdaptView(LoginRequiredMixin, FormView):
         context = super().get_context_data(**kwargs)
         form = context['form']
         context.update({
-            'accept_by_type': ACCEPT_BY_TYPE,
+            'accept_by_type': ACCEPT_BY_TYPE, 'max_photos': MAX_WORKSHEET_PHOTOS,
             'student_options': [
                 {'option': option, 'student': form.student_objects[option.data['value']]}
                 for option in form['students']
@@ -150,16 +150,21 @@ class AdaptView(LoginRequiredMixin, FormView):
 
     def form_valid(self, form):
         data = form.cleaned_data
-        file = data.get('file') if data['input_type'] != 'TEXT' else None
+        photos = (data.get('photos') or []) if data['input_type'] == InputType.PHOTO else []
+        file = data.get('file') if data['input_type'] != InputType.PHOTO else (photos[0] if len(photos) == 1 else None)
         material = OriginalMaterial(
             # Until the AI reads the worksheet's own title, it is known by its topic
             teacher=self.request.user, subject=data['subject'], title=data['topic'], topic=data['topic'],
-            input_type=data['input_type'], input_text=data.get('input_text', '') if not file else '',
+            input_type=data['input_type'],
         )
         if file:
             material.file = file
             material.file_name = Path(file.name).name[:255]
-            material.size_kb = max(1, round(file.size / 1024))
+        elif len(photos) > 1:  # several pages travel as one PDF, in the order they were chosen
+            material.file.save(f'{material.id}.pdf', ContentFile(figures.to_pdf(photos)), save=False)
+            material.file_name = f'Fotos del cuaderno ({len(photos)} páginas)'
+        if material.file:
+            material.size_kb = max(1, round(material.file.size / 1024))
         material.full_clean()
         material.save()
         logger.info('Material %s uploaded by teacher=%s (%s)', material.pk, self.request.user.pk, material.input_type)

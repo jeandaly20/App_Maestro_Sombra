@@ -133,8 +133,15 @@ class OriginalMaterial(models.Model):
     def clean(self):
         if self.input_type in EXTENSIONS_BY_TYPE and self.file:
             extension = Path(self.file.name).suffix.lower().lstrip('.')
-            if extension not in EXTENSIONS_BY_TYPE[self.input_type]:
+            # Several photos of the notebook are kept together as one PDF
+            allowed = EXTENSIONS_BY_TYPE[self.input_type] + (['pdf'] if self.input_type == InputType.PHOTO else [])
+            if extension not in allowed:
                 raise ValidationError({'file': 'El archivo no corresponde al tipo de entrada elegido.'})
+
+    @property
+    def is_single_photo(self):
+        """One photo, shown as an image; several photos are kept as one PDF and opened as a file."""
+        return self.input_type == InputType.PHOTO and bool(self.file) and not self.file.name.lower().endswith('.pdf')
 
     def __str__(self):
         return self.title

@@ -48,9 +48,9 @@ def load_sources(material):
         raw = material.file.read()
     finally:
         material.file.close()
-    if material.input_type == InputType.PHOTO:
+    if material.input_type == InputType.PHOTO and not raw.startswith(b'%PDF-'):
         return '', [_fit(Image.open(io.BytesIO(raw)))]
-    if material.input_type == InputType.PDF:
+    if material.input_type in (InputType.PDF, InputType.PHOTO):  # a PDF, or several photos kept as one PDF
         pdf = pypdfium2.PdfDocument(raw)
         try:
             pages = [_fit(pdf[i].render(scale=2).to_pil()) for i in range(min(len(pdf), MAX_PDF_PAGES))]

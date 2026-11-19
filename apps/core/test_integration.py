@@ -31,6 +31,18 @@ from apps.materials.models import MaterialStatus, OriginalMaterial, Subject
 from apps.students.models import Student, StudentConsent, Treatment
 from apps.students.tests import NOT_SUPPORTED, student_data
 
+
+def word_file(text):
+    """The worksheet as a Word file: typed text is no longer an input of "Adaptar material"."""
+    from docx import Document
+    document = Document()
+    for line in text.split('\n'):
+        document.add_paragraph(line)
+    buffer = io.BytesIO()
+    document.save(buffer)
+    return SimpleUploadedFile('guia.docx', buffer.getvalue(),
+                              content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+
 NOUNS = ('Lee: "El perro de Ana juega en el parque." 1. Subraya los sustantivos. 2. Escribe tres sustantivos '
          'comunes. 3. Clasifica: perro, Quito, mesa. 4. Escribe una oración. 5. Explica qué es un sustantivo.')
 PROFILE = {'learning_strengths': 'Comprende bien las explicaciones orales.',
@@ -142,7 +154,7 @@ class IntegrationBase(TestCase):
         with synchronous(fake) as used:
             response, material = self.created(OriginalMaterial.objects.filter(teacher=self.teacher), lambda: self.client.post(
                 reverse('adapt'), {'students': [str(student.pk)], 'subject': self.language.pk, 'topic': 'El sustantivo',
-                                   'input_type': 'TEXT', 'input_text': text, f'rules_{student.pk}': ['SEGMENTATION']}))
+                                   'input_type': 'WORD', 'file': word_file(text), f'rules_{student.pk}': ['SEGMENTATION']}))
         return response, material, used
 
 
@@ -335,7 +347,7 @@ class FailureTests(IntegrationBase):
                 mock.patch.object(ai, '_call', call), mock.patch.object(ai.time, 'sleep'):
             _response, material = self.created(OriginalMaterial.objects.filter(teacher=self.teacher), lambda: self.client.post(
                 reverse('adapt'), {'students': [str(student.pk)], 'subject': self.language.pk, 'topic': 'El sustantivo',
-                                   'input_type': 'TEXT', 'input_text': NOUNS}))
+                                   'input_type': 'WORD', 'file': word_file(NOUNS)}))
         return material
 
     def test_gemini_unavailable_timeout_and_no_connection(self):

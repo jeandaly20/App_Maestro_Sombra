@@ -12,7 +12,7 @@
     <div>
         <p class="badge-line"><span class="icon" aria-hidden="true">auto_fix_high</span>Paso 1 de 2 · Carga del material</p>
         <h1>Adaptar material curricular</h1>
-        <p class="page-header__intro">Sube la guía en PDF, Word, foto o texto. Antes de enviarla a la inteligencia artificial, el sistema revisa y quita los datos personales; después la IA propone una versión adaptada para cada estudiante, que podrás revisar antes de imprimir.</p>
+        <p class="page-header__intro">Sube la guía en fotos del cuaderno (hasta 5), PDF o Word. Antes de enviarla a la inteligencia artificial, el sistema revisa y quita los datos personales; después la IA propone una versión adaptada para cada estudiante, que podrás revisar antes de imprimir.</p>
     </div>
 </div>
 
@@ -70,26 +70,32 @@
             {% for option in form.input_type %}
                 <label class="input-tab" for="{{ option.id_for_label }}">
                     {{ option.tag }}
-                    <span class="icon" aria-hidden="true">{% if option.data.value == 'PHOTO' %}photo_camera{% elif option.data.value == 'PDF' %}picture_as_pdf{% elif option.data.value == 'WORD' %}description{% else %}edit_note{% endif %}</span>
+                    <span class="icon" aria-hidden="true">{% if option.data.value == 'PHOTO' %}photo_camera{% elif option.data.value == 'PDF' %}picture_as_pdf{% else %}description{% endif %}</span>
                     {{ option.choice_label }}
                 </label>
             {% endfor %}
         </fieldset>
 
+        <div class="upload-zone" data-photo-zone hidden>
+            <label class="field__label" for="{{ form.photos.id_for_label }}">{{ form.photos.label }}</label>
+            <input type="file" name="photos" id="{{ form.photos.id_for_label }}" class="field__control" multiple
+                   accept="{{ accept_by_type.PHOTO }}" data-max-photos="{{ max_photos }}"
+                   {% if form.photos.errors %}aria-invalid="true" aria-describedby="{{ form.photos.auto_id }}_error"{% endif %}>
+            <p class="field__help" data-photo-count>Elige de 1 a {{ max_photos }} fotos, una por página, en el orden de la guía. Que se vean nítidas, de frente y con buena luz. Máximo 10 MB cada una.</p>
+            {% for error in form.photos.errors %}<p class="field__error" id="{{ form.photos.auto_id }}_error"><span class="icon" aria-hidden="true">error</span>{{ error }}</p>{% endfor %}
+            {% include "adaptations/_privacy_preview.html" with preview=form.privacy_previews.photos %}
+        </div>
         <div class="upload-zone" data-file-zone>
             <label class="field__label" for="{{ form.file.id_for_label }}">{{ form.file.label }}</label>
             <input type="file" name="file" id="{{ form.file.id_for_label }}" class="field__control"
-                   data-accept-photo="{{ accept_by_type.PHOTO }}" data-accept-pdf="{{ accept_by_type.PDF }}"
-                   data-accept-word="{{ accept_by_type.WORD }}" accept="{{ accept_by_type.PDF }}"
+                   data-accept-pdf="{{ accept_by_type.PDF }}" data-accept-word="{{ accept_by_type.WORD }}"
+                   accept="{{ accept_by_type.PDF }}"
                    {% if form.file.errors %}aria-invalid="true" aria-describedby="{{ form.file.auto_id }}_error"{% endif %}>
-            <p class="field__help" data-file-help>Sube la guía en PDF digital (con texto que se pueda seleccionar). Máximo 10 MB.</p>
-            <p class="field__help privacy-help"><span class="icon" aria-hidden="true">shield</span>Puedes subir la foto de la página del libro tal como está. Antes de enviarla, el sistema la revisa en este equipo: solo la detiene si aparece el <strong>nombre completo</strong> de uno de tus estudiantes registrados (los nombres de ejemplo del libro no son problema). Revisa tú también que no se vea el nombre ni la cara del estudiante.</p>
+            <p class="field__help" data-file-help>Sube la guía en PDF (digital o escaneado). Máximo 10 MB.</p>
             {% for error in form.file.errors %}<p class="field__error" id="{{ form.file.auto_id }}_error"><span class="icon" aria-hidden="true">error</span>{{ error }}</p>{% endfor %}
             {% include "adaptations/_privacy_preview.html" with preview=form.privacy_previews.file %}
         </div>
-        <div data-text-zone hidden>
-            {% include "includes/field.html" with field=form.input_text %}
-        </div>
+        <p class="field__help privacy-help"><span class="icon" aria-hidden="true">shield</span><span>Puedes subir las páginas tal como están. Antes de enviarlas, el sistema las revisa en este equipo: solo las detiene si aparece el <strong>nombre completo</strong> de uno de tus estudiantes registrados (los nombres de ejemplo del libro no son problema). Revisa tú también que no se vea el nombre ni la cara del estudiante.</span></p>
 
         {% include "adaptations/_student_rules.html" %}
     </section>

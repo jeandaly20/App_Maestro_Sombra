@@ -1501,6 +1501,8 @@
     overflow-x: auto;
 }
 
+.field__help--error { color: var(--color-error); font-weight: 600; }
+
 .privacy-help {
     display: flex;
     align-items: flex-start;

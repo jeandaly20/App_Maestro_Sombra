@@ -150,14 +150,14 @@
                 <p class="barrier-box__load">Carga cognitiva: <strong>{{ analysis.cognitive_load|capfirst }}</strong></p>
             </div>
         {% endif %}
-        {% if material.input_type == 'PHOTO' %}
+        {% if material.is_single_photo %}
             <img class="original__image" src="{% url 'material_file' material.pk %}" alt="Foto de la guía original: {{ material.title }}">
         {% elif material.file %}
             <a class="button button--secondary" href="{% url 'material_file' material.pk %}" target="_blank" rel="noopener">
                 <span class="icon" aria-hidden="true">open_in_new</span>Abrir archivo original</a>
         {% endif %}
         {% if analysis.extracted_text %}
-            <details class="original__text" {% if material.input_type != 'PHOTO' %}open{% endif %}>
+            <details class="original__text" {% if not material.is_single_photo %}open{% endif %}>
                 <summary>Texto de la guía</summary>
                 <p>{{ analysis.extracted_text|linebreaksbr }}</p>
             </details>

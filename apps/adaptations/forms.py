@@ -17,6 +17,49 @@ ACCEPT_BY_TYPE = {
 }
 
 
+class MultipleFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+
+class MultipleFileField(forms.FileField):
+    """The pages of the class: one PDF or several photos (each one goes through the privacy check of the form)."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault('widget', MultipleFileInput(attrs={'accept': 'application/pdf,image/jpeg,image/png,image/webp'}))
+        super().__init__(*args, **kwargs)
+
+    def clean(self, data, initial=None):
+        files = data if isinstance(data, (list, tuple)) else ([data] if data else [])
+        cleaned = [super(MultipleFileField, self).clean(item, initial) for item in files]
+        if self.required and not cleaned:
+            raise forms.ValidationError(self.error_messages['required'], code='required')
+        if len(cleaned) > MAX_PAGE_FILES:
+            raise forms.ValidationError(f'Sube como máximo {MAX_PAGE_FILES} fotos o un PDF.')
+        kinds = []
+        for item in cleaned:
+            if item.size > settings.MAX_UPLOAD_MB * 1024 * 1024:
+                raise forms.ValidationError(f'«{item.name}» supera los {settings.MAX_UPLOAD_MB} MB.')
+            head = item.read(8)
+            item.seek(0)
+            kind = next((value for signature, value in PAGE_TYPES.items() if head.startswith(signature)), None)
+            if not kind:
+                raise forms.ValidationError(f'«{item.name}» no es una foto (JPG, PNG o WEBP) ni un PDF.')
+            kinds.append(kind)
+        if 'pdf' in kinds and len(cleaned) > 1:
+            raise forms.ValidationError('Sube un solo PDF, o varias fotos.')
+        return cleaned
+
+
+# "Adaptar material" takes the worksheet as photos of the notebook (up to MAX_WORKSHEET_PHOTOS), a PDF or a Word
+# file. Typed or pasted text is no longer offered: a block of text has no layout, exercises or pictures to adapt
+# (the materials saved before as text keep working).
+INPUT_CHOICES = [(InputType.PHOTO, 'Foto del cuaderno'), (InputType.PDF, 'PDF'), (InputType.WORD, 'Word (.docx)')]
+# Five photos: a worksheet is one to four pages, each photo is checked for privacy on this server before anything
+# is sent, and they all travel to the AI in one request
+MAX_WORKSHEET_PHOTOS = 5
+IMAGE_SIGNATURES = (b'\x89PNG', b'\xff\xd8\xff', b'RIFF')
+
+
 class AdaptMaterialForm(AccessibleFormMixin, forms.Form):
     """Upload a worksheet and choose the students: each one gets a worksheet for all their conditions."""
     students = forms.MultipleChoiceField(
@@ -32,10 +75,10 @@ class AdaptMaterialForm(AccessibleFormMixin, forms.Form):
     # Photos are checked locally before anything is sent (photo_check): a page with personal data or writing is
     # refused and the teacher is asked for a clean page
     input_type = forms.ChoiceField(label='Tipo de entrada', initial=InputType.PDF, widget=forms.RadioSelect,
-                                   choices=InputType.choices)
+                                   choices=INPUT_CHOICES)
     file = forms.FileField(label='Archivo de la guía', required=False)
-    input_text = forms.CharField(label='Texto de la guía', required=False,
-                                 widget=forms.Textarea(attrs={'rows': 8, 'placeholder': 'Escribe o pega aquí el texto de la guía...'}))
+    photos = MultipleFileField(label='Fotos del cuaderno', required=False,
+                               widget=MultipleFileInput(attrs={'accept': ACCEPT_BY_TYPE[InputType.PHOTO]}))
 
     def __init__(self, *args, teacher, **kwargs):
         super().__init__(*args, **kwargs)
@@ -77,9 +120,8 @@ class AdaptMaterialForm(AccessibleFormMixin, forms.Form):
         data = super().clean()
         input_type = data.get('input_type')
         file = data.get('file')
-        if input_type == InputType.TEXT:
-            if not (data.get('input_text') or '').strip():
-                self.add_error('input_text', 'Escribe o pega el texto de la guía.')
+        if input_type == InputType.PHOTO:
+            self.clean_photos_of(data.get('photos') or [])
         elif input_type:
             if not file:
                 self.add_error('file', 'Sube el archivo de la guía.')
@@ -94,13 +136,32 @@ class AdaptMaterialForm(AccessibleFormMixin, forms.Form):
                     self.check_privacy('file', file)
         return data
 
-    def check_privacy(self, field, upload):
+    def clean_photos_of(self, photos):
+        """One to MAX_WORKSHEET_PHOTOS photos (JPG, PNG or WEBP), each one through the local privacy check."""
+        if not photos:
+            self.add_error('photos', 'Sube al menos una foto del cuaderno.')
+            return
+        if len(photos) > MAX_WORKSHEET_PHOTOS:
+            self.add_error('photos', f'Sube como máximo {MAX_WORKSHEET_PHOTOS} fotos: una por página de la guía.')
+            return
+        for number, photo in enumerate(photos, 1):
+            head = photo.read(8)
+            photo.seek(0)
+            if not head.startswith(IMAGE_SIGNATURES):
+                self.add_error('photos', f'«{photo.name}» no es una foto (JPG, PNG o WEBP).')
+                return
+            # With several photos, say which one, so the teacher retakes only that page
+            prefix = f'Foto {number} de {len(photos)}: ' if len(photos) > 1 else ''
+            if not self.check_privacy('photos', photo, prefix).allowed:
+                return
+
+    def check_privacy(self, field, upload, prefix=''):
         """The local privacy check, at upload time: a file that cannot be sent safely is refused here."""
         upload.seek(0)
         inspection = document_privacy.inspect_file(upload.read(), self.private_names)
         upload.seek(0)
         if not inspection.allowed:
-            self.add_error(field, inspection.message)
+            self.add_error(field, prefix + inspection.message)
             if inspection.preview:
                 self.privacy_previews[field] = inspection.preview
         return inspection
@@ -130,39 +191,6 @@ def recommended_rules(student):
 MAX_PLAN_MB = 10
 MAX_PAGE_FILES = 10  # a whole week can use several pages of the book
 PAGE_TYPES = {b'%PDF-': 'pdf', b'\x89PNG': 'png', b'\xff\xd8\xff': 'jpg', b'RIFF': 'webp'}
-
-
-class MultipleFileInput(forms.ClearableFileInput):
-    allow_multiple_selected = True
-
-
-class MultipleFileField(forms.FileField):
-    """The pages of the class: one PDF or several photos (each one goes through the privacy check of the form)."""
-
-    def __init__(self, *args, **kwargs):
-        kwargs.setdefault('widget', MultipleFileInput(attrs={'accept': 'application/pdf,image/jpeg,image/png,image/webp'}))
-        super().__init__(*args, **kwargs)
-
-    def clean(self, data, initial=None):
-        files = data if isinstance(data, (list, tuple)) else ([data] if data else [])
-        cleaned = [super(MultipleFileField, self).clean(item, initial) for item in files]
-        if self.required and not cleaned:
-            raise forms.ValidationError(self.error_messages['required'], code='required')
-        if len(cleaned) > MAX_PAGE_FILES:
-            raise forms.ValidationError(f'Sube como máximo {MAX_PAGE_FILES} fotos o un PDF.')
-        kinds = []
-        for item in cleaned:
-            if item.size > settings.MAX_UPLOAD_MB * 1024 * 1024:
-                raise forms.ValidationError(f'«{item.name}» supera los {settings.MAX_UPLOAD_MB} MB.')
-            head = item.read(8)
-            item.seek(0)
-            kind = next((value for signature, value in PAGE_TYPES.items() if head.startswith(signature)), None)
-            if not kind:
-                raise forms.ValidationError(f'«{item.name}» no es una foto (JPG, PNG o WEBP) ni un PDF.')
-            kinds.append(kind)
-        if 'pdf' in kinds and len(cleaned) > 1:
-            raise forms.ValidationError('Sube un solo PDF, o varias fotos.')
-        return cleaned
 
 
 class LessonUploadForm(AccessibleFormMixin, forms.Form):
@@ -202,7 +230,7 @@ class LessonSetupForm(AdaptMaterialForm):
 
     def __init__(self, *args, sessions, **kwargs):
         super().__init__(*args, **kwargs)
-        for name in ('topic', 'input_type', 'file', 'input_text'):
+        for name in ('topic', 'input_type', 'file', 'photos'):
             del self.fields[name]  # they come from the chosen session and the book pages
         # One class per week, "Semana 19 · its topic": the week is adapted whole (a week has one topic and
         # its sessions are the class days). Weeks in order; sheets that are not a week (e.g. PCA) last.

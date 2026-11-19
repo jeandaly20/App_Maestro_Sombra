@@ -14,7 +14,9 @@ from unittest import mock
 from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
+from django.urls import reverse
 from django.utils import timezone
+from django.utils.datastructures import MultiValueDict
 from PIL import Image, ImageDraw, ImageFont
 
 from apps.accounts.models import Teacher
@@ -179,8 +181,49 @@ class PhotoUploadTests(TestCase):
     def form(self, image):
         return AdaptMaterialForm({'students': [str(self.student.pk)], 'subject': self.language.pk,
                                   'topic': 'El sustantivo', 'input_type': 'PHOTO', f'rules_{self.student.pk}': []},
-                                 {'file': SimpleUploadedFile('pagina.jpg', jpeg(image), content_type='image/jpeg')},
+                                 {'photos': [SimpleUploadedFile('pagina.jpg', jpeg(image), content_type='image/jpeg')]},
                                  teacher=self.teacher)
+
+    def photos_form(self, images):
+        return AdaptMaterialForm({'students': [str(self.student.pk)], 'subject': self.language.pk,
+                                  'topic': 'El sustantivo', 'input_type': 'PHOTO', f'rules_{self.student.pk}': []},
+                                 MultiValueDict({'photos': [SimpleUploadedFile(f'pagina{n}.jpg', jpeg(image),
+                                                                               content_type='image/jpeg')
+                                                            for n, image in enumerate(images, 1)]}),
+                                 teacher=self.teacher)
+
+    def test_typed_text_is_no_longer_an_input(self):
+        values = [value for value, _label in self.form(page()).fields['input_type'].choices]
+        self.assertEqual(values, ['PHOTO', 'PDF', 'WORD'])
+
+    def test_up_to_five_photos_of_the_notebook_travel_as_one_material(self):
+        form = self.photos_form([page(), page(), page()])
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(len(form.cleaned_data['photos']), 3)
+        too_many = self.photos_form([page()] * 6)
+        self.assertFalse(too_many.is_valid())
+        self.assertIn('como máximo 5 fotos', str(too_many.errors['photos']))
+
+    def test_the_refused_photo_is_named_among_several(self):
+        form = self.photos_form([page(), page(printed_name=True)])
+        self.assertFalse(form.is_valid())
+        self.assertIn('Foto 2 de 2', str(form.errors['photos']))
+
+    def test_several_photos_are_kept_as_one_pdf_and_read_page_by_page(self):
+        from apps.adaptations import figures
+        from apps.materials.models import OriginalMaterial
+        self.client.force_login(self.teacher)
+        with mock.patch('apps.adaptations.services.start_processing'):
+            response = self.client.post(reverse('adapt'), {
+                'students': [str(self.student.pk)], 'subject': self.language.pk, 'topic': 'El sustantivo',
+                'input_type': 'PHOTO', f'rules_{self.student.pk}': [],
+                'photos': [SimpleUploadedFile(f'p{n}.jpg', jpeg(page()), content_type='image/jpeg') for n in (1, 2)]})
+        self.assertEqual(response.status_code, 302)
+        material = OriginalMaterial.objects.get(teacher=self.teacher)
+        self.assertEqual(material.input_type, 'PHOTO')
+        self.assertTrue(material.file.name.endswith('.pdf'))
+        self.assertFalse(material.is_single_photo)
+        self.assertEqual(len(figures.load_sources(material)[1]), 2)
 
     def test_the_form_offers_photos_and_accepts_a_clean_one(self):
         form = self.form(page())
@@ -191,8 +234,8 @@ class PhotoUploadTests(TestCase):
         before = OriginalMaterial.objects.count()
         form = self.form(page(printed_name=True))
         self.assertFalse(form.is_valid())
-        self.assertIn('Por privacidad no se envía a la IA', form.errors['file'][0])
-        self.assertTrue(form.privacy_previews['file'].startswith('data:image/jpeg;base64,'))
+        self.assertIn('Por privacidad no se envía a la IA', form.errors['photos'][0])
+        self.assertTrue(form.privacy_previews['photos'].startswith('data:image/jpeg;base64,'))
         self.assertEqual(OriginalMaterial.objects.count(), before)  # nothing stored
 
     def adapt(self, image):

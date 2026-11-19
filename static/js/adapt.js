@@ -11,29 +11,41 @@ function setUpForm() {
     const form = document.querySelector('[data-adapt-form]');
     if (!form) return;
 
-    // Input type: photo / PDF / Word use the file field; text uses the textarea
-    const fileInput = form.querySelector('input[type="file"]');
+    // Input type: the photos of the notebook (several) or one PDF / Word file
+    const fileInput = form.querySelector('input[name="file"]');
+    const photoInput = form.querySelector('input[name="photos"]');
     const fileZone = form.querySelector('[data-file-zone]');
-    const textZone = form.querySelector('[data-text-zone]');
+    const photoZone = form.querySelector('[data-photo-zone]');
     const help = form.querySelector('[data-file-help]');
     const helpTexts = {
-        PHOTO: 'Sube una foto nítida de la página, de frente y con buena luz. Máximo 10 MB.',
         PDF: 'Sube la guía en PDF (digital o escaneado). Máximo 10 MB.',
-        WORD: 'Sube la guía en Word (.docx). Se leerá su texto. Máximo 10 MB.',
+        WORD: 'Sube la guía en Word (.docx): se leen su texto y sus imágenes, y la ficha adaptada se puede seguir editando. Máximo 10 MB.',
     };
     const applyType = () => {
         const type = form.querySelector('input[name="input_type"]:checked')?.value || 'PDF';
-        const isText = type === 'TEXT';
-        fileZone.hidden = isText;
-        textZone.hidden = !isText;
-        if (!isText) {
+        const isPhoto = type === 'PHOTO';
+        photoZone.hidden = !isPhoto;
+        fileZone.hidden = isPhoto;
+        if (!isPhoto) {
             fileInput.accept = fileInput.dataset[`accept${type.charAt(0)}${type.slice(1).toLowerCase()}`];
-            // capture="environment" opens the rear camera on phones, only for photos
-            if (type === 'PHOTO') fileInput.setAttribute('capture', 'environment');
-            else fileInput.removeAttribute('capture');
             help.textContent = helpTexts[type];
         }
     };
+    // How many photos were chosen, and never more than the limit
+    if (photoInput) {
+        const counter = form.querySelector('[data-photo-count]');
+        const original = counter.textContent;
+        const max = Number(photoInput.dataset.maxPhotos);
+        photoInput.addEventListener('change', () => {
+            const count = photoInput.files.length;
+            const tooMany = count > max;
+            photoInput.setCustomValidity(tooMany ? `Elige como máximo ${max} fotos.` : '');
+            counter.textContent = !count ? original : tooMany
+                ? `Elegiste ${count} fotos: el máximo es ${max}, una por página de la guía.`
+                : `${count} foto${count > 1 ? 's' : ''} lista${count > 1 ? 's' : ''}, en este orden: ${[...photoInput.files].map((f) => f.name).join(', ')}.`;
+            counter.classList.toggle('field__help--error', tooMany);
+        });
+    }
     form.querySelectorAll('input[name="input_type"]').forEach((radio) => radio.addEventListener('change', applyType));
     applyType();
 
