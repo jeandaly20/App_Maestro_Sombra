@@ -189,11 +189,27 @@ def entry_of(evaluation, lessons):
     )
 
 
+def week_of(entry):
+    """The school week of the class ('Semana 21 · ...' -> 21), or None when its topic does not say it."""
+    week = re.search(r'semana\s*(\d+)', entry.topic or '', re.IGNORECASE)
+    return int(week.group(1)) if week else None
+
+
+def in_class_order(entries):
+    """
+    The classes in the order they were taught: by week when every one of them says its week (a teacher may evaluate
+    several weeks on the same day, in any order), otherwise by the date each evaluation was registered.
+    """
+    if entries and all(week_of(e) is not None for e in entries):
+        return sorted(entries, key=lambda e: (week_of(e), e.date))
+    return entries
+
+
 def history(student, subject_code=''):
-    """The student's evaluated activities, oldest first, optionally of one subject."""
+    """The student's evaluated activities in class order (in_class_order), optionally of one subject."""
     lessons = _lesson_contexts(student)
     entries = [entry_of(evaluation, lessons) for evaluation in valid_evaluations(student)]
-    return [e for e in entries if not subject_code or e.subject_code == subject_code]
+    return in_class_order([e for e in entries if not subject_code or e.subject_code == subject_code])
 
 
 # ---------- Descriptive analysis ----------
@@ -306,24 +322,55 @@ def svg(number):
     return f'{number:.1f}'
 
 
+GOAL_SHORT = {-2: '−2', -1: '−1', 0: '0', 1: '+1', 2: '+2'}
+TREND_LABELS = {'up': 'Mejora observada', 'down': 'Retroceso observado', 'stable': 'Se mantiene',
+                'variable': 'Variable'}
+
+
+def point_name(entry):
+    """The label under a point: the week of the class ('Sem. 21') or, without it, the date."""
+    week = week_of(entry)
+    return f'Sem. {week}' if week is not None else entry.date.strftime('%d/%m')
+
+
 def chart(entries):
     """
-    Points for the achievement chart of ONE subject: only evaluations that registered the goal attainment,
-    at their own date order. Nothing is interpolated; the others are listed apart.
+    The achievement chart of ONE subject: only evaluations that registered the goal attainment, in their own
+    order. Nothing is interpolated; the others are listed apart. Bands mark below, at and above what was expected,
+    the line joins the real points and each point shows its value.
     """
     plotted = [e for e in entries if e.goal_score is not None]
-    width, height, left, right, top, bottom = 680, 220, 200, 24, 16, 34
+    width, height, left, right, top, bottom = 900, 250, 200, 40, 26, 52
+    plot_bottom = height - bottom
+    span = height - top - bottom
+
+    def y_of(score):
+        return top + (2 - score) * span / 4
+
     step = (width - left - right) / max(len(plotted) - 1, 1)
     points = []
     for n, entry in enumerate(plotted):
         x = left + (n * step if len(plotted) > 1 else (width - left - right) / 2)
-        y = top + (2 - entry.goal_score) * (height - top - bottom) / 4
-        points.append({'x': svg(x), 'y': svg(y), 'entry': entry, 'label': entry.labels['goal_attainment']})
-    levels = [{'label': GoalAttainment(value).label, 'y': svg(top + (2 - GOAL_SCORE[value]) * (height - top - bottom) / 4)}
+        points.append({'x': svg(x), 'y': svg(y_of(entry.goal_score)), 'label_y': svg(y_of(entry.goal_score) - 14),
+                       'entry': entry, 'label': entry.labels['goal_attainment'], 'value': GOAL_SHORT[entry.goal_score],
+                       'tone': 'below' if entry.goal_score < 0 else 'above' if entry.goal_score > 0 else 'expected',
+                       'name': point_name(entry)})
+    levels = [{'label': GoalAttainment(value).label, 'y': svg(y_of(GOAL_SCORE[value])), 'zero': GOAL_SCORE[value] == 0}
               for value in GoalAttainment.values]
-    return {'width': width, 'height': height, 'left': left, 'label_x': left - 8, 'right': width - right,
-            'bottom': height - bottom, 'date_y': height - bottom + 20,
-            'points': points, 'levels': levels, 'polyline': ' '.join(f'{p["x"]},{p["y"]}' for p in points),
+    bands = [{'tone': 'above', 'label': 'Por encima de lo esperado', 'y': svg(top), 'h': svg(y_of(0.5) - top)},
+             {'tone': 'expected', 'label': 'Lo esperado', 'y': svg(y_of(0.5)), 'h': svg(y_of(-0.5) - y_of(0.5))},
+             {'tone': 'below', 'label': 'Por debajo de lo esperado', 'y': svg(y_of(-0.5)),
+              'h': svg(plot_bottom - y_of(-0.5))}]
+    line = ' '.join(f'{p["x"]},{p["y"]}' for p in points)
+    area = (f'M {points[0]["x"]},{svg(plot_bottom)} L {line.replace(" ", " L ")} L {points[-1]["x"]},{svg(plot_bottom)} Z'
+            if len(points) > 1 else '')
+    series = describe_series(entries, 'goal_attainment')
+    return {'width': width, 'height': height, 'left': left, 'label_x': left - 12, 'right': width - right,
+            'top': top, 'bottom': plot_bottom, 'plot_width': svg(width - right - left), 'name_y': plot_bottom + 22,
+            'date_y': plot_bottom + 38,
+            'points': points, 'levels': levels, 'bands': bands, 'polyline': line, 'area': area,
+            'trend': series['trend'], 'trend_label': TREND_LABELS.get(series['trend'], 'Sin tendencia aún'),
+            'trend_text': series['text'], 'last': points[-1] if points else None,
             'not_plotted': [e for e in entries if e.goal_score is None]}
 
 

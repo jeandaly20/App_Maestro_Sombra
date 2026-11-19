@@ -232,6 +232,15 @@ class LearningProgressTests(TestCase):
         self.assertEqual(data['overload'], {'registered': 3, 'with_signs': 2, 'evident': 1, 'missing': 1})
         self.assertEqual(data['autonomy']['total'], 4)
 
+    def test_classes_evaluated_out_of_order_follow_their_weeks(self):
+        # The teacher evaluated week 24 first and week 21 last, all on the same day
+        for on, (week, goal) in enumerate(((24, 'MORE'), (23, 'EXPECTED'), (21, 'LESS')), 1):
+            self.evaluate(self.worksheet(self.math, f'Semana {week} · Áreas'), on, goal_attainment=goal)
+        entries = progress.history(self.student)
+        self.assertEqual([progress.week_of(e) for e in entries], [21, 23, 24])
+        self.assertEqual(progress.describe_series(entries, 'goal_attainment')['trend'], 'up')
+        self.assertEqual([p['name'] for p in progress.chart(entries)['points']], ['Sem. 21', 'Sem. 23', 'Sem. 24'])
+
     def test_12_no_invented_data(self):
         self.evaluate(self.worksheet(topic='Con logro'), 1, goal_attainment='EXPECTED')
         self.evaluate(self.worksheet(topic='Sin logro'), 3)  # an old evaluation without the goal question

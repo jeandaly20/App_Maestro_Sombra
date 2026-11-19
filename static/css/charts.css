@@ -1,0 +1,101 @@
+/* The group's history: a line per student over the shared classes (Inicio and "Historial del grupo") */
+
+.group-chart {
+    display: block;
+    width: 100%;
+    max-width: 900px;
+    height: auto;
+    margin: var(--space-sm) auto 0;
+    overflow: visible;
+    --above: #059669; --above-band: #d1fae5;
+    --expected: #2563eb; --expected-band: #dbeafe;
+    --below: #ea580c; --below-band: #ffedd5;
+}
+
+.group-chart__band--above { fill: var(--above-band); }
+.group-chart__band--expected { fill: var(--expected-band); }
+.group-chart__band--below { fill: var(--below-band); }
+.group-chart__grid { stroke: rgba(15, 23, 42, 0.12); stroke-width: 1; stroke-dasharray: 3 5; }
+.group-chart__grid--zero { stroke: var(--expected); stroke-width: 1.6; stroke-dasharray: 6 4; }
+.group-chart__level { font-size: 12px; fill: var(--color-text-muted); font-family: var(--font-body); }
+.group-chart__level--zero { fill: var(--expected); font-weight: 700; }
+.group-chart__column { font-size: 13px; font-weight: 700; fill: var(--color-text); font-family: var(--font-heading); }
+
+.group-chart__line {
+    fill: none;
+    stroke: var(--line);
+    stroke-width: 3.5;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: group-draw 1.1s ease-out forwards;
+    filter: drop-shadow(0 2px 3px rgba(15, 23, 42, 0.2));
+}
+
+.group-chart__dot {
+    fill: var(--line);
+    stroke: #fff;
+    stroke-width: 2.5;
+    cursor: help;
+    transition: r 0.15s;
+}
+
+.group-chart__dot:hover { r: 9; }
+
+.group-chart__student { transition: opacity 0.2s; }
+.group-chart:hover .group-chart__student { opacity: 0.35; }
+.group-chart:hover .group-chart__student:hover { opacity: 1; }
+
+@keyframes group-draw { to { stroke-dashoffset: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+    .group-chart__line { animation: none; stroke-dashoffset: 0; }
+}
+
+/* Legend: each student with the color of the line, and the trend of the goal */
+.group-legend {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-sm) var(--space-lg);
+    margin: var(--space-md) 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: 0.875rem;
+}
+
+.group-legend li { display: inline-flex; align-items: center; gap: 0.5rem; }
+.group-legend__swatch { width: 22px; height: 4px; border-radius: 4px; background: var(--line); }
+.group-legend__name { font-weight: 700; }
+.group-legend__zones { color: var(--color-text-soft); font-size: 0.8125rem; }
+.group-legend__dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+.trend-pill {
+    display: inline-flex;
+    white-space: nowrap;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.15rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    background: var(--color-surface-low);
+    color: var(--color-text-soft);
+}
+
+.trend-pill .icon { font-size: 0.95rem; }
+.trend-pill--up { background: #d1fae5; color: #047857; }
+.trend-pill--down { background: #ffedd5; color: #c2410c; }
+.trend-pill--variable, .trend-pill--stable { background: #dbeafe; color: #1d4ed8; }
+
+.group-note { color: var(--color-text-muted); font-size: 0.85rem; text-align: center; margin: var(--space-sm) auto 0; max-width: 70ch; }
+
+/* Summary table of the group's history */
+.table-scroll { overflow-x: auto; }
+.group-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.group-table th, .group-table td { padding: 0.75rem; border-bottom: 1px solid var(--color-border); text-align: left; vertical-align: middle; }
+.group-table thead th { color: var(--color-text-soft); font-size: 0.8125rem; font-weight: 600; }
+.group-table tbody th { font-weight: 400; }
+.group-table__name { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; }
+.group-table__sub { display: block; margin-top: 0.125rem; color: var(--color-text-muted); font-size: 0.8125rem; }

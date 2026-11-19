@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block title %}Inicio{% endblock %}
-{% block styles %}{{ block.super }}<link rel="stylesheet" href="{% asset 'css/home.css' %}">{% endblock %}
+{% block styles %}{{ block.super }}<link rel="stylesheet" href="{% asset 'css/home.css' %}"><link rel="stylesheet" href="{% asset 'css/charts.css' %}">{% endblock %}
 
 {% block back %}{% endblock %}
 {% block content %}
@@ -55,52 +55,30 @@
     </article>
 </section>
 
-{# ---------- Modules ---------- #}
-<section aria-labelledby="modules-title">
-    <p class="eyebrow">Flujo docente</p>
-    <h2 class="section-title" id="modules-title">Módulos pedagógicos</h2>
-    <div class="modules">
-        <article class="card module">
-            <span class="module__icon"><span class="icon" aria-hidden="true">badge</span></span>
-            <h3>Registro y expediente de estudiantes NEE</h3>
-            <p>Registra condiciones, fortalezas y estilo de aprendizaje para DEA, neurodesarrollo y discapacidad intelectual.</p>
-            {% if students %}
-                <p class="module__detail"><span class="icon" aria-hidden="true">history</span>Último registro: <strong>{{ students.0.name }}</strong> ({{ students.0.condition_labels|join:", " }})</p>
-            {% endif %}
-            <a class="button button--secondary button--block module__action" href="{% url 'student_list' %}">Gestionar estudiantes<span class="icon" aria-hidden="true">arrow_forward</span></a>
-        </article>
-        <article class="card module">
-            <span class="module__icon"><span class="icon" aria-hidden="true">auto_fix_high</span></span>
-            <h3>Adaptador de material curricular</h3>
-            <p>Sube una tarea en foto, PDF, Word o texto y la IA la transforma según la condición de cada estudiante.</p>
-            <ul class="module__formats" aria-label="Formatos aceptados">
-                <li><span class="icon" aria-hidden="true">photo_camera</span>Foto</li>
-                <li><span class="icon" aria-hidden="true">picture_as_pdf</span>PDF</li>
-                <li><span class="icon" aria-hidden="true">description</span>Word</li>
-                <li><span class="icon" aria-hidden="true">edit_note</span>Texto</li>
-            </ul>
-            <a class="button button--secondary button--block module__action" href="{% url 'adapt' %}">Cargar nueva tarea<span class="icon" aria-hidden="true">arrow_forward</span></a>
-        </article>
-        <article class="card module">
-            <span class="module__icon"><span class="icon" aria-hidden="true">school</span></span>
-            <h3>Adaptador de clases completas</h3>
-            <p>Sube tu planificación semanal y las páginas del libro; la IA prepara la adaptación curricular, la guía del docente sombra y la ficha de cada estudiante.</p>
-            <ul class="module__formats" aria-label="Formatos aceptados">
-                <li><span class="icon" aria-hidden="true">table_view</span>Excel</li>
-                <li><span class="icon" aria-hidden="true">description</span>Word</li>
-                <li><span class="icon" aria-hidden="true">picture_as_pdf</span>PDF</li>
-                <li><span class="icon" aria-hidden="true">photo_camera</span>Foto del libro</li>
-            </ul>
-            <a class="button button--secondary button--block module__action" href="{% url 'lesson_upload' %}">Adaptar una clase<span class="icon" aria-hidden="true">arrow_forward</span></a>
-        </article>
-        <article class="card module">
-            <span class="module__icon"><span class="icon" aria-hidden="true">folder_special</span></span>
-            <h3>Banco de adaptaciones</h3>
-            <p>Consulta, descarga y evalúa las guías ya generadas, y regenera una versión más simple cuando haga falta.</p>
-            <p class="module__detail"><span class="icon" aria-hidden="true">print</span><strong>{{ approved_count }} guía{{ approved_count|pluralize }}</strong> lista{{ approved_count|pluralize }} para imprimir en PDF</p>
-            <a class="button button--secondary button--block module__action" href="{% url 'bank' %}">Ver el banco<span class="icon" aria-hidden="true">arrow_forward</span></a>
-        </article>
+{# ---------- The group: every student's line in one chart ---------- #}
+<section class="card group-overview" aria-labelledby="group-title">
+    <div class="group-overview__header">
+        <div>
+            <p class="eyebrow">Seguimiento</p>
+            <h2 class="section-title" id="group-title">Avance del grupo{% if group.subject_name %} · {{ group.subject_name }}{% endif %}</h2>
+            <p class="group-overview__intro">Logro del objetivo adaptado de cada estudiante, clase por clase{% if group.general_note %}, en todas las asignaturas{% endif %}.</p>
+        </div>
+        <a class="button button--primary" href="{% url 'group_progress' %}"><span class="icon" aria-hidden="true">monitoring</span>Ver historial completo del grupo</a>
     </div>
+    {% with chart=group.charts.0 %}
+    {% if chart and chart.has_points %}
+        {% include "includes/group_chart.html" with chart=chart %}
+        <ul class="group-legend" aria-label="Estudiantes">
+            {% for row in group.students %}{% if row.count %}
+                <li style="--line: {{ row.color }}"><span class="group-legend__swatch" aria-hidden="true"></span><span class="group-legend__name">{{ row.student.name }}</span>
+                    <span class="trend-pill trend-pill--{{ row.goal.trend|default:'none' }}" title="{{ row.goal.text }}">{{ row.goal.label }}</span></li>
+            {% endif %}{% endfor %}
+        </ul>
+        <p class="group-note">{{ group.not_a_ranking }}</p>
+    {% else %}
+        <p class="group-overview__empty"><span class="icon" aria-hidden="true">timeline</span>El gráfico aparece cuando finalices las evaluaciones de las clases de tus estudiantes.</p>
+    {% endif %}
+    {% endwith %}
 </section>
 
 {# ---------- Recent activity ---------- #}

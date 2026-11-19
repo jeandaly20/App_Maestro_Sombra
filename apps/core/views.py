@@ -3,6 +3,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.utils import timezone
 from django.views.generic import TemplateView
 
+from apps.adaptations.group_progress import group_progress
 from apps.adaptations.models import AdaptationStatus, CurricularAdaptation
 from apps.core.choices import RecordStatus
 from apps.evaluations.models import COMPREHENSION_SCORE, Evaluation, EvaluationStatus
@@ -31,7 +32,7 @@ def is_pending(adaptation):
 
 
 class HomeView(LoginRequiredMixin, TemplateView):
-    """Main dashboard: the teacher's numbers, the three modules and the latest adaptations."""
+    """Main dashboard: the teacher's numbers, the group's progress and the latest adaptations."""
     template_name = 'core/home.html'
 
     def get_context_data(self, **kwargs):
@@ -71,5 +72,19 @@ class HomeView(LoginRequiredMixin, TemplateView):
             'pending_count': len(pending),
             'show_pending': show_pending,
             'recent': (pending if show_pending else adaptations)[:RECENT_ROWS],
+            'group': group_progress(teacher),
         })
+        return context
+
+
+class GroupProgressView(LoginRequiredMixin, TemplateView):
+    """
+    "Historial del grupo": how the teacher's students have done, side by side, class by class, one subject at a
+    time. Only the teacher's own students; computed here and never sent to the AI.
+    """
+    template_name = 'core/group_progress.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['group'] = group_progress(self.request.user, self.request.GET.get('materia', ''))
         return context

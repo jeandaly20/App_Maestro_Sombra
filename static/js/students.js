@@ -3,6 +3,24 @@
 'use strict';
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Long observations in the directory: the first lines, and "Ver más" only when there is more to read
+    document.querySelectorAll('[data-notes-toggle]').forEach((button) => {
+        const notes = document.getElementById(button.getAttribute('aria-controls'));
+        if (!notes) return;
+        const check = () => {
+            if (button.getAttribute('aria-expanded') === 'true') return;
+            button.hidden = notes.scrollHeight <= notes.clientHeight + 1;
+        };
+        button.addEventListener('click', () => {
+            const open = button.getAttribute('aria-expanded') !== 'true';
+            notes.classList.toggle('student-card__notes--clamped', !open);
+            button.setAttribute('aria-expanded', String(open));
+            button.textContent = open ? 'Ver menos' : 'Ver más';
+        });
+        check();
+        window.addEventListener('resize', check);
+    });
+
     // Shows the age as soon as the birth date is chosen
     document.querySelectorAll('[data-age-for]').forEach((hint) => {
         const input = document.getElementById(hint.dataset.ageFor);

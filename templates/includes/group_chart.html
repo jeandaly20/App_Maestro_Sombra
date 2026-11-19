@@ -1,0 +1,25 @@
+{% comment %}
+One indicator of the group's history: a line per student over the shared classes (group_progress.chart).
+Usage: {% include "includes/group_chart.html" with chart=chart %}
+{% endcomment %}{% load l10n %}{% localize off %}
+<svg class="group-chart" viewBox="0 0 {{ chart.width }} {{ chart.height }}" role="img"
+     aria-label="{{ chart.title }} por clase: {% for line in chart.lines %}{{ line.student.name }}: {% for p in line.points %}{{ p.label }}{% if not forloop.last %}, {% endif %}{% empty %}sin datos{% endfor %}{% if not forloop.last %}; {% endif %}{% endfor %}">
+    {% for band in chart.bands %}
+        <rect x="{{ chart.left }}" y="{{ band.y }}" width="{{ chart.plot_width }}" height="{{ band.h }}" class="group-chart__band group-chart__band--{{ band.tone }}"/>
+    {% endfor %}
+    {% for level in chart.levels %}
+        <line x1="{{ chart.left }}" x2="{{ chart.right }}" y1="{{ level.y }}" y2="{{ level.y }}" class="group-chart__grid{% if level.zero %} group-chart__grid--zero{% endif %}"/>
+        <text x="{{ chart.label_x }}" y="{{ level.y }}" class="group-chart__level{% if level.zero %} group-chart__level--zero{% endif %}" text-anchor="end" dominant-baseline="middle">{{ level.label }}</text>
+    {% endfor %}
+    {% for column in chart.columns %}
+        <text x="{{ column.x }}" y="{{ chart.name_y }}" class="group-chart__column" text-anchor="middle">{{ column.label }}</text>
+    {% endfor %}
+    {% for line in chart.lines %}
+        <g class="group-chart__student" style="--line: {{ line.color }}">
+            {% if line.points|length > 1 %}<polyline points="{{ line.polyline }}" class="group-chart__line" pathLength="1"/>{% endif %}
+            {% for p in line.points %}
+                <circle cx="{{ p.x }}" cy="{{ p.y }}" r="6" class="group-chart__dot"><title>{{ line.student.name }} · {{ p.entry.subject_name }} · {{ p.entry.topic }} · {{ p.entry.date|date:"j M Y" }}: {{ p.label }}</title></circle>
+            {% endfor %}
+        </g>
+    {% endfor %}
+</svg>{% endlocalize %}

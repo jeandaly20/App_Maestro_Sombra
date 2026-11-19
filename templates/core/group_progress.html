@@ -1,0 +1,93 @@
+{% extends "app_base.html" %}
+
+{% block title %}Historial del grupo{% endblock %}
+{% block styles %}{{ block.super }}<link rel="stylesheet" href="{% asset 'css/students.css' %}"><link rel="stylesheet" href="{% asset 'css/charts.css' %}">{% endblock %}
+
+{% block back_url %}{% url 'home' %}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <p class="badge-line"><span class="icon" aria-hidden="true">lock</span>Uso exclusivo del docente · no se envía a la IA</p>
+        <h1>Historial del grupo</h1>
+        <p class="page-header__intro">Cómo han avanzado tus estudiantes clase por clase: en general, con todas las asignaturas, o en una sola. Para el detalle de cada uno, abre su historial individual.</p>
+    </div>
+</div>
+
+{% if group.subjects %}
+<nav class="progress-filters" aria-label="Asignatura">
+    <a class="filter-chip" href="?" aria-pressed="{% if group.general %}true{% else %}false{% endif %}">Todas las asignaturas</a>
+    {% for code, name in group.subjects %}
+        <a class="filter-chip" href="?materia={{ code }}" aria-pressed="{% if group.subject_code == code %}true{% else %}false{% endif %}">{{ name }}</a>
+    {% endfor %}
+</nav>
+{% endif %}
+
+<section class="progress-summary" aria-label="Resumen">
+    <div class="card progress-stat"><p class="progress-stat__value">{{ group.evaluated }}<span class="progress-stat__of"> de {{ group.students|length }}</span></p><p class="progress-stat__label">estudiantes con clases evaluadas</p></div>
+    <div class="card progress-stat"><p class="progress-stat__value">{{ group.class_count }}</p><p class="progress-stat__label">clase{{ group.class_count|pluralize }} {% if group.general %}evaluada{{ group.class_count|pluralize }} en total{% else %}de {{ group.subject_name }}{% endif %}</p></div>
+    <div class="card progress-stat"><p class="progress-stat__value">{{ group.total }}</p><p class="progress-stat__label">evaluaci{{ group.total|pluralize:"ón,ones" }} finalizada{{ group.total|pluralize }}</p></div>
+</section>
+
+{% if not group.charts %}
+<section class="card progress-empty">
+    <span class="icon" aria-hidden="true">monitoring</span>
+    <h2>Todavía no hay clases evaluadas</h2>
+    <p>El historial del grupo se forma con las evaluaciones que finalizas después de usar cada guía en clase.</p>
+    <a class="button button--primary" href="{% url 'bank' %}">Ir al Banco de adaptaciones</a>
+</section>
+{% else %}
+
+{% if group.general_note %}<div class="alert alert--info" role="status"><span class="icon" aria-hidden="true">info</span><p>{{ group.general_note }}</p></div>{% endif %}
+{% for chart in group.charts %}
+<section class="card progress-section" aria-labelledby="chart-{{ chart.indicator }}">
+    <h2 id="chart-{{ chart.indicator }}"><span class="icon" aria-hidden="true">{% if forloop.first %}show_chart{% else %}support{% endif %}</span>{{ chart.title }}</h2>
+    <p class="progress-note">{% if forloop.first %}Escala de −2 a +2 frente al objetivo adaptado de cada estudiante. Verde: por encima de lo esperado; azul: lo esperado; naranja: por debajo.{% else %}De apoyo constante a sin apoyo: cuanto más arriba, más autonomía en la clase.{% endif %} Pasa el cursor por una línea para resaltarla.</p>
+    {% if chart.has_points %}
+        {% include "includes/group_chart.html" with chart=chart %}
+        <ul class="group-legend" aria-label="Estudiantes">
+            {% for line in chart.lines %}{% if line.points %}
+                <li style="--line: {{ line.color }}"><span class="group-legend__swatch" aria-hidden="true"></span><span class="group-legend__name">{{ line.student.name }}</span></li>
+            {% endif %}{% endfor %}
+        </ul>
+    {% else %}
+        <p class="progress-note">Ninguna evaluación de esta asignatura registró este dato.</p>
+    {% endif %}
+</section>
+{% endfor %}
+
+<section class="card progress-section" aria-labelledby="students-title">
+    <h2 id="students-title"><span class="icon" aria-hidden="true">groups</span>Resumen por estudiante</h2>
+    <div class="table-scroll">
+        <table class="group-table">
+            <thead>
+                <tr>
+                    <th scope="col">Estudiante</th>
+                    <th scope="col">Clases</th>
+                    <th scope="col">Logro del objetivo</th>
+                    <th scope="col">Apoyo en clase</th>
+                    <th scope="col">Último resultado</th>
+                    <th scope="col">Apoyo más útil</th>
+                    <th scope="col"><span class="sr-only">Acciones</span></th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for row in group.students %}
+                <tr>
+                    <th scope="row"><span class="group-table__name" style="--line: {{ row.color }}"><span class="group-legend__swatch" aria-hidden="true"></span>{{ row.student.name }}</span><span class="group-table__sub">{{ row.student.get_grade_display }} · {{ row.student.condition_labels|join:", " }}</span></th>
+                    <td>{{ row.count }}</td>
+                    <td>{% if row.count %}<span class="trend-pill trend-pill--{{ row.goal.trend|default:'none' }}" title="{{ row.goal.text }}">{{ row.goal.label }}</span>{% else %}—{% endif %}</td>
+                    <td>{% if row.count %}<span class="trend-pill trend-pill--{{ row.support.trend|default:'none' }}" title="{{ row.support.text }}">{{ row.support.label }}</span>{% else %}—{% endif %}</td>
+                    <td>{{ row.last_goal|default:"—" }}{% if row.last_support %}<span class="group-table__sub">{{ row.last_support }}</span>{% endif %}</td>
+                    <td>{{ row.useful_support|default:"—" }}</td>
+                    <td><a class="button button--secondary" href="{% url 'student_progress' row.student.pk %}{% if not group.general %}?materia={{ group.subject_code }}{% endif %}"><span class="icon" aria-hidden="true">timeline</span>Historial</a></td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <p class="progress-note">La tendencia se describe con al menos {{ group.min_for_trend }} clases evaluadas{% if not group.general %} de la asignatura{% endif %}. {{ group.observed_note }}</p>
+</section>
+
+<p class="group-note">{{ group.not_a_ranking }} {{ group.local_only }}</p>
+{% endif %}
+{% endblock %}

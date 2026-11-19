@@ -73,21 +73,49 @@
     <p class="progress-note">Cada punto es una evaluación real, en orden de registro. Las evaluaciones sin este dato no se dibujan ni se completan. Un gráfico por asignatura.</p>
     {% for item in by_subject %}
         <figure class="progress-chart">
-            <figcaption><strong>{{ item.name }}</strong> · {{ item.count }} actividad{{ item.count|pluralize:"es" }}</figcaption>
+            <figcaption class="progress-chart__caption">
+                <span><strong>{{ item.name }}</strong> · {{ item.count }} actividad{{ item.count|pluralize:"es" }}</span>
+                {% if item.chart.points %}
+                <span class="progress-chart__stats">
+                    <span class="trend-chip trend-chip--{{ item.chart.trend|default:'none' }}" title="{{ item.chart.trend_text }}"><span class="icon" aria-hidden="true">{% if item.chart.trend == 'up' %}trending_up{% elif item.chart.trend == 'down' %}trending_down{% elif item.chart.trend == 'stable' %}trending_flat{% elif item.chart.trend == 'variable' %}timeline{% else %}hourglass_empty{% endif %}</span>{{ item.chart.trend_label }}</span>
+                    <span class="trend-chip trend-chip--last"><span class="icon" aria-hidden="true">flag</span>Último: {{ item.chart.last.label }}</span>
+                </span>
+                {% endif %}
+            </figcaption>
             {% if item.chart.points %}{% localize off %}
-            <svg viewBox="0 0 {{ item.chart.width }} {{ item.chart.height }}" role="img" aria-label="Logro del objetivo en {{ item.name }}: {% for p in item.chart.points %}{{ p.entry.date|date:'j M' }} {{ p.label }}{% if not forloop.last %}; {% endif %}{% endfor %}">
-                {% for level in item.chart.levels %}
-                    <line x1="{{ item.chart.left }}" x2="{{ item.chart.right }}" y1="{{ level.y }}" y2="{{ level.y }}" class="progress-chart__grid"/>
-                    <text x="{{ item.chart.label_x }}" y="{{ level.y }}" class="progress-chart__level" text-anchor="end" dominant-baseline="middle">{{ level.label }}</text>
+            <svg class="progress-chart__svg" viewBox="0 0 {{ item.chart.width }} {{ item.chart.height }}" role="img" aria-label="Logro del objetivo en {{ item.name }}: {% for p in item.chart.points %}{{ p.name }} {{ p.label }}{% if not forloop.last %}; {% endif %}{% endfor %}">
+                <defs>
+                    <linearGradient id="area-{{ item.code }}" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" class="progress-chart__area-top"/>
+                        <stop offset="100%" class="progress-chart__area-bottom"/>
+                    </linearGradient>
+                </defs>
+                {% for band in item.chart.bands %}
+                    <rect x="{{ item.chart.left }}" y="{{ band.y }}" width="{{ item.chart.plot_width }}" height="{{ band.h }}" class="progress-chart__band progress-chart__band--{{ band.tone }}"><title>{{ band.label }}</title></rect>
                 {% endfor %}
+                {% for level in item.chart.levels %}
+                    <line x1="{{ item.chart.left }}" x2="{{ item.chart.right }}" y1="{{ level.y }}" y2="{{ level.y }}" class="progress-chart__grid{% if level.zero %} progress-chart__grid--zero{% endif %}"/>
+                    <text x="{{ item.chart.label_x }}" y="{{ level.y }}" class="progress-chart__level{% if level.zero %} progress-chart__level--zero{% endif %}" text-anchor="end" dominant-baseline="middle">{{ level.label }}</text>
+                {% endfor %}
+                {% if item.chart.area %}
+                    <path d="{{ item.chart.area }}" fill="url(#area-{{ item.code }})" class="progress-chart__area"/>
+                    <polyline points="{{ item.chart.polyline }}" class="progress-chart__line" pathLength="1"/>
+                {% endif %}
                 {% for p in item.chart.points %}
-                    <g class="progress-chart__point">
-                        <circle cx="{{ p.x }}" cy="{{ p.y }}" r="14" class="progress-chart__hit"><title>{{ p.entry.date|date:"j M Y" }} · {{ p.entry.code }} · {{ p.entry.topic }}: {{ p.label }}</title></circle>
-                        <circle cx="{{ p.x }}" cy="{{ p.y }}" r="5" class="progress-chart__dot"/>
+                    <g class="progress-chart__point progress-chart__point--{{ p.tone }}">
+                        <circle cx="{{ p.x }}" cy="{{ p.y }}" r="18" class="progress-chart__hit"><title>{{ p.name }} · {{ p.entry.date|date:"j M Y" }} · {{ p.entry.topic }}: {{ p.label }}</title></circle>
+                        <circle cx="{{ p.x }}" cy="{{ p.y }}" r="7" class="progress-chart__dot"/>
+                        <text x="{{ p.x }}" y="{{ p.label_y }}" class="progress-chart__value" text-anchor="middle">{{ p.value }}</text>
+                        <text x="{{ p.x }}" y="{{ item.chart.name_y }}" class="progress-chart__name" text-anchor="middle">{{ p.name }}</text>
                         <text x="{{ p.x }}" y="{{ item.chart.date_y }}" class="progress-chart__date" text-anchor="middle">{{ p.entry.date|date:"j M" }}</text>
                     </g>
                 {% endfor %}
             </svg>{% endlocalize %}
+            <ul class="progress-chart__legend" aria-label="Zonas del gráfico">
+                <li><span class="progress-chart__swatch progress-chart__swatch--above"></span>Por encima de lo esperado</li>
+                <li><span class="progress-chart__swatch progress-chart__swatch--expected"></span>Lo esperado</li>
+                <li><span class="progress-chart__swatch progress-chart__swatch--below"></span>Por debajo de lo esperado</li>
+            </ul>
             {% else %}
                 <p class="progress-note">Ninguna evaluación de {{ item.name }} registró el logro del objetivo.</p>
             {% endif %}
