@@ -282,3 +282,137 @@
 main [id] {
     scroll-margin-top: 5.5rem;
 }
+
+/* ---------- Teacher panel look: white sidebar with a filled active item, white top bar ---------- */
+
+.sidebar {
+    background: #fff;
+    border-right: 1px solid #e6edf3;
+    box-shadow: 4px 0 24px rgba(15, 52, 80, 0.04);
+}
+
+.sidebar .brand {
+    flex-direction: column;
+    text-align: center;
+    gap: 0.35rem;
+}
+
+.sidebar .brand__mark {
+    height: 64px;
+}
+
+.sidebar .brand__name {
+    font-size: 1.4rem;
+    white-space: normal;
+}
+
+.sidebar .brand__tagline {
+    color: #334155;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.sidebar__link {
+    gap: 0.9rem;
+    min-height: 50px;
+    padding: 0.7rem 1rem;
+    border-radius: 12px;
+    color: #1e293b;
+    font-weight: 600;
+    transition: background-color 0.15s, color 0.15s;
+}
+
+.sidebar__link .icon {
+    color: #334155;
+    font-size: 1.45rem;
+}
+
+.sidebar__link:hover {
+    background: #eef6f5;
+    color: #0f766e;
+}
+
+.sidebar__link:hover .icon {
+    color: #0f766e;
+}
+
+.sidebar__link[aria-current="page"] {
+    background: linear-gradient(90deg, #0f766e, #14917f);
+    color: #fff;
+    box-shadow: 0 8px 18px rgba(15, 118, 110, 0.28);
+}
+
+.sidebar__link[aria-current="page"] .icon {
+    color: #fff;
+}
+
+/* The books on a teal wave at the bottom, behind the sign-out button */
+.sidebar__footer {
+    position: relative;
+    margin: auto calc(-1 * var(--space-lg)) calc(-1 * var(--space-lg));
+    padding: 0 var(--space-lg) var(--space-lg);
+}
+
+.sidebar__footer::before {
+    content: '';
+    position: absolute;
+    inset: 38% 0 0;
+    background: radial-gradient(120% 70% at 30% 0%, transparent 49%, #99e0d5 50%, #5fc4b5 62%, #0f9488 100%);
+    opacity: 0.55;
+}
+
+.sidebar__art {
+    position: relative;
+    display: block;
+    width: 72%;
+    height: auto;
+    margin: 0 0 -0.5rem;
+    border-radius: 0 16px 0 0;
+    -webkit-mask-image: linear-gradient(180deg, transparent, #000 25%);
+    mask-image: linear-gradient(180deg, transparent, #000 25%);
+}
+
+.sidebar__footer form {
+    position: relative;
+}
+
+.sidebar__footer .button {
+    background: #fff;
+    box-shadow: 0 6px 16px rgba(15, 52, 80, 0.12);
+}
+
+.topbar {
+    justify-content: space-between;
+    background: rgba(255, 255, 255, 0.96);
+    border-bottom-color: #e6edf3;
+}
+
+.topbar__title {
+    margin: 0;
+    color: #0f172a;
+    font-family: var(--font-heading);
+    font-size: 1.15rem;
+    font-weight: 600;
+}
+
+.user__initials {
+    width: 46px;
+    height: 46px;
+    background: linear-gradient(135deg, #0f766e, #14b8a6);
+    color: #fff;
+}
+
+.content {
+    background: linear-gradient(180deg, #f6f9fc, #f1f6fa);
+    min-height: calc(100vh - 70px);
+}
+
+@media (max-width: 960px) {
+    .topbar__title {
+        display: none;
+    }
+
+    .sidebar__art {
+        display: none;
+    }
+}

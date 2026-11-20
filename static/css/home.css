@@ -253,3 +253,160 @@
         font-size: 1.75rem;
     }
 }
+
+/* ---------- Teacher panel look (same content) ---------- */
+
+/* Welcome: a teal banner with the desk on the right */
+.hero {
+    position: relative;
+    min-height: 210px;
+    padding: var(--space-xl) clamp(var(--space-lg), 3vw, 2.75rem);
+    border-radius: 22px;
+    overflow: hidden;
+    background: linear-gradient(100deg, #0b4f4a 0%, #0f766e 42%, #12907f 62%, rgba(18, 144, 127, 0) 80%),
+                var(--hero-art) right center / auto 100% no-repeat,
+                #12907f;
+    box-shadow: 0 18px 40px rgba(11, 79, 74, 0.25);
+}
+
+.hero__body {
+    position: relative;
+    max-width: min(640px, 62%);
+}
+
+.hero .badge-line {
+    background: rgba(255, 255, 255, 0.16);
+    color: #fff;
+}
+
+.hero h1 {
+    color: #fff;
+    font-size: clamp(1.9rem, 3vw, 2.4rem);
+}
+
+.hero__name {
+    color: #7ee8d4;
+}
+
+.hero__text {
+    color: rgba(255, 255, 255, 0.92);
+}
+
+.hero__text strong {
+    color: #fff;
+}
+
+.hero__action {
+    margin-top: var(--space-md);
+    background: #fff;
+    color: #0f766e;
+    box-shadow: 0 8px 18px rgba(4, 52, 44, 0.25);
+}
+
+.hero__action:hover {
+    background: #ecfdf8;
+    color: #0b4f4a;
+}
+
+/* Metrics: tinted cards with a colored bar, the icon in a circle beside the number */
+.metric {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: var(--space-md);
+    align-content: start;
+    padding: var(--space-lg) var(--space-lg) var(--space-lg) calc(var(--space-lg) + 4px);
+    border: 1px solid transparent;
+    border-radius: 18px;
+    background: var(--tint);
+    box-shadow: 0 10px 24px rgba(15, 52, 80, 0.06);
+}
+
+.metric::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 18px;
+    bottom: 18px;
+    width: 4px;
+    border-radius: 0 4px 4px 0;
+    background: var(--tone);
+}
+
+.metric__icon {
+    grid-row: 1 / span 4;
+    width: 56px;
+    height: 56px;
+    margin: 0;
+    border-radius: 50%;
+    background: #fff;
+    color: var(--tone);
+    box-shadow: 0 4px 12px rgba(15, 52, 80, 0.08);
+}
+
+.metric__icon .icon {
+    font-size: 1.7rem;
+}
+
+.metric__value,
+.metric__label,
+.metric__note,
+.metric .meter-bar {
+    grid-column: 2;
+}
+
+.metric__label {
+    color: #0f172a;
+}
+
+.metric__note {
+    color: #475569;
+}
+
+.metric .meter-bar {
+    background: rgba(255, 255, 255, 0.8);
+}
+
+.metric .meter-bar span {
+    background: var(--tone);
+}
+
+.metric--students { --tone: #10b981; --tint: #e8f8f1; }
+.metric--adaptations { --tone: #3b82f6; --tint: #e9f2fe; }
+.metric--time { --tone: #f59e0b; --tint: #fff4e0; }
+.metric--comprehension { --tone: #8b5cf6; --tint: #f1ecfe; }
+
+/* The sections: white cards with soft shadows */
+.group-overview,
+.activity {
+    border: 1px solid #e6edf3;
+    border-radius: 20px;
+    box-shadow: 0 12px 28px rgba(15, 52, 80, 0.06);
+}
+
+.activity__header h2 .icon,
+.group-overview .eyebrow {
+    color: #0f766e;
+}
+
+.activity__table th {
+    background: #f1f6fa;
+    color: #334155;
+    letter-spacing: 0.02em;
+    text-transform: none;
+    font-size: 0.85rem;
+}
+
+.activity__table tbody tr:hover {
+    background: #f8fbfd;
+}
+
+@media (max-width: 760px) {
+    .hero {
+        background: linear-gradient(100deg, #0b4f4a, #0f766e 60%, #12907f);
+    }
+
+    .hero__body {
+        max-width: none;
+    }
+}

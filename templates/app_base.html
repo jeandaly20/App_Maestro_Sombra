@@ -32,6 +32,7 @@
         {% endwith %}
 
         <div class="sidebar__footer">
+            <img class="sidebar__art" src="{% static 'img/panel-libros.webp' %}" alt="" width="300" height="301">
             <form method="post" action="{% url 'logout' %}">
                 {% csrf_token %}
                 <button type="submit" class="button button--secondary button--block">
@@ -47,10 +48,11 @@
                     aria-controls="sidebar" aria-expanded="false">
                 <span class="icon" aria-hidden="true">menu</span>Menú
             </button>
+            <p class="topbar__title">{% block topbar_title %}Panel del docente{% endblock %}</p>
             <div class="user">
                 <div class="user__text">
                     <p class="user__name">{{ user.full_name }}</p>
-                    <p class="user__role">{{ user.get_specialty_display|default:"Docente" }}</p>
+                    <p class="user__role">Docente{% if user.get_specialty_display %} / {{ user.get_specialty_display }}{% endif %}</p>
                 </div>
                 <span class="user__initials" aria-hidden="true">{{ user.initials }}</span>
             </div>

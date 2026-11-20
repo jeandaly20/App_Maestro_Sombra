@@ -7,10 +7,10 @@
 {% block back %}{% endblock %}
 {% block content %}
 {# ---------- Welcome ---------- #}
-<section class="hero" aria-labelledby="hero-title">
-    <div>
+<section class="hero" aria-labelledby="hero-title" style="--hero-art: url('{% static 'img/panel-escritorio.webp' %}')">
+    <div class="hero__body">
         <p class="badge-line"><span class="icon" aria-hidden="true">school</span>Enfoque DUA integrado</p>
-        <h1 id="hero-title">¡{{ greeting }}, {{ user.get_short_name }}!</h1>
+        <h1 id="hero-title">¡{{ greeting }}, <span class="hero__name">{{ user.get_short_name }}</span>!</h1>
         <p class="hero__text">
             {% if student_count %}
                 Tienes <strong>{{ student_count }} estudiante{{ student_count|pluralize }} registrado{{ student_count|pluralize }}</strong>
@@ -20,33 +20,33 @@
                 Empieza registrando a tus estudiantes con NEE; después podrás adaptar sus guías con apoyo de la IA.
             {% endif %}
         </p>
+        <a class="button button--large hero__action" href="{% if student_count %}{% url 'adapt' %}{% else %}{% url 'student_create' %}{% endif %}">
+            <span class="icon" aria-hidden="true">add_circle</span>{% if student_count %}Nueva adaptación{% else %}Registrar estudiante{% endif %}</a>
     </div>
-    <a class="button button--primary button--large" href="{% if student_count %}{% url 'adapt' %}{% else %}{% url 'student_create' %}{% endif %}">
-        <span class="icon" aria-hidden="true">add_circle</span>{% if student_count %}Nueva adaptación{% else %}Registrar estudiante{% endif %}</a>
 </section>
 
 {# ---------- Metrics ---------- #}
 <section class="metrics" aria-label="Resumen de tu trabajo">
-    <article class="card metric">
+    <article class="card metric metric--students">
         <span class="metric__icon metric__icon--primary"><span class="icon" aria-hidden="true">groups</span></span>
         <p class="metric__value">{{ student_count }} / {{ max_students }}</p>
         <h2 class="metric__label">Estudiantes registrados</h2>
         <p class="metric__note">{% if student_count >= max_students %}Cupo completo{% else %}Puedes registrar hasta {{ max_students }}{% endif %}.</p>
         <div class="meter-bar" role="img" aria-label="{{ student_percent }} % del cupo"><span style="width: {{ student_percent }}%"></span></div>
     </article>
-    <article class="card metric">
+    <article class="card metric metric--adaptations">
         <span class="metric__icon metric__icon--secondary"><span class="icon" aria-hidden="true">menu_book</span></span>
         <p class="metric__value">{{ adaptation_count }} <small>guía{{ adaptation_count|pluralize }}</small></p>
         <h2 class="metric__label">Adaptaciones realizadas</h2>
         <p class="metric__note">{{ approved_count }} aprobada{{ approved_count|pluralize }} · {{ in_review_count }} en revisión.</p>
     </article>
-    <article class="card metric">
+    <article class="card metric metric--time">
         <span class="metric__icon metric__icon--tertiary"><span class="icon" aria-hidden="true">hourglass_bottom</span></span>
         <p class="metric__value">~{{ saved_hours }} <small>h</small></p>
         <h2 class="metric__label">Tiempo ahorrado (estimado)</h2>
         <p class="metric__note">{% if average_seconds is not None %}La IA tarda {{ average_seconds }} s por guía frente a {{ manual_minutes }} min de adaptación manual.{% else %}Se calcula cuando adaptes tu primera guía.{% endif %}</p>
     </article>
-    <article class="card metric">
+    <article class="card metric metric--comprehension">
         <span class="metric__icon metric__icon--success"><span class="icon" aria-hidden="true">psychology</span></span>
         <p class="metric__value">{% if comprehension is not None %}{{ comprehension }} <small>%</small>{% else %}—{% endif %}</p>
         <h2 class="metric__label">Comprensión promedio</h2>
