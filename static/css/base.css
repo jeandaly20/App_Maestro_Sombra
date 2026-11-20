@@ -505,3 +505,20 @@ select.field__control {
 .draft-notice { align-items: center; flex-wrap: wrap; }
 .draft-notice p { flex: 1 1 260px; margin: 0; }
 .draft-notice .button { margin-left: auto; }
+
+/* The logo's mark (hand, book and child); the name and tagline beside it are text */
+.brand__mark {
+    flex-shrink: 0;
+    width: auto;
+    height: 52px;
+}
+
+/* In the narrow sidebar the mark is smaller, so the name stays on one line */
+.sidebar .brand__mark {
+    height: 40px;
+}
+
+.sidebar .brand__name {
+    font-size: 1.15rem;
+    white-space: nowrap;
+}
