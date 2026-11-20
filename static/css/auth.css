@@ -259,17 +259,6 @@
     font-weight: 600;
 }
 
-.auth-footer {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: var(--space-sm);
-    max-width: 1280px;
-    margin: 0 auto;
-    padding: var(--space-md) var(--space-lg) var(--space-xl);
-    color: var(--color-text-muted);
-    font-size: 0.875rem;
-}
 
 /* Centered card (password reset, terms) */
 .auth-simple {
@@ -302,5 +291,536 @@
     .auth__main,
     .auth--joined .auth__aside {
         padding: var(--space-lg);
+    }
+}
+
+/* ---------- Sign in: illustrated classroom with a soft breeze ---------- */
+
+.auth-scene {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.25) 55%, rgba(255, 255, 255, 0.55) 100%),
+                var(--scene) left center / cover no-repeat;
+}
+
+.auth--scene {
+    align-items: start;  /* the form card ends with its content: the classroom shows below it */
+}
+
+.auth--scene .auth__main {
+    /* Glass: the classroom shows through, blurred behind the text so it stays easy to read */
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(3px) saturate(1.15);
+    border-color: rgba(255, 255, 255, 0.7);
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+}
+
+.auth--scene .info-panel {
+    background: rgba(255, 255, 255, 0.62);
+    backdrop-filter: blur(3px) saturate(1.15);
+    border-color: rgba(255, 255, 255, 0.7);
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.1);
+}
+
+
+
+/* Wind: three gusts drawing themselves and leaves crossing the page */
+.wind__gusts {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.wind__gust {
+    fill: none;
+    stroke: rgba(13, 148, 136, 0.28);
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-dasharray: 260 1400;
+    stroke-dashoffset: 1660;
+    animation: gust 9s linear infinite;
+}
+
+.wind__gust--2 { animation-delay: -3s; animation-duration: 11s; stroke-width: 2; }
+.wind__gust--3 { animation-delay: -6s; animation-duration: 13s; stroke-width: 1.6; }
+
+@keyframes gust {
+    to { stroke-dashoffset: 0; }
+}
+
+.wind__leaf {
+    position: absolute;
+    left: -6vw;
+    top: var(--top, 30%);
+    width: var(--size, 22px);
+    height: var(--size, 22px);
+    color: var(--color, #7cc39a);
+    opacity: 0.85;
+    animation: drift var(--time, 16s) linear var(--delay, 0s) infinite;
+}
+
+.wind__leaf svg {
+    width: 100%;
+    height: 100%;
+    animation: spin var(--spin, 3s) ease-in-out infinite alternate;
+}
+
+.wind__leaf--1 { --top: 18%; --time: 17s; --delay: -2s; --size: 22px; --color: #86c99f; }
+.wind__leaf--2 { --top: 32%; --time: 21s; --delay: -9s; --size: 16px; --color: #f2a99b; --spin: 2.4s; }
+.wind__leaf--3 { --top: 46%; --time: 15s; --delay: -5s; --size: 26px; --color: #9fd3c7; }
+.wind__leaf--4 { --top: 60%; --time: 19s; --delay: -13s; --size: 18px; --color: #c9b6ec; --spin: 3.6s; }
+.wind__leaf--5 { --top: 26%; --time: 23s; --delay: -16s; --size: 14px; --color: #f6c66b; }
+.wind__leaf--6 { --top: 72%; --time: 18s; --delay: -7s; --size: 20px; --color: #86c99f; --spin: 2.8s; }
+.wind__leaf--7 { --top: 12%; --time: 25s; --delay: -20s; --size: 18px; --color: #9fd3c7; }
+.wind__leaf--8 { --top: 52%; --time: 20s; --delay: -11s; --size: 15px; --color: #f2a99b; --spin: 2.2s; }
+.wind__leaf--9 { --top: 84%; --time: 22s; --delay: -4s; --size: 24px; --color: #b9d98a; }
+
+@keyframes drift {
+    0% { transform: translate(0, 0); }
+    25% { transform: translate(28vw, -4vh); }
+    50% { transform: translate(55vw, 3vh); }
+    75% { transform: translate(82vw, -3vh); }
+    100% { transform: translate(112vw, 2vh); }
+}
+
+@keyframes spin {
+    from { transform: rotate(-35deg); }
+    to { transform: rotate(40deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .wind__leaf,
+    .wind__leaf svg,
+    .wind__gust {
+        animation: none;
+    }
+
+    .wind__leaf { display: none; }
+}
+
+/* The featured card: text on the left, the illustration of the book and the blocks on the right */
+.info-panel--featured {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+    align-items: center;
+    gap: var(--space-md);
+    overflow: hidden;
+    background: radial-gradient(circle at 85% 20%, rgba(255, 255, 255, 0.22), transparent 45%),
+                linear-gradient(135deg, #0f766e 0%, #0d9488 55%, #14b8a6 100%) !important;
+    box-shadow: 0 16px 34px rgba(13, 148, 136, 0.35) !important;
+}
+
+.info-panel--featured .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin: 0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.info-panel--featured .chip .icon {
+    font-size: 1rem;
+}
+
+.info-panel--featured h2 {
+    font-size: 1.35rem;
+    line-height: 1.25;
+}
+
+.info-panel--featured .info-panel__quote {
+    font-size: 0.975rem;
+    line-height: 1.55;
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.info-panel__art {
+    width: 100%;
+    height: auto;
+    padding: 0.5rem;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.92);
+    transform: rotate(2deg);
+    box-shadow: 0 10px 24px rgba(4, 52, 44, 0.25);
+}
+
+/* The groups: each one in its own color, with its illustration */
+.group-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 76px;
+    align-items: center;
+    gap: var(--space-sm);
+    border: 1px solid transparent;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.group-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+}
+
+.group-card img {
+    width: 76px;
+    height: 76px;
+    object-fit: contain;
+}
+
+.group-list .group-card--dea { background: #e0f2fe; border-color: #bae6fd; }
+.group-list .group-card--neuro { background: #ffedd5; border-color: #fed7aa; }
+.group-list .group-card--id { background: #f3e8ff; border-color: #e9d5ff; }
+
+.group-card p {
+    color: #334155;
+}
+
+@media (max-width: 960px) {
+    .info-panel--featured {
+        grid-template-columns: 1fr;
+    }
+
+    .info-panel__art {
+        max-width: 260px;
+        justify-self: center;
+    }
+}
+
+/* On the glass card, the title and the texts get a soft white halo so the drawings behind never hide them */
+.auth--scene .auth__title,
+.auth--scene .auth__intro,
+.auth--scene .field__label,
+.auth--scene .checkbox span,
+.auth--scene .auth__form-footer {
+    text-shadow: 0 0 6px rgba(255, 255, 255, 0.95), 0 0 2px rgba(255, 255, 255, 0.95);
+}
+
+.auth--scene .field__control {
+    background: rgba(255, 255, 255, 0.92);
+}
+
+/* ---------- Register: the same glass and breeze, with the benefits as illustrated cards ---------- */
+
+.auth--register .auth__title {
+    margin-top: var(--space-md);
+}
+
+.auth--register .meter {
+    background: rgba(255, 255, 255, 0.7);
+}
+
+.feature-panel__title {
+    margin: var(--space-xs) 0 var(--space-md);
+    font-size: 1.5rem;
+}
+
+.feature-list {
+    display: grid;
+    gap: var(--space-md);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.feature-card {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 120px;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-md) var(--space-md) var(--space-md) var(--space-lg);
+    border: 1px solid transparent;
+    border-radius: 18px;
+    overflow: hidden;
+    transition: transform 0.18s, box-shadow 0.18s;
+}
+
+.feature-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.1);
+}
+
+/* A soft circle behind each drawing */
+.feature-card::after {
+    content: '';
+    position: absolute;
+    right: -24px;
+    top: 50%;
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.45);
+    transform: translateY(-50%);
+}
+
+.feature-card img {
+    position: relative;
+    z-index: 1;
+    width: 120px;
+    height: 104px;
+    object-fit: contain;
+}
+
+.feature-card h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0 0 var(--space-xs);
+    font-size: 1.05rem;
+}
+
+.feature-card h3 .icon {
+    font-size: 1.15rem;
+}
+
+.feature-card p {
+    margin: 0;
+    color: #334155;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.feature-card--dua { background: linear-gradient(135deg, #d1fae5, #ecfdf5); border-color: #a7f3d0; }
+.feature-card--dua h3 { color: #047857; }
+.feature-card--fichas { background: linear-gradient(135deg, #dbeafe, #eff6ff); border-color: #bfdbfe; }
+.feature-card--fichas h3 { color: #1d4ed8; }
+.feature-card--materiales { background: linear-gradient(135deg, #ffedd5, #fff7ed); border-color: #fed7aa; }
+.feature-card--materiales h3 { color: #c2410c; }
+
+.trust-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    margin: var(--space-md) 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.trust-list li {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.8rem;
+    border-radius: var(--radius-pill);
+    background: rgba(0, 104, 95, 0.1);
+    color: var(--color-primary);
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+.trust-list .icon {
+    font-size: 1rem;
+}
+
+@media (max-width: 560px) {
+    .feature-card {
+        grid-template-columns: minmax(0, 1fr) 84px;
+        padding-left: var(--space-md);
+    }
+
+    .feature-card img {
+        width: 84px;
+        height: 80px;
+    }
+}
+
+/* ---------- Terms: a living security background and a wide glass card ---------- */
+
+.terms-scene {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    background: #eef3f6;
+}
+
+/* The illustration drifts and zooms very slowly */
+.terms-scene__image {
+    position: absolute;
+    inset: -6%;
+    background: var(--scene) center / cover no-repeat;
+    animation: terms-drift 40s ease-in-out infinite alternate;
+}
+
+@keyframes terms-drift {
+    from { transform: scale(1) translate(0, 0); }
+    to { transform: scale(1.08) translate(-2%, -1.5%); }
+}
+
+/* A soft teal light crosses the background from time to time */
+.terms-scene__sweep {
+    position: absolute;
+    inset: -50% auto -50% -40%;
+    width: 35%;
+    background: linear-gradient(90deg, transparent, rgba(20, 184, 166, 0.16), rgba(255, 255, 255, 0.35), transparent);
+    transform: rotate(18deg);
+    animation: terms-sweep 9s ease-in-out infinite;
+}
+
+@keyframes terms-sweep {
+    0% { left: -40%; }
+    60%, 100% { left: 130%; }
+}
+
+/* Locks and shields rising and fading */
+.terms-scene__float {
+    position: absolute;
+    bottom: -40px;
+    left: var(--x);
+    color: var(--tone, #0d9488);
+    opacity: 0;
+    animation: terms-rise var(--time, 14s) ease-in var(--delay, 0s) infinite;
+}
+
+.terms-scene__float .icon {
+    font-size: var(--size, 22px);
+    filter: drop-shadow(0 0 6px rgba(20, 184, 166, 0.45));
+}
+
+@keyframes terms-rise {
+    0% { transform: translateY(0) scale(0.8); opacity: 0; }
+    15% { opacity: 0.55; }
+    80% { opacity: 0.35; }
+    100% { transform: translateY(-105vh) scale(1.1); opacity: 0; }
+}
+
+.terms-scene__float--1 { --x: 6%; --time: 16s; --delay: -3s; --size: 22px; }
+.terms-scene__float--2 { --x: 15%; --time: 20s; --delay: -11s; --size: 28px; --tone: #64748b; }
+.terms-scene__float--3 { --x: 27%; --time: 14s; --delay: -6s; --size: 18px; }
+.terms-scene__float--4 { --x: 38%; --time: 22s; --delay: -15s; --size: 20px; --tone: #64748b; }
+.terms-scene__float--5 { --x: 50%; --time: 18s; --delay: -1s; --size: 26px; }
+.terms-scene__float--6 { --x: 61%; --time: 24s; --delay: -9s; --size: 18px; --tone: #64748b; }
+.terms-scene__float--7 { --x: 72%; --time: 15s; --delay: -12s; --size: 24px; }
+.terms-scene__float--8 { --x: 82%; --time: 19s; --delay: -5s; --size: 20px; --tone: #64748b; }
+.terms-scene__float--9 { --x: 90%; --time: 21s; --delay: -17s; --size: 22px; }
+.terms-scene__float--10 { --x: 96%; --time: 17s; --delay: -8s; --size: 18px; --tone: #64748b; }
+
+@media (prefers-reduced-motion: reduce) {
+    .terms-scene__image,
+    .terms-scene__sweep,
+    .terms-scene__float {
+        animation: none;
+    }
+
+    .terms-scene__sweep,
+    .terms-scene__float {
+        display: none;
+    }
+}
+
+/* The card: wide, glass, the sections side by side */
+.auth-terms {
+    max-width: 1120px;
+}
+
+.auth-terms .auth__main {
+    padding: var(--space-xl) clamp(var(--space-lg), 4vw, 3.5rem);
+    border-color: rgba(255, 255, 255, 0.75);
+    background: rgba(255, 255, 255, 0.58);
+    backdrop-filter: blur(6px) saturate(1.2);
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
+}
+
+.terms-header {
+    max-width: 760px;
+}
+
+.terms-header__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin: var(--space-lg) 0 0;
+    padding: 0.3rem 0.8rem;
+    border-radius: var(--radius-pill);
+    background: rgba(0, 104, 95, 0.1);
+    color: var(--color-primary);
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+.terms-header__badge .icon {
+    font-size: 1rem;
+}
+
+.auth-terms .auth__title {
+    margin-top: var(--space-sm);
+}
+
+.terms-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-md);
+    margin-top: var(--space-lg);
+}
+
+.terms-item {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    gap: var(--space-md);
+    padding: var(--space-lg);
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.72);
+    transition: transform 0.18s, box-shadow 0.18s;
+}
+
+.terms-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08);
+}
+
+.terms-item--wide {
+    grid-column: 1 / -1;
+}
+
+.terms-item__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #0f766e, #14b8a6);
+    color: #fff;
+    box-shadow: 0 6px 14px rgba(13, 148, 136, 0.3);
+}
+
+.terms-item h2 {
+    margin: 0 0 var(--space-xs);
+    font-size: 1.15rem;
+}
+
+.terms-item p {
+    margin: 0;
+    color: #334155;
+    line-height: 1.6;
+}
+
+.terms-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-md);
+    margin-top: var(--space-lg);
+}
+
+.terms-actions p {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin: 0;
+    color: var(--color-text-soft);
+    font-size: 0.875rem;
+}
+
+
+@media (max-width: 760px) {
+    .terms-grid {
+        grid-template-columns: 1fr;
     }
 }

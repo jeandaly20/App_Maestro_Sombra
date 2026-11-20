@@ -4,14 +4,14 @@
 {% block styles %}<link rel="stylesheet" href="{% asset 'css/auth.css' %}">{% endblock %}
 
 {% block body %}
-<main class="auth-simple" id="content">
+{% block scene %}{% endblock %}
+<main class="{% block main_class %}auth-simple{% endblock %}" id="content">
     <section class="auth__main">
         <a class="brand" href="{% url 'login' %}">
-            <span class="brand__logo"><span class="icon" aria-hidden="true">auto_stories</span></span>
+            <img class="brand__mark" src="{% static 'img/logo.webp' %}" alt="" width="360" height="258">
             <span class="brand__name">Maestro Sombra</span>
         </a>
         {% block card %}{% endblock %}
     </section>
 </main>
-{% include "accounts/_footer.html" %}
 {% endblock %}

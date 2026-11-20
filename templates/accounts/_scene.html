@@ -1,0 +1,23 @@
+{% load static %}{% comment %}
+The illustrated classroom behind the sign-in and register screens, with a soft breeze of leaves. Decorative:
+hidden from screen readers, and still for anyone who asks the system for reduced motion (auth.css).
+Usage: {% include "accounts/_scene.html" with image='img/login/fondo.webp' %}
+{% endcomment %}
+<div class="auth-scene" aria-hidden="true" style="--scene: url('{% static image %}')">
+    <svg class="wind__gusts" viewBox="0 0 1200 600" preserveAspectRatio="none">
+        <path class="wind__gust" d="M-50 180 C 200 120, 380 240, 620 170 S 980 110, 1250 190"/>
+        <path class="wind__gust wind__gust--2" d="M-50 330 C 240 280, 420 390, 700 320 S 1040 270, 1250 340"/>
+        <path class="wind__gust wind__gust--3" d="M-50 470 C 260 430, 520 520, 780 460 S 1080 420, 1250 480"/>
+    </svg>
+    <div class="wind">
+        <span class="wind__leaf wind__leaf--1"><svg viewBox="0 0 24 24"><path d="M3 21C3 11 10 4 21 3c-1 11-8 18-18 18z" fill="currentColor"/><path d="M5 19L17 7" stroke="rgba(255,255,255,.6)" stroke-width="1.4" stroke-linecap="round"/></svg></span>
+        <span class="wind__leaf wind__leaf--2"><svg viewBox="0 0 24 24"><path d="M3 21C3 11 10 4 21 3c-1 11-8 18-18 18z" fill="currentColor"/><path d="M5 19L17 7" stroke="rgba(255,255,255,.6)" stroke-width="1.4" stroke-linecap="round"/></svg></span>
+        <span class="wind__leaf wind__leaf--3"><svg viewBox="0 0 24 24"><path d="M3 21C3 11 10 4 21 3c-1 11-8 18-18 18z" fill="currentColor"/><path d="M5 19L17 7" stroke="rgba(255,255,255,.6)" stroke-width="1.4" stroke-linecap="round"/></svg></span>
+        <span class="wind__leaf wind__leaf--4"><svg viewBox="0 0 24 24"><path d="M3 21C3 11 10 4 21 3c-1 11-8 18-18 18z" fill="currentColor"/><path d="M5 19L17 7" stroke="rgba(255,255,255,.6)" stroke-width="1.4" stroke-linecap="round"/></svg></span>
+        <span class="wind__leaf wind__leaf--5"><svg viewBox="0 0 24 24"><path d="M3 21C3 11 10 4 21 3c-1 11-8 18-18 18z" fill="currentColor"/><path d="M5 19L17 7" stroke="rgba(255,255,255,.6)" stroke-width="1.4" stroke-linecap="round"/></svg></span>
+        <span class="wind__leaf wind__leaf--6"><svg viewBox="0 0 24 24"><path d="M3 21C3 11 10 4 21 3c-1 11-8 18-18 18z" fill="currentColor"/><path d="M5 19L17 7" stroke="rgba(255,255,255,.6)" stroke-width="1.4" stroke-linecap="round"/></svg></span>
+        <span class="wind__leaf wind__leaf--7"><svg viewBox="0 0 24 24"><path d="M3 21C3 11 10 4 21 3c-1 11-8 18-18 18z" fill="currentColor"/><path d="M5 19L17 7" stroke="rgba(255,255,255,.6)" stroke-width="1.4" stroke-linecap="round"/></svg></span>
+        <span class="wind__leaf wind__leaf--8"><svg viewBox="0 0 24 24"><path d="M3 21C3 11 10 4 21 3c-1 11-8 18-18 18z" fill="currentColor"/><path d="M5 19L17 7" stroke="rgba(255,255,255,.6)" stroke-width="1.4" stroke-linecap="round"/></svg></span>
+        <span class="wind__leaf wind__leaf--9"><svg viewBox="0 0 24 24"><path d="M3 21C3 11 10 4 21 3c-1 11-8 18-18 18z" fill="currentColor"/><path d="M5 19L17 7" stroke="rgba(255,255,255,.6)" stroke-width="1.4" stroke-linecap="round"/></svg></span>
+    </div>
+</div>

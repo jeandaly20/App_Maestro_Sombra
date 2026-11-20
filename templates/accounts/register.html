@@ -5,17 +5,20 @@
 {% block styles %}<link rel="stylesheet" href="{% asset 'css/auth.css' %}">{% endblock %}
 
 {% block body %}
-<main class="auth auth--joined" id="content">
+{% include "accounts/_scene.html" with image='img/registro/fondo-registro.webp' %}
+<main class="auth auth--scene auth--register" id="content">
     <section class="auth__main" aria-labelledby="register-title">
         <div class="auth__form">
             <div class="brand">
-                <span class="brand__logo"><span class="icon" aria-hidden="true">auto_stories</span></span>
+                <img class="brand__mark" src="{% static 'img/logo.webp' %}" alt="" width="360" height="258">
                 <div>
                     <p class="brand__name">Maestro Sombra <span class="chip chip--secondary">NEE / DUA</span></p>
-                    <h1 class="auth__brand-title" id="register-title">Registro de docente</h1>
+                    <p class="brand__tagline">Plataforma pedagógica para necesidades educativas especiales</p>
                 </div>
             </div>
-            <p class="auth__intro auth__intro--spaced">Crea tu cuenta para adaptar contenidos y acompañar a tus estudiantes con necesidades educativas especiales de forma personalizada.</p>
+
+            <h1 class="auth__title" id="register-title">Registro de docente</h1>
+            <p class="auth__intro">Crea tu cuenta para adaptar contenidos y acompañar a tus estudiantes con necesidades educativas especiales de forma personalizada.</p>
 
             {% include "includes/messages.html" %}
 
@@ -57,7 +60,7 @@
                 </div>
 
                 <button type="submit" class="button button--primary button--block button--large">
-                    Crear cuenta <span class="icon" aria-hidden="true">arrow_forward</span>
+                    Crear cuenta docente <span class="icon" aria-hidden="true">arrow_forward</span>
                 </button>
             </form>
 
@@ -66,34 +69,37 @@
     </section>
 
     <aside class="auth__aside" aria-label="Lo que incluye Maestro Sombra">
-        <div>
+        <div class="info-panel feature-panel">
             <p class="eyebrow">Todo en un solo lugar</p>
-            <h2>Pedagogía inclusiva simplificada</h2>
+            <h2 class="feature-panel__title">Pedagogía inclusiva simplificada</h2>
+            <ul class="feature-list">
+                <li class="feature-card feature-card--dua">
+                    <div>
+                        <h3><span class="icon" aria-hidden="true">bolt</span>Adaptaciones DUA en minutos</h3>
+                        <p>Lectura fácil, enunciados segmentados y secuencias paso a paso, generadas con inteligencia artificial y revisadas por ti.</p>
+                    </div>
+                    <img src="{% static 'img/registro/beneficio-dua.webp' %}" alt="" width="434" height="368">
+                </li>
+                <li class="feature-card feature-card--fichas">
+                    <div>
+                        <h3><span class="icon" aria-hidden="true">badge</span>Fichas individuales NEE</h3>
+                        <p>Hasta 3 estudiantes por docente, con sus datos personales cifrados.</p>
+                    </div>
+                    <img src="{% static 'img/registro/beneficio-fichas.webp' %}" alt="" width="421" height="334">
+                </li>
+                <li class="feature-card feature-card--materiales">
+                    <div>
+                        <h3><span class="icon" aria-hidden="true">print</span>Materiales listos para el aula</h3>
+                        <p>Fichas en PDF con tipografía de alta legibilidad (Atkinson Hyperlegible) y la clase adaptada en Word, Excel o PDF.</p>
+                    </div>
+                    <img src="{% static 'img/registro/beneficio-materiales.webp' %}" alt="" width="284" height="340">
+                </li>
+            </ul>
+            <ul class="trust-list" aria-label="Protección de datos">
+                <li><span class="icon" aria-hidden="true">lock</span>Datos cifrados (LOPDP)</li>
+                <li><span class="icon" aria-hidden="true">visibility_off</span>La IA nunca recibe nombres</li>
+            </ul>
         </div>
-        <ul class="benefit-list">
-            <li>
-                <span class="icon" aria-hidden="true">speed</span>
-                <div>
-                    <h3>Adaptaciones DUA en minutos</h3>
-                    <p>Lectura fácil, enunciados segmentados y secuencias paso a paso generadas con inteligencia artificial.</p>
-                </div>
-            </li>
-            <li>
-                <span class="icon" aria-hidden="true">badge</span>
-                <div>
-                    <h3>Fichas individuales NEE</h3>
-                    <p>Hasta 3 estudiantes por docente, con sus datos personales cifrados.</p>
-                </div>
-            </li>
-            <li>
-                <span class="icon" aria-hidden="true">print</span>
-                <div>
-                    <h3>Materiales listos para el aula</h3>
-                    <p>Exportación en PDF con tipografías de alta legibilidad (Lexend y OpenDyslexic).</p>
-                </div>
-            </li>
-        </ul>
     </aside>
 </main>
-{% include "accounts/_footer.html" %}
 {% endblock %}

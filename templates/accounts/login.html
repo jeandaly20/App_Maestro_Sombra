@@ -5,11 +5,12 @@
 {% block styles %}<link rel="stylesheet" href="{% asset 'css/auth.css' %}">{% endblock %}
 
 {% block body %}
-<main class="auth" id="content">
+{% include "accounts/_scene.html" with image='img/login/fondo.webp' %}
+<main class="auth auth--scene" id="content">
     <section class="auth__main" aria-labelledby="login-title">
         <div class="auth__form">
             <div class="brand">
-                <span class="brand__logo"><span class="icon" aria-hidden="true">auto_stories</span></span>
+                <img class="brand__mark" src="{% static 'img/logo.webp' %}" alt="" width="360" height="258">
                 <div>
                     <p class="brand__name">Maestro Sombra</p>
                     <p class="brand__tagline">Plataforma pedagógica para necesidades educativas especiales</p>
@@ -46,25 +47,37 @@
 
     <aside class="auth__aside" aria-label="Información del sistema">
         <div class="info-panel info-panel--featured">
-            <p class="chip">Diseño Universal para el Aprendizaje</p>
-            <h2>Adaptar no es recortar contenido</h2>
-            <p class="info-panel__quote">Cada guía se reestructura con múltiples formas de representación, de acción y expresión, y de compromiso, según la necesidad de cada estudiante.</p>
+            <div class="info-panel__text">
+                <p class="chip"><span class="icon" aria-hidden="true">auto_awesome</span>Diseño Universal para el Aprendizaje</p>
+                <h2>Adaptar no es recortar contenido</h2>
+                <p class="info-panel__quote">Cada guía se reestructura con múltiples formas de representación, de acción y expresión, y de compromiso, según la necesidad de cada estudiante.</p>
+            </div>
+            <img class="info-panel__art" src="{% static 'img/login/libro-bloques.webp' %}" alt="" width="524" height="363">
         </div>
 
         <div class="info-panel">
             <h2>Grupos que atiende el sistema</h2>
             <ul class="group-list">
-                <li>
-                    <span class="chip chip--dea">DEA</span>
-                    <p><strong>Dificultades específicas del aprendizaje:</strong> dislexia y discalculia.</p>
+                <li class="group-card group-card--dea">
+                    <div>
+                        <span class="chip chip--dea">DEA</span>
+                        <p><strong>Dificultades específicas del aprendizaje:</strong> dislexia y discalculia.</p>
+                    </div>
+                    <img src="{% static 'img/login/grupo-dea.webp' %}" alt="" width="349" height="365">
                 </li>
-                <li>
-                    <span class="chip chip--neuro">Neurodesarrollo</span>
-                    <p><strong>TDAH</strong> y <strong>trastorno del espectro autista (TEA)</strong>.</p>
+                <li class="group-card group-card--neuro">
+                    <div>
+                        <span class="chip chip--neuro">Neurodesarrollo</span>
+                        <p><strong>TDAH</strong> y <strong>trastorno del espectro autista (TEA)</strong>.</p>
+                    </div>
+                    <img src="{% static 'img/login/grupo-neuro.webp' %}" alt="" width="390" height="366">
                 </li>
-                <li>
-                    <span class="chip chip--id">Discapacidad intelectual</span>
-                    <p>Niveles <strong>leve</strong> y <strong>moderado</strong>, con apoyo visual y lectura fácil.</p>
+                <li class="group-card group-card--id">
+                    <div>
+                        <span class="chip chip--id">Discapacidad intelectual</span>
+                        <p>Niveles <strong>leve</strong> y <strong>moderado</strong>, con apoyo visual y lectura fácil.</p>
+                    </div>
+                    <img src="{% static 'img/login/grupo-di.webp' %}" alt="" width="277" height="384">
                 </li>
             </ul>
         </div>
@@ -75,5 +88,4 @@
         </div>
     </aside>
 </main>
-{% include "accounts/_footer.html" %}
 {% endblock %}

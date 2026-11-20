@@ -1,25 +1,77 @@
 {% extends "accounts/_simple_card.html" %}
+{% load static %}
 
 {% block title %}Términos y protección de datos{% endblock %}
 
+{% block scene %}
+{# Security background: it drifts slowly, a light sweeps over it and locks and shields rise (decorative) #}
+<div class="terms-scene" aria-hidden="true" style="--scene: url('{% static 'img/fondo-seguridad.webp' %}')">
+    <div class="terms-scene__image"></div>
+    <div class="terms-scene__sweep"></div>
+    <div class="terms-scene__floats">
+        <span class="terms-scene__float terms-scene__float--1"><span class="icon">lock</span></span>
+        <span class="terms-scene__float terms-scene__float--2"><span class="icon">shield</span></span>
+        <span class="terms-scene__float terms-scene__float--3"><span class="icon">verified_user</span></span>
+        <span class="terms-scene__float terms-scene__float--4"><span class="icon">lock</span></span>
+        <span class="terms-scene__float terms-scene__float--5"><span class="icon">shield_lock</span></span>
+        <span class="terms-scene__float terms-scene__float--6"><span class="icon">key</span></span>
+        <span class="terms-scene__float terms-scene__float--7"><span class="icon">shield</span></span>
+        <span class="terms-scene__float terms-scene__float--8"><span class="icon">lock</span></span>
+        <span class="terms-scene__float terms-scene__float--9"><span class="icon">encrypted</span></span>
+        <span class="terms-scene__float terms-scene__float--10"><span class="icon">verified_user</span></span>
+    </div>
+</div>
+{% endblock %}
+
+{% block main_class %}auth-simple auth-terms{% endblock %}
+
 {% block card %}
-<h1 class="auth__title">Términos de servicio y protección de datos</h1>
-<p class="auth__intro">Al crear tu cuenta aceptas estas condiciones, basadas en la Ley Orgánica de Protección de Datos Personales del Ecuador (LOPDP, 2021).</p>
+<header class="terms-header">
+    <p class="terms-header__badge"><span class="icon" aria-hidden="true">gavel</span>LOPDP · Ecuador 2021</p>
+    <h1 class="auth__title">Términos de servicio y protección de datos</h1>
+    <p class="auth__intro">Al crear tu cuenta aceptas estas condiciones, basadas en la Ley Orgánica de Protección de Datos Personales del Ecuador (LOPDP, 2021).</p>
+</header>
 
-<h2>1. Uso del sistema</h2>
-<p>Maestro Sombra es una herramienta de apoyo para docentes. Las adaptaciones que genera la inteligencia artificial deben ser revisadas por el docente antes de usarlas en el aula.</p>
+<div class="terms-grid">
+    <section class="terms-item">
+        <span class="terms-item__icon" aria-hidden="true"><span class="icon">school</span></span>
+        <div>
+            <h2>1. Uso del sistema</h2>
+            <p>Maestro Sombra es una herramienta de apoyo para docentes. Las adaptaciones que genera la inteligencia artificial deben ser revisadas por el docente antes de usarlas en el aula.</p>
+        </div>
+    </section>
+    <section class="terms-item">
+        <span class="terms-item__icon" aria-hidden="true"><span class="icon">badge</span></span>
+        <div>
+            <h2>2. Datos de los estudiantes</h2>
+            <p>Cada docente registra como máximo 3 estudiantes. El nombre y las observaciones se guardan cifrados y solo los ve el docente que los registró. El sistema identifica a cada estudiante con un seudónimo.</p>
+        </div>
+    </section>
+    <section class="terms-item">
+        <span class="terms-item__icon" aria-hidden="true"><span class="icon">smart_toy</span></span>
+        <div>
+            <h2>3. Uso de la inteligencia artificial</h2>
+            <p>A la API de Google Gemini solo se envían el material escolar y la condición a adaptar. Nunca se envían el nombre, la fecha de nacimiento ni las observaciones del estudiante.</p>
+        </div>
+    </section>
+    <section class="terms-item">
+        <span class="terms-item__icon" aria-hidden="true"><span class="icon">assignment_ind</span></span>
+        <div>
+            <h2>4. Responsabilidad del docente</h2>
+            <p>El docente declara que cuenta con la autorización de la institución y de los representantes legales para registrar a los estudiantes, y se compromete a no subir materiales con datos personales.</p>
+        </div>
+    </section>
+    <section class="terms-item terms-item--wide">
+        <span class="terms-item__icon" aria-hidden="true"><span class="icon">manage_accounts</span></span>
+        <div>
+            <h2>5. Derechos</h2>
+            <p>El docente puede solicitar al administrador la corrección o eliminación de sus datos y de los de sus estudiantes.</p>
+        </div>
+    </section>
+</div>
 
-<h2>2. Datos de los estudiantes</h2>
-<p>Cada docente registra como máximo 3 estudiantes. El nombre y las observaciones se guardan cifrados y solo los ve el docente que los registró. El sistema identifica a cada estudiante con un seudónimo.</p>
-
-<h2>3. Uso de la inteligencia artificial</h2>
-<p>A la API de Google Gemini solo se envían el material escolar y la condición a adaptar. Nunca se envían el nombre, la fecha de nacimiento ni las observaciones del estudiante.</p>
-
-<h2>4. Responsabilidad del docente</h2>
-<p>El docente declara que cuenta con la autorización de la institución y de los representantes legales para registrar a los estudiantes, y se compromete a no subir materiales con datos personales.</p>
-
-<h2>5. Derechos</h2>
-<p>El docente puede solicitar al administrador la corrección o eliminación de sus datos y de los de sus estudiantes.</p>
-
-<a class="button button--secondary" href="{% url 'register' %}">Volver al registro</a>
+<div class="terms-actions">
+    <a class="button button--primary" href="{% url 'register' %}"><span class="icon" aria-hidden="true">arrow_back</span>Volver al registro</a>
+    <p><span class="icon" aria-hidden="true">lock</span>Los datos sensibles se guardan cifrados en el servidor.</p>
+</div>
 {% endblock %}
