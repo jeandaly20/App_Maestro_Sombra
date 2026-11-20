@@ -68,6 +68,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # An administrator works only in /admin/: never as a teacher (see the middleware)
+    'apps.core.middleware.AdminPanelOnlyMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
