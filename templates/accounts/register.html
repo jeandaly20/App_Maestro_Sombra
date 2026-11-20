@@ -5,100 +5,122 @@
 {% block styles %}<link rel="stylesheet" href="{% asset 'css/auth.css' %}">{% endblock %}
 
 {% block body %}
-{% include "accounts/_scene.html" with image='img/registro/fondo-registro.webp' %}
-<main class="auth auth--scene auth--register" id="content">
-    <section class="auth__main" aria-labelledby="register-title">
-        <div class="auth__form">
-            <div class="brand">
-                <img class="brand__mark" src="{% static 'img/logo.webp' %}" alt="" width="360" height="258">
-                <div>
-                    <p class="brand__name">Maestro Sombra <span class="chip chip--secondary">NEE / DUA</span></p>
-                    <p class="brand__tagline">Plataforma pedagógica para necesidades educativas especiales</p>
-                </div>
+{% include "accounts/_pro_scene.html" %}
+
+<main class="auth-pro auth-pro--register" id="content">
+    <section class="pro-card" aria-labelledby="register-title">
+        <div class="brand">
+            <img class="brand__mark" src="{% static 'img/logo.webp' %}" alt="" width="360" height="258">
+            <div>
+                <p class="brand__name">App Maestro Sombra</p>
+                <p class="brand__tagline">Plataforma de apoyo al docente en la educación inclusiva</p>
+            </div>
+        </div>
+
+        <h1 class="pro-card__title" id="register-title">Registro de docente</h1>
+        <p class="pro-card__intro">Cree su cuenta para adaptar contenidos y acompañar a sus estudiantes con <strong>NEE</strong> de forma personalizada.</p>
+
+        {% include "includes/messages.html" %}
+
+        <form method="post" novalidate class="pro-form pro-form--labels">
+            {% csrf_token %}
+            {% include "includes/field.html" with field=form.full_name icon="person" %}
+            {% include "includes/field.html" with field=form.email icon="alternate_email" %}
+
+            <div class="field-row">
+                {% include "includes/field.html" with field=form.password1 icon="lock" password=True %}
+                {% include "includes/field.html" with field=form.password2 icon="lock_reset" %}
             </div>
 
-            <h1 class="auth__title" id="register-title">Registro de docente</h1>
-            <p class="auth__intro">Crea tu cuenta para adaptar contenidos y acompañar a tus estudiantes con necesidades educativas especiales de forma personalizada.</p>
-
-            {% include "includes/messages.html" %}
-
-            <form method="post" novalidate>
-                {% csrf_token %}
-                {% include "includes/field.html" with field=form.full_name icon="person" %}
-                {% include "includes/field.html" with field=form.email icon="alternate_email" %}
-
-                <div class="field-row">
-                    {% include "includes/field.html" with field=form.password1 icon="lock" password=True %}
-                    {% include "includes/field.html" with field=form.password2 icon="lock_reset" %}
+            <div class="meter" data-strength-meter="id_password1" data-level="0" aria-live="polite">
+                <div class="meter__header">
+                    <span>Nivel de seguridad de la contraseña:</span>
+                    <span data-meter-status>Por ingresar</span>
                 </div>
+                <div class="meter__bars" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+                <ul class="meter__rules">
+                    <li data-rule="length"><span class="icon" aria-hidden="true">radio_button_unchecked</span>Mínimo 8 caracteres</li>
+                    <li data-rule="number"><span class="icon" aria-hidden="true">radio_button_unchecked</span>Un número</li>
+                    <li data-rule="uppercase"><span class="icon" aria-hidden="true">radio_button_unchecked</span>Una mayúscula</li>
+                    <li data-rule="symbol"><span class="icon" aria-hidden="true">radio_button_unchecked</span>Un símbolo</li>
+                </ul>
+            </div>
 
-                <div class="meter" data-strength-meter="id_password1" data-level="0" aria-live="polite">
-                    <div class="meter__header">
-                        <span>Nivel de seguridad de la contraseña:</span>
-                        <span data-meter-status>Por ingresar</span>
-                    </div>
-                    <div class="meter__bars" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
-                    <ul class="meter__rules">
-                        <li data-rule="length"><span class="icon" aria-hidden="true">radio_button_unchecked</span>Mínimo 8 caracteres</li>
-                        <li data-rule="number"><span class="icon" aria-hidden="true">radio_button_unchecked</span>Un número</li>
-                        <li data-rule="uppercase"><span class="icon" aria-hidden="true">radio_button_unchecked</span>Una mayúscula</li>
-                        <li data-rule="symbol"><span class="icon" aria-hidden="true">radio_button_unchecked</span>Un símbolo</li>
-                    </ul>
-                </div>
+            {% include "includes/field.html" with field=form.specialty icon="school" %}
 
-                {% include "includes/field.html" with field=form.specialty icon="school" %}
+            <div class="field">
+                <label class="checkbox pro-form__remember" for="{{ form.accepted_terms.id_for_label }}">
+                    {{ form.accepted_terms }}
+                    <span>Acepto los <a href="{% url 'terms' %}" target="_blank" rel="noopener">términos de servicio</a>
+                        y el tratamiento de datos personales de los estudiantes conforme a la <strong>LOPDP</strong>.</span>
+                </label>
+                {% for error in form.accepted_terms.errors %}
+                    <p class="field__error" id="{{ form.accepted_terms.auto_id }}_error"><span class="icon" aria-hidden="true">error</span>{{ error }}</p>
+                {% endfor %}
+            </div>
 
-                <div class="field">
-                    <label class="checkbox" for="{{ form.accepted_terms.id_for_label }}">
-                        {{ form.accepted_terms }}
-                        <span>Acepto los <a href="{% url 'terms' %}" target="_blank" rel="noopener">términos de servicio</a>
-                            y el tratamiento de datos personales de los estudiantes conforme a la <strong>LOPDP</strong>.</span>
-                    </label>
-                    {% for error in form.accepted_terms.errors %}
-                        <p class="field__error" id="{{ form.accepted_terms.auto_id }}_error"><span class="icon" aria-hidden="true">error</span>{{ error }}</p>
-                    {% endfor %}
-                </div>
+            <button type="submit" class="button button--primary button--block button--large pro-form__submit">
+                <span class="icon" aria-hidden="true">person_add</span>Crear cuenta docente
+            </button>
+        </form>
 
-                <button type="submit" class="button button--primary button--block button--large">
-                    Crear cuenta docente <span class="icon" aria-hidden="true">arrow_forward</span>
-                </button>
-            </form>
-
-            <p class="auth__form-footer">¿Ya tienes una cuenta? <a href="{% url 'login' %}">Inicia sesión aquí</a></p>
-        </div>
+        <p class="pro-card__footer"><span class="icon" aria-hidden="true">login</span>¿Ya tiene una cuenta? <a href="{% url 'login' %}">Inicie sesión</a></p>
     </section>
 
-    <aside class="auth__aside" aria-label="Lo que incluye Maestro Sombra">
-        <div class="info-panel feature-panel">
-            <p class="eyebrow">Todo en un solo lugar</p>
-            <h2 class="feature-panel__title">Pedagogía inclusiva simplificada</h2>
-            <ul class="feature-list">
-                <li class="feature-card feature-card--dua">
+    <aside class="pro-aside" aria-label="Lo que incluye Maestro Sombra">
+        <div class="pro-dua">
+            <div>
+                <p class="pro-dua__chip"><span class="icon" aria-hidden="true">workspaces</span>Todo en un solo lugar</p>
+                <h2>Pedagogía inclusiva simplificada</h2>
+                <p class="pro-dua__quote">Planifique, adapte, evalúe y dé seguimiento a sus estudiantes con NEE desde una sola plataforma.</p>
+            </div>
+            <div class="pro-dua__art" aria-hidden="true">
+                <span class="icon pro-dua__book">dashboard</span>
+                <span class="icon pro-dua__check">task_alt</span>
+                <span class="icon pro-dua__pencil">auto_awesome</span>
+            </div>
+        </div>
+
+        <div class="pro-groups">
+            <h2><span class="icon" aria-hidden="true">star</span>Qué incluye su cuenta</h2>
+            <ul>
+                <li class="pro-group pro-group--dua">
+                    <span class="pro-group__icon" aria-hidden="true"><span class="icon">bolt</span></span>
                     <div>
-                        <h3><span class="icon" aria-hidden="true">bolt</span>Adaptaciones DUA en minutos</h3>
-                        <p>Lectura fácil, enunciados segmentados y secuencias paso a paso, generadas con inteligencia artificial y revisadas por ti.</p>
+                        <h3>Adaptaciones DUA en minutos</h3>
+                        <p>Lectura fácil, enunciados segmentados y secuencias paso a paso, generadas con IA y revisadas por usted.</p>
                     </div>
-                    <img src="{% static 'img/registro/beneficio-dua.webp' %}" alt="" width="434" height="368">
                 </li>
-                <li class="feature-card feature-card--fichas">
+                <li class="pro-group pro-group--dea">
+                    <span class="pro-group__icon" aria-hidden="true"><span class="icon">badge</span></span>
                     <div>
-                        <h3><span class="icon" aria-hidden="true">badge</span>Fichas individuales NEE</h3>
+                        <h3>Fichas individuales NEE</h3>
                         <p>Hasta 3 estudiantes por docente, con sus datos personales cifrados.</p>
                     </div>
-                    <img src="{% static 'img/registro/beneficio-fichas.webp' %}" alt="" width="421" height="334">
                 </li>
-                <li class="feature-card feature-card--materiales">
+                <li class="pro-group pro-group--neuro">
+                    <span class="pro-group__icon" aria-hidden="true"><span class="icon">print</span></span>
                     <div>
-                        <h3><span class="icon" aria-hidden="true">print</span>Materiales listos para el aula</h3>
-                        <p>Fichas en PDF con tipografía de alta legibilidad (Atkinson Hyperlegible) y la clase adaptada en Word, Excel o PDF.</p>
+                        <h3>Materiales listos para el aula</h3>
+                        <p>Fichas en PDF con tipografía de alta legibilidad y la clase adaptada en Word, Excel o PDF.</p>
                     </div>
-                    <img src="{% static 'img/registro/beneficio-materiales.webp' %}" alt="" width="284" height="340">
+                </li>
+                <li class="pro-group pro-group--id">
+                    <span class="pro-group__icon" aria-hidden="true"><span class="icon">monitoring</span></span>
+                    <div>
+                        <h3>Seguimiento del progreso</h3>
+                        <p>Evaluación de cada clase, historial por estudiante y del grupo, e informes en PDF.</p>
+                    </div>
                 </li>
             </ul>
-            <ul class="trust-list" aria-label="Protección de datos">
-                <li><span class="icon" aria-hidden="true">lock</span>Datos cifrados (LOPDP)</li>
-                <li><span class="icon" aria-hidden="true">visibility_off</span>La IA nunca recibe nombres</li>
-            </ul>
+        </div>
+
+        <div class="pro-privacy">
+            <span class="pro-privacy__icon" aria-hidden="true"><span class="icon">verified_user</span></span>
+            <div>
+                <h2>Datos protegidos</h2>
+                <p>Los nombres y observaciones de los estudiantes se guardan cifrados y nunca se envían a la inteligencia artificial, conforme a la LOPDP del Ecuador.</p>
+            </div>
         </div>
     </aside>
 </main>

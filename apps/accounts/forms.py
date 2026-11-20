@@ -28,7 +28,7 @@ class LoginForm(AccessibleFormMixin, AuthenticationForm):
     username = forms.EmailField(
         label='Correo electrónico',
         widget=forms.EmailInput(attrs={
-            'autofocus': True, 'autocomplete': 'email', 'placeholder': 'ejemplo@correo.com',
+            'autofocus': True, 'autocomplete': 'email', 'placeholder': 'Correo electrónico',
         }),
     )
     password = forms.CharField(
@@ -36,6 +36,7 @@ class LoginForm(AccessibleFormMixin, AuthenticationForm):
         strip=False,
         widget=forms.PasswordInput(attrs={
             'autocomplete': 'current-password', 'class': 'field__control field__control--with-action',
+            'placeholder': 'Contraseña',
         }),
     )
     remember_me = forms.BooleanField(label='Mantener sesión iniciada en este dispositivo', required=False)

@@ -5,86 +5,111 @@
 {% block styles %}<link rel="stylesheet" href="{% asset 'css/auth.css' %}">{% endblock %}
 
 {% block body %}
-{% include "accounts/_scene.html" with image='img/login/fondo.webp' %}
-<main class="auth auth--scene" id="content">
-    <section class="auth__main" aria-labelledby="login-title">
-        <div class="auth__form">
-            <div class="brand">
-                <img class="brand__mark" src="{% static 'img/logo.webp' %}" alt="" width="360" height="258">
-                <div>
-                    <p class="brand__name">Maestro Sombra</p>
-                    <p class="brand__tagline">Plataforma pedagógica para necesidades educativas especiales</p>
-                </div>
+{% include "accounts/_pro_scene.html" %}
+
+<main class="auth-pro" id="content">
+    <section class="pro-card" aria-labelledby="login-title">
+        <div class="brand">
+            <img class="brand__mark" src="{% static 'img/logo.webp' %}" alt="" width="360" height="258">
+            <div>
+                <p class="brand__name">App Maestro Sombra</p>
+                <p class="brand__tagline">Plataforma de apoyo al docente en la educación inclusiva</p>
             </div>
-
-            <h1 class="auth__title" id="login-title">Bienvenido a su aula inclusiva</h1>
-            <p class="auth__intro">Acceda a sus adaptaciones curriculares individualizadas y al seguimiento de sus estudiantes.</p>
-
-            {% include "includes/messages.html" %}
-
-            <form method="post" novalidate>
-                {% csrf_token %}
-                <input type="hidden" name="next" value="{{ next }}">
-                {% include "includes/field.html" with field=form.username icon="mail" %}
-                {% url 'password_reset' as password_reset_url %}
-                {% include "includes/field.html" with field=form.password icon="lock" password=True link_url=password_reset_url link_text="¿Olvidó su contraseña?" %}
-
-                <div class="field">
-                    <label class="checkbox" for="{{ form.remember_me.id_for_label }}">
-                        {{ form.remember_me }}
-                        <span>{{ form.remember_me.label }}</span>
-                    </label>
-                </div>
-
-                <button type="submit" class="button button--primary button--block button--large">
-                    Iniciar sesión <span class="icon" aria-hidden="true">arrow_forward</span>
-                </button>
-            </form>
-
-            <p class="auth__form-footer">¿No tienes una cuenta aún? <a href="{% url 'register' %}">Regístrate</a></p>
         </div>
+
+        <h1 class="pro-card__title" id="login-title">Bienvenido a su aula inclusiva</h1>
+        <p class="pro-card__intro">Gestione adaptaciones curriculares, planificaciones y el seguimiento del progreso de sus estudiantes con <strong>NEE</strong>.</p>
+
+        {% include "includes/messages.html" %}
+
+        <form method="post" novalidate class="pro-form">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ next }}">
+
+            {% with field=form.username %}
+            <div class="pro-field">
+                <label class="sr-only" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                <span class="icon pro-field__icon" aria-hidden="true">mail</span>
+                {{ field }}
+                {% for error in field.errors %}<p class="field__error" id="{{ field.auto_id }}_error"><span class="icon" aria-hidden="true">error</span>{{ error }}</p>{% endfor %}
+            </div>
+            {% endwith %}
+
+            {% with field=form.password %}
+            <div class="pro-field">
+                <label class="sr-only" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                <span class="icon pro-field__icon" aria-hidden="true">lock</span>
+                {{ field }}
+                <button type="button" class="field__action pro-field__action" data-toggle-password="{{ field.id_for_label }}"
+                        aria-label="Mostrar contraseña" aria-pressed="false">
+                    <span class="icon" aria-hidden="true">visibility</span>
+                </button>
+                {% for error in field.errors %}<p class="field__error" id="{{ field.auto_id }}_error"><span class="icon" aria-hidden="true">error</span>{{ error }}</p>{% endfor %}
+            </div>
+            {% endwith %}
+
+            <p class="pro-form__forgot"><a href="{% url 'password_reset' %}">¿Olvidó su contraseña?</a></p>
+
+            <label class="checkbox pro-form__remember" for="{{ form.remember_me.id_for_label }}">
+                {{ form.remember_me }}
+                <span>{{ form.remember_me.label }}</span>
+            </label>
+
+            <button type="submit" class="button button--primary button--block button--large pro-form__submit">
+                <span class="icon" aria-hidden="true">arrow_forward</span>Iniciar sesión
+            </button>
+        </form>
+
+        <p class="pro-card__footer"><span class="icon" aria-hidden="true">school</span>¿No tienes una cuenta aún? <a href="{% url 'register' %}">Regístrate</a></p>
     </section>
 
-    <aside class="auth__aside" aria-label="Información del sistema">
-        <div class="info-panel info-panel--featured">
-            <div class="info-panel__text">
-                <p class="chip"><span class="icon" aria-hidden="true">auto_awesome</span>Diseño Universal para el Aprendizaje</p>
+    <aside class="pro-aside" aria-label="Información del sistema">
+        <div class="pro-dua">
+            <div>
+                <p class="pro-dua__chip"><span class="icon" aria-hidden="true">school</span>Diseño Universal para el Aprendizaje (DUA)</p>
                 <h2>Adaptar no es recortar contenido</h2>
-                <p class="info-panel__quote">Cada guía se reestructura con múltiples formas de representación, de acción y expresión, y de compromiso, según la necesidad de cada estudiante.</p>
+                <p class="pro-dua__quote">Cada guía se ajusta con múltiples formas de representación, de acción y expresión, y de compromiso, según las necesidades de cada estudiante.</p>
             </div>
-            <img class="info-panel__art" src="{% static 'img/login/libro-bloques.webp' %}" alt="" width="524" height="363">
+            <div class="pro-dua__art" aria-hidden="true">
+                <span class="icon pro-dua__book">menu_book</span>
+                <span class="icon pro-dua__check">checklist</span>
+                <span class="icon pro-dua__pencil">edit</span>
+            </div>
         </div>
 
-        <div class="info-panel">
-            <h2>Grupos que atiende el sistema</h2>
-            <ul class="group-list">
-                <li class="group-card group-card--dea">
+        <div class="pro-groups">
+            <h2><span class="icon" aria-hidden="true">groups</span>Grupos que atiende el sistema</h2>
+            <ul>
+                <li class="pro-group pro-group--dea">
+                    <span class="pro-group__icon" aria-hidden="true"><span class="icon">psychology</span></span>
                     <div>
-                        <span class="chip chip--dea">DEA</span>
-                        <p><strong>Dificultades específicas del aprendizaje:</strong> dislexia y discalculia.</p>
+                        <h3>DEA</h3>
+                        <p>Dificultades específicas del aprendizaje (dislexia y discalculia).</p>
                     </div>
-                    <img src="{% static 'img/login/grupo-dea.webp' %}" alt="" width="349" height="365">
                 </li>
-                <li class="group-card group-card--neuro">
+                <li class="pro-group pro-group--neuro">
+                    <span class="pro-group__icon" aria-hidden="true"><span class="icon">all_inclusive</span></span>
                     <div>
-                        <span class="chip chip--neuro">Neurodesarrollo</span>
-                        <p><strong>TDAH</strong> y <strong>trastorno del espectro autista (TEA)</strong>.</p>
+                        <h3>Neurodesarrollo</h3>
+                        <p>TDAH y trastorno del espectro autista (TEA).</p>
                     </div>
-                    <img src="{% static 'img/login/grupo-neuro.webp' %}" alt="" width="390" height="366">
                 </li>
-                <li class="group-card group-card--id">
+                <li class="pro-group pro-group--id">
+                    <span class="pro-group__icon" aria-hidden="true"><span class="icon">diversity_3</span></span>
                     <div>
-                        <span class="chip chip--id">Discapacidad intelectual</span>
-                        <p>Niveles <strong>leve</strong> y <strong>moderado</strong>, con apoyo visual y lectura fácil.</p>
+                        <h3>Discapacidad intelectual</h3>
+                        <p>Niveles leve y moderado, con apoyos personalizados.</p>
                     </div>
-                    <img src="{% static 'img/login/grupo-di.webp' %}" alt="" width="277" height="384">
                 </li>
             </ul>
         </div>
 
-        <div class="info-panel info-panel--soft">
-            <h2><span class="icon" aria-hidden="true">verified_user</span> Datos protegidos</h2>
-            <p>Los nombres y observaciones de los estudiantes se guardan cifrados y nunca se envían a la inteligencia artificial, conforme a la Ley Orgánica de Protección de Datos Personales del Ecuador.</p>
+        <div class="pro-privacy">
+            <span class="pro-privacy__icon" aria-hidden="true"><span class="icon">verified_user</span></span>
+            <div>
+                <h2>Datos protegidos</h2>
+                <p>Los nombres y observaciones de los estudiantes se guardan cifrados y nunca se envían a la inteligencia artificial, conforme a la Ley Orgánica de Protección de Datos Personales del Ecuador.</p>
+            </div>
         </div>
     </aside>
 </main>

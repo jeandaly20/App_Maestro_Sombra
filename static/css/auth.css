@@ -1,18 +1,4 @@
-/* Auth screens: sign in, register and password reset */
-
-.auth {
-    display: grid;
-    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
-    gap: var(--space-lg);
-    max-width: 1280px;
-    margin: 0 auto;
-    padding: var(--space-xl) var(--space-lg) var(--space-md);
-}
-
-.auth--joined {
-    gap: 0;
-    max-width: 1240px;
-}
+/* Auth screens: sign in, register, terms and password reset */
 
 .auth__main {
     position: relative;
@@ -32,18 +18,6 @@
     background: linear-gradient(90deg, var(--color-primary), #0d9488, var(--color-focus));
 }
 
-.auth--joined .auth__main {
-    border-radius: var(--radius-md) 0 0 var(--radius-md);
-    border-right: 0;
-}
-
-.auth--joined .auth__aside {
-    padding: var(--space-xl);
-    border: 1px solid var(--color-border);
-    border-radius: 0 var(--radius-md) var(--radius-md) 0;
-    background: linear-gradient(160deg, var(--color-surface-low), var(--color-surface-mid));
-}
-
 .auth__form {
     max-width: 640px;
 }
@@ -58,145 +32,10 @@
     font-size: 1.0625rem;
 }
 
-.auth__intro--spaced {
-    margin-top: var(--space-lg);
-}
-
-.auth__brand-title {
-    margin: 0;
-    font-size: 1.75rem;
-}
-
-.info-panel h2 {
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-}
-
-.info-panel--featured .chip {
-    background: rgba(255, 255, 255, 0.18);
-    color: #fff;
-}
-
-.info-panel--featured h2 {
-    margin-top: var(--space-md);
-}
-
-.info-panel--soft p {
-    margin: 0;
-}
-
 .auth__form-footer {
     margin-top: var(--space-lg);
     color: var(--color-text-soft);
     text-align: center;
-}
-
-.auth__aside {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-lg);
-}
-
-.info-panel {
-    padding: var(--space-lg);
-    border-radius: var(--radius-md);
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-}
-
-.info-panel--featured {
-    background: linear-gradient(150deg, var(--color-primary), #0d7a70);
-    border: 0;
-    color: #fff;
-}
-
-.info-panel--featured h2,
-.info-panel--featured p {
-    color: #fff;
-}
-
-.info-panel--soft {
-    background: var(--color-surface-low);
-}
-
-.info-panel__quote {
-    margin: 0;
-    padding-left: var(--space-md);
-    border-left: 4px solid rgba(255, 255, 255, 0.6);
-    font-size: 1.0625rem;
-}
-
-.group-list {
-    display: grid;
-    gap: 0.75rem;
-    margin: var(--space-md) 0 0;
-    padding: 0;
-    list-style: none;
-}
-
-.group-list li {
-    padding: var(--space-md);
-    border-radius: var(--radius-sm);
-    background: var(--color-surface-low);
-}
-
-.group-list strong {
-    font-family: var(--font-heading);
-}
-
-.group-list p {
-    margin: var(--space-xs) 0 0;
-    color: var(--color-text-soft);
-    font-size: 0.9375rem;
-}
-
-.benefit-list {
-    display: grid;
-    gap: var(--space-md);
-    margin: 0;
-    padding: 0;
-    list-style: none;
-}
-
-.benefit-list li {
-    display: flex;
-    gap: var(--space-md);
-    padding: var(--space-lg);
-    border-radius: var(--radius-md);
-    background: var(--color-surface);
-    box-shadow: var(--shadow-float);
-}
-
-.benefit-list .icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 44px;
-    height: 44px;
-    border-radius: var(--radius-sm);
-    background: var(--color-secondary-soft);
-    color: var(--color-secondary);
-}
-
-.benefit-list h3 {
-    margin-bottom: var(--space-xs);
-}
-
-.benefit-list p {
-    margin: 0;
-    color: var(--color-text-soft);
-    font-size: 0.9375rem;
-}
-
-.eyebrow {
-    margin: 0;
-    color: var(--color-primary);
-    font-family: var(--font-heading);
-    font-size: 0.8125rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
 }
 
 /* Password strength meter */
@@ -259,7 +98,6 @@
     font-weight: 600;
 }
 
-
 /* Centered card (password reset, terms) */
 .auth-simple {
     max-width: 560px;
@@ -272,358 +110,8 @@
 }
 
 @media (max-width: 960px) {
-    .auth,
-    .auth--joined {
-        grid-template-columns: 1fr;
-        padding: var(--space-md);
-    }
-
-    .auth--joined .auth__main,
-    .auth--joined .auth__aside {
-        border: 1px solid var(--color-border);
-        border-radius: var(--radius-md);
-    }
-
-    .auth--joined {
-        gap: var(--space-md);
-    }
-
-    .auth__main,
-    .auth--joined .auth__aside {
+    .auth__main {
         padding: var(--space-lg);
-    }
-}
-
-/* ---------- Sign in: illustrated classroom with a soft breeze ---------- */
-
-.auth-scene {
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    overflow: hidden;
-    background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.25) 55%, rgba(255, 255, 255, 0.55) 100%),
-                var(--scene) left center / cover no-repeat;
-}
-
-.auth--scene {
-    align-items: start;  /* the form card ends with its content: the classroom shows below it */
-}
-
-.auth--scene .auth__main {
-    /* Glass: the classroom shows through, blurred behind the text so it stays easy to read */
-    background: rgba(255, 255, 255, 0.5);
-    backdrop-filter: blur(3px) saturate(1.15);
-    border-color: rgba(255, 255, 255, 0.7);
-    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
-}
-
-.auth--scene .info-panel {
-    background: rgba(255, 255, 255, 0.62);
-    backdrop-filter: blur(3px) saturate(1.15);
-    border-color: rgba(255, 255, 255, 0.7);
-    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.1);
-}
-
-
-
-/* Wind: three gusts drawing themselves and leaves crossing the page */
-.wind__gusts {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-}
-
-.wind__gust {
-    fill: none;
-    stroke: rgba(13, 148, 136, 0.28);
-    stroke-width: 2.5;
-    stroke-linecap: round;
-    stroke-dasharray: 260 1400;
-    stroke-dashoffset: 1660;
-    animation: gust 9s linear infinite;
-}
-
-.wind__gust--2 { animation-delay: -3s; animation-duration: 11s; stroke-width: 2; }
-.wind__gust--3 { animation-delay: -6s; animation-duration: 13s; stroke-width: 1.6; }
-
-@keyframes gust {
-    to { stroke-dashoffset: 0; }
-}
-
-.wind__leaf {
-    position: absolute;
-    left: -6vw;
-    top: var(--top, 30%);
-    width: var(--size, 22px);
-    height: var(--size, 22px);
-    color: var(--color, #7cc39a);
-    opacity: 0.85;
-    animation: drift var(--time, 16s) linear var(--delay, 0s) infinite;
-}
-
-.wind__leaf svg {
-    width: 100%;
-    height: 100%;
-    animation: spin var(--spin, 3s) ease-in-out infinite alternate;
-}
-
-.wind__leaf--1 { --top: 18%; --time: 17s; --delay: -2s; --size: 22px; --color: #86c99f; }
-.wind__leaf--2 { --top: 32%; --time: 21s; --delay: -9s; --size: 16px; --color: #f2a99b; --spin: 2.4s; }
-.wind__leaf--3 { --top: 46%; --time: 15s; --delay: -5s; --size: 26px; --color: #9fd3c7; }
-.wind__leaf--4 { --top: 60%; --time: 19s; --delay: -13s; --size: 18px; --color: #c9b6ec; --spin: 3.6s; }
-.wind__leaf--5 { --top: 26%; --time: 23s; --delay: -16s; --size: 14px; --color: #f6c66b; }
-.wind__leaf--6 { --top: 72%; --time: 18s; --delay: -7s; --size: 20px; --color: #86c99f; --spin: 2.8s; }
-.wind__leaf--7 { --top: 12%; --time: 25s; --delay: -20s; --size: 18px; --color: #9fd3c7; }
-.wind__leaf--8 { --top: 52%; --time: 20s; --delay: -11s; --size: 15px; --color: #f2a99b; --spin: 2.2s; }
-.wind__leaf--9 { --top: 84%; --time: 22s; --delay: -4s; --size: 24px; --color: #b9d98a; }
-
-@keyframes drift {
-    0% { transform: translate(0, 0); }
-    25% { transform: translate(28vw, -4vh); }
-    50% { transform: translate(55vw, 3vh); }
-    75% { transform: translate(82vw, -3vh); }
-    100% { transform: translate(112vw, 2vh); }
-}
-
-@keyframes spin {
-    from { transform: rotate(-35deg); }
-    to { transform: rotate(40deg); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .wind__leaf,
-    .wind__leaf svg,
-    .wind__gust {
-        animation: none;
-    }
-
-    .wind__leaf { display: none; }
-}
-
-/* The featured card: text on the left, the illustration of the book and the blocks on the right */
-.info-panel--featured {
-    position: relative;
-    display: grid;
-    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
-    align-items: center;
-    gap: var(--space-md);
-    overflow: hidden;
-    background: radial-gradient(circle at 85% 20%, rgba(255, 255, 255, 0.22), transparent 45%),
-                linear-gradient(135deg, #0f766e 0%, #0d9488 55%, #14b8a6 100%) !important;
-    box-shadow: 0 16px 34px rgba(13, 148, 136, 0.35) !important;
-}
-
-.info-panel--featured .chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    margin: 0;
-    font-size: 0.75rem;
-    font-weight: 600;
-    white-space: nowrap;
-}
-
-.info-panel--featured .chip .icon {
-    font-size: 1rem;
-}
-
-.info-panel--featured h2 {
-    font-size: 1.35rem;
-    line-height: 1.25;
-}
-
-.info-panel--featured .info-panel__quote {
-    font-size: 0.975rem;
-    line-height: 1.55;
-    color: rgba(255, 255, 255, 0.95);
-}
-
-.info-panel__art {
-    width: 100%;
-    height: auto;
-    padding: 0.5rem;
-    border-radius: 16px;
-    background: rgba(255, 255, 255, 0.92);
-    transform: rotate(2deg);
-    box-shadow: 0 10px 24px rgba(4, 52, 44, 0.25);
-}
-
-/* The groups: each one in its own color, with its illustration */
-.group-card {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 76px;
-    align-items: center;
-    gap: var(--space-sm);
-    border: 1px solid transparent;
-    transition: transform 0.15s, box-shadow 0.15s;
-}
-
-.group-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
-}
-
-.group-card img {
-    width: 76px;
-    height: 76px;
-    object-fit: contain;
-}
-
-.group-list .group-card--dea { background: #e0f2fe; border-color: #bae6fd; }
-.group-list .group-card--neuro { background: #ffedd5; border-color: #fed7aa; }
-.group-list .group-card--id { background: #f3e8ff; border-color: #e9d5ff; }
-
-.group-card p {
-    color: #334155;
-}
-
-@media (max-width: 960px) {
-    .info-panel--featured {
-        grid-template-columns: 1fr;
-    }
-
-    .info-panel__art {
-        max-width: 260px;
-        justify-self: center;
-    }
-}
-
-/* On the glass card, the title and the texts get a soft white halo so the drawings behind never hide them */
-.auth--scene .auth__title,
-.auth--scene .auth__intro,
-.auth--scene .field__label,
-.auth--scene .checkbox span,
-.auth--scene .auth__form-footer {
-    text-shadow: 0 0 6px rgba(255, 255, 255, 0.95), 0 0 2px rgba(255, 255, 255, 0.95);
-}
-
-.auth--scene .field__control {
-    background: rgba(255, 255, 255, 0.92);
-}
-
-/* ---------- Register: the same glass and breeze, with the benefits as illustrated cards ---------- */
-
-.auth--register .auth__title {
-    margin-top: var(--space-md);
-}
-
-.auth--register .meter {
-    background: rgba(255, 255, 255, 0.7);
-}
-
-.feature-panel__title {
-    margin: var(--space-xs) 0 var(--space-md);
-    font-size: 1.5rem;
-}
-
-.feature-list {
-    display: grid;
-    gap: var(--space-md);
-    margin: 0;
-    padding: 0;
-    list-style: none;
-}
-
-.feature-card {
-    position: relative;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 120px;
-    align-items: center;
-    gap: var(--space-md);
-    padding: var(--space-md) var(--space-md) var(--space-md) var(--space-lg);
-    border: 1px solid transparent;
-    border-radius: 18px;
-    overflow: hidden;
-    transition: transform 0.18s, box-shadow 0.18s;
-}
-
-.feature-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.1);
-}
-
-/* A soft circle behind each drawing */
-.feature-card::after {
-    content: '';
-    position: absolute;
-    right: -24px;
-    top: 50%;
-    width: 150px;
-    height: 150px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.45);
-    transform: translateY(-50%);
-}
-
-.feature-card img {
-    position: relative;
-    z-index: 1;
-    width: 120px;
-    height: 104px;
-    object-fit: contain;
-}
-
-.feature-card h3 {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    margin: 0 0 var(--space-xs);
-    font-size: 1.05rem;
-}
-
-.feature-card h3 .icon {
-    font-size: 1.15rem;
-}
-
-.feature-card p {
-    margin: 0;
-    color: #334155;
-    font-size: 0.9rem;
-    line-height: 1.5;
-}
-
-.feature-card--dua { background: linear-gradient(135deg, #d1fae5, #ecfdf5); border-color: #a7f3d0; }
-.feature-card--dua h3 { color: #047857; }
-.feature-card--fichas { background: linear-gradient(135deg, #dbeafe, #eff6ff); border-color: #bfdbfe; }
-.feature-card--fichas h3 { color: #1d4ed8; }
-.feature-card--materiales { background: linear-gradient(135deg, #ffedd5, #fff7ed); border-color: #fed7aa; }
-.feature-card--materiales h3 { color: #c2410c; }
-
-.trust-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-sm);
-    margin: var(--space-md) 0 0;
-    padding: 0;
-    list-style: none;
-}
-
-.trust-list li {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.35rem 0.8rem;
-    border-radius: var(--radius-pill);
-    background: rgba(0, 104, 95, 0.1);
-    color: var(--color-primary);
-    font-size: 0.8125rem;
-    font-weight: 600;
-}
-
-.trust-list .icon {
-    font-size: 1rem;
-}
-
-@media (max-width: 560px) {
-    .feature-card {
-        grid-template-columns: minmax(0, 1fr) 84px;
-        padding-left: var(--space-md);
-    }
-
-    .feature-card img {
-        width: 84px;
-        height: 80px;
     }
 }
 
@@ -818,9 +306,554 @@
     font-size: 0.875rem;
 }
 
-
 @media (max-width: 760px) {
     .terms-grid {
         grid-template-columns: 1fr;
     }
 }
+
+/* ---------- Sign in (professional): a teacher's desk behind white cards ---------- */
+
+.pro-scene {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    background: #dcebf6;
+}
+
+/* The picture covers the screen from the bottom center, like "cover", but as a box with its proportions
+   (1672 x 941): what is drawn on top of it is placed in the picture's own percentages */
+.pro-scene__canvas {
+    --cw: max(100vw, calc(100vh * 1672 / 941));
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    width: var(--cw);
+    aspect-ratio: 1672 / 941;
+    background: var(--scene) center / 100% 100% no-repeat;
+    transform: translateX(-50%);
+}
+
+.pro-scene::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(232, 242, 250, 0.12), rgba(232, 242, 250, 0.3));
+    pointer-events: none;
+}
+
+/* The breeze, only outside the window: the mask leaves out the frame and the wall */
+.pro-window {
+    position: absolute;
+    left: calc(1530 / 1672 * 100%);
+    top: 0;
+    width: calc(142 / 1672 * 100%);
+    height: calc(552 / 941 * 100%);
+    overflow: hidden;
+    -webkit-mask: var(--glass) 0 0 / 100% 100% no-repeat;
+    mask: var(--glass) 0 0 / 100% 100% no-repeat;
+}
+
+/* Sunlight flickering through the trees */
+.pro-window__light {
+    position: absolute;
+    inset: -20%;
+    background: radial-gradient(circle at 40% 35%, rgba(255, 252, 220, 0.55), transparent 45%);
+    animation: window-light 7s ease-in-out infinite alternate;
+}
+
+@keyframes window-light {
+    0% { transform: translate(-12%, -4%); opacity: 0.55; }
+    50% { opacity: 0.9; }
+    100% { transform: translate(14%, 8%); opacity: 0.6; }
+}
+
+/* Gusts of air crossing the glass */
+.pro-window__gust {
+    position: absolute;
+    left: -60%;
+    height: 2px;
+    width: 60%;
+    border-radius: 2px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.85), transparent);
+    animation: window-gust var(--time, 3.5s) ease-in var(--delay, 0s) infinite;
+}
+
+.pro-window__gust--1 { top: 22%; --time: 3.4s; }
+.pro-window__gust--2 { top: 48%; --time: 4.2s; --delay: -1.6s; }
+.pro-window__gust--3 { top: 70%; --time: 3.8s; --delay: -2.7s; }
+
+@keyframes window-gust {
+    0% { transform: translateX(0); opacity: 0; }
+    20% { opacity: 1; }
+    100% { transform: translateX(300%); opacity: 0; }
+}
+
+/* Leaves blowing past outside, a little blurred: they are far away, behind the glass */
+.pro-window__leaf {
+    position: absolute;
+    left: -20%;
+    top: var(--top);
+    width: calc(var(--cw) * var(--size, 0.011));
+    height: calc(var(--cw) * var(--size, 0.011));
+    color: var(--tone, #6fbf4f);
+    filter: blur(0.4px);
+    animation: window-leaf var(--time, 5s) linear var(--delay, 0s) infinite;
+}
+
+.pro-window__leaf svg {
+    width: 100%;
+    height: 100%;
+    animation: window-spin var(--spin, 1.6s) ease-in-out infinite alternate;
+}
+
+.pro-window__leaf--1 { --top: 12%; --time: 4.6s; --delay: -0.5s; --tone: #7cc24f; }
+.pro-window__leaf--2 { --top: 30%; --time: 5.8s; --delay: -2.4s; --tone: #a3cf4a; --size: 0.009; }
+.pro-window__leaf--3 { --top: 44%; --time: 4.2s; --delay: -3.6s; --tone: #5fae45; --spin: 1.2s; }
+.pro-window__leaf--4 { --top: 58%; --time: 6.4s; --delay: -1.2s; --tone: #c9d94a; --size: 0.008; }
+.pro-window__leaf--5 { --top: 20%; --time: 5.2s; --delay: -4.4s; --tone: #8ccf5a; --size: 0.010; }
+.pro-window__leaf--6 { --top: 74%; --time: 4.8s; --delay: -2.9s; --tone: #6fbf4f; --spin: 1.9s; }
+.pro-window__leaf--7 { --top: 86%; --time: 6s; --delay: -0.9s; --tone: #b7d65a; --size: 0.009; }
+
+@keyframes window-leaf {
+    0% { left: -20%; margin-top: 0; }
+    35% { margin-top: calc(var(--cw) * -0.008); }
+    70% { margin-top: calc(var(--cw) * 0.006); }
+    100% { left: 115%; margin-top: calc(var(--cw) * -0.003); }
+}
+
+@keyframes window-spin {
+    from { transform: rotate(-40deg) scale(0.9); }
+    to { transform: rotate(50deg) scale(1.05); }
+}
+
+/* Privacy card */
+.pro-privacy {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    gap: var(--space-md);
+    padding: clamp(1.1rem, 2vw, 1.4rem) clamp(1.25rem, 2.4vw, 1.6rem);
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 20px 40px rgba(15, 52, 80, 0.14);
+}
+
+.pro-privacy__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #0f766e, #14b8a6);
+    color: #fff;
+    box-shadow: 0 6px 14px rgba(13, 148, 136, 0.3);
+}
+
+.pro-privacy h2 {
+    margin: 0 0 0.25rem;
+    color: #0f172a;
+    font-size: 1.1rem;
+}
+
+.pro-privacy p {
+    margin: 0;
+    color: #475569;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pro-window__light,
+    .pro-window__gust,
+    .pro-window__leaf,
+    .pro-window__leaf svg {
+        animation: none;
+    }
+
+    .pro-window__gust,
+    .pro-window__leaf {
+        display: none;
+    }
+}
+
+.auth-pro {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    align-items: start;
+    align-content: start;  /* on a phone the cards follow each other, without empty rows between them */
+    gap: clamp(1rem, 2.4vw, 2rem);
+    max-width: 1200px;
+    min-height: 100vh;
+    margin: 0 auto;
+    padding: clamp(1.5rem, 4vh, 3rem) clamp(1rem, 3vw, 2rem);
+}
+
+/* Access card */
+.pro-card {
+    position: relative;
+    padding: clamp(1.5rem, 3vw, 2.5rem);
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 24px 50px rgba(15, 52, 80, 0.16);
+    overflow: hidden;
+}
+
+/* The teal curve in the top right corner */
+.pro-card::before,
+.pro-card::after {
+    content: '';
+    position: absolute;
+    top: -70px;
+    right: -60px;
+    width: 230px;
+    height: 150px;
+    border-radius: 0 0 0 100%;
+    pointer-events: none;
+}
+
+.pro-card::before {
+    background: linear-gradient(135deg, #0f766e, #14b8a6);
+}
+
+.pro-card::after {
+    top: -84px;
+    right: -78px;
+    background: rgba(255, 255, 255, 0.35);
+    transform: rotate(-6deg);
+}
+
+.pro-card .brand__name {
+    font-size: 1.45rem;
+}
+
+.pro-card__title {
+    position: relative;
+    margin: var(--space-lg) 0 var(--space-md);
+    padding-bottom: 0.65rem;
+    font-size: clamp(1.6rem, 2.4vw, 2.05rem);
+    color: #0f172a;
+}
+
+.pro-card__title::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 64px;
+    height: 4px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #0f766e, #14b8a6);
+}
+
+.pro-card__intro {
+    margin: 0 0 var(--space-lg);
+    color: #334155;
+    font-size: 1.02rem;
+    line-height: 1.55;
+}
+
+.pro-form {
+    display: grid;
+    gap: 0.9rem;
+}
+
+.pro-field {
+    position: relative;
+}
+
+.pro-field__icon {
+    position: absolute;
+    left: 1rem;
+    top: 26px;
+    transform: translateY(-50%);
+    color: #475569;
+    pointer-events: none;
+}
+
+.pro-field .field__control {
+    min-height: 52px;
+    padding-left: 3rem;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 12px;
+    background: #fff;
+    font-size: 1rem;
+}
+
+.pro-field .field__control:focus {
+    border-color: #0d9488;
+    box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.15);
+}
+
+.pro-field__action {
+    position: absolute;
+    right: 0.5rem;
+    top: 26px;
+    transform: translateY(-50%);
+}
+
+.pro-form__forgot {
+    margin: -0.35rem 0 0;
+    text-align: right;
+    font-size: 0.9rem;
+}
+
+.pro-form__forgot a,
+.pro-card__footer a {
+    color: #0f766e;
+    font-weight: 600;
+}
+
+.pro-form__remember {
+    color: #334155;
+}
+
+.pro-form__submit {
+    min-height: 54px;
+    border-radius: 12px;
+    background: linear-gradient(90deg, #0f766e, #0d9488);
+    box-shadow: 0 10px 20px rgba(13, 148, 136, 0.28);
+    font-size: 1.05rem;
+}
+
+.pro-form__submit:hover {
+    background: linear-gradient(90deg, #115e59, #0f766e);
+}
+
+.pro-card__footer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin: var(--space-lg) 0 0;
+    color: #334155;
+}
+
+/* The lines on both sides of the footer */
+.pro-card__footer::before,
+.pro-card__footer::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #e2e8f0;
+}
+
+.pro-card__footer .icon {
+    color: #0f766e;
+}
+
+/* DUA card */
+.pro-aside {
+    display: grid;
+    gap: clamp(1rem, 2.4vw, 1.5rem);
+}
+
+.pro-dua {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    align-items: center;
+    gap: var(--space-md);
+    padding: clamp(1.25rem, 2.4vw, 1.75rem);
+    border-radius: 22px;
+    background: radial-gradient(circle at 90% 10%, rgba(255, 255, 255, 0.14), transparent 40%),
+                linear-gradient(135deg, #0b4f4a, #0f766e 60%, #0d9488);
+    color: #fff;
+    box-shadow: 0 20px 40px rgba(11, 79, 74, 0.32);
+}
+
+.pro-dua__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0;
+    padding: 0.35rem 0.85rem;
+    border-radius: var(--radius-pill);
+    background: rgba(255, 255, 255, 0.16);
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.pro-dua__chip .icon {
+    font-size: 1.05rem;
+}
+
+.pro-dua h2 {
+    margin: var(--space-md) 0 var(--space-sm);
+    color: #fff;
+    font-size: clamp(1.3rem, 1.9vw, 1.6rem);
+    line-height: 1.2;
+}
+
+.pro-dua__quote {
+    margin: 0;
+    padding-left: 0.9rem;
+    border-left: 3px solid #5eead4;
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 0.95rem;
+    line-height: 1.55;
+}
+
+/* A book with a checklist and a pencil, drawn with the icon font */
+.pro-dua__art {
+    position: relative;
+    display: grid;
+    place-items: center;
+    aspect-ratio: 1;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 12px 24px rgba(4, 52, 44, 0.3);
+}
+
+.pro-dua__book {
+    font-size: clamp(4.5rem, 7vw, 6rem);
+    color: #0f766e;
+}
+
+.pro-dua__check {
+    position: absolute;
+    left: 18%;
+    top: 20%;
+    font-size: 1.9rem;
+    color: #16a34a;
+}
+
+.pro-dua__pencil {
+    position: absolute;
+    right: 14%;
+    top: 12%;
+    font-size: 2.2rem;
+    color: #f59e0b;
+}
+
+/* Groups card */
+.pro-groups {
+    padding: clamp(1.25rem, 2.4vw, 1.6rem);
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 20px 40px rgba(15, 52, 80, 0.14);
+}
+
+.pro-groups h2 {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin: 0 0 var(--space-md);
+    color: #0f172a;
+    font-size: 1.25rem;
+}
+
+.pro-groups h2 .icon {
+    color: #0f766e;
+}
+
+.pro-groups ul {
+    display: grid;
+    gap: 0.7rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.pro-group {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: var(--space-md);
+    padding: 0.85rem 1rem;
+    border-left: 4px solid var(--tone);
+    border-radius: 0 12px 12px 0;
+    background: var(--tint);
+}
+
+.pro-group__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.8);
+    color: var(--tone);
+}
+
+.pro-group__icon .icon {
+    font-size: 1.6rem;
+}
+
+.pro-group h3 {
+    margin: 0;
+    color: #0f172a;
+    font-size: 1.02rem;
+}
+
+.pro-group p {
+    margin: 0.15rem 0 0;
+    color: #475569;
+    font-size: 0.9rem;
+    line-height: 1.45;
+}
+
+.pro-group--dea { --tone: #2563eb; --tint: #e8f1fd; }
+.pro-group--neuro { --tone: #d97706; --tint: #fdf3e2; }
+.pro-group--id { --tone: #7c3aed; --tint: #f1ebfd; }
+
+@media (max-width: 960px) {
+    .auth-pro {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 520px) {
+    .pro-dua {
+        grid-template-columns: 1fr;
+    }
+
+    .pro-dua__art {
+        max-width: 160px;
+    }
+}
+
+/* ---------- Register (professional): the same cards, with visible labels for its longer form ---------- */
+
+.pro-form--labels {
+    gap: 0;
+}
+
+.pro-form--labels .field {
+    margin-bottom: var(--space-md);
+}
+
+.pro-form--labels .field__label {
+    color: #1e293b;
+    font-weight: 600;
+}
+
+.pro-form--labels .field__control {
+    min-height: 50px;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 12px;
+    background: #fff;
+}
+
+.pro-form--labels .field__control:focus {
+    border-color: #0d9488;
+    box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.15);
+}
+
+.pro-form--labels .meter {
+    margin-top: calc(-1 * var(--space-xs));
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #f8fafc;
+}
+
+.pro-group--dua { --tone: #0d9488; --tint: #e6f6f3; }
