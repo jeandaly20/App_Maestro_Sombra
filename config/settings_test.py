@@ -34,6 +34,9 @@ DATABASES = {
 if not DATABASES['default']['USER'] or DATABASES['default']['USER'] == os.getenv('DB_USER', 'maestro_app'):
     raise ImproperlyConfigured('Configura TEST_DB_USER con el usuario exclusivo de pruebas (no el de la aplicación).')
 
+# One student after another: a test runs inside a transaction that other threads cannot see. The parallel
+# path has its own test, which commits its rows (apps.adaptations.test_parallel)
+AI_PARALLEL_STUDENTS = 1
 # Files written by tests or manual checks stay apart from the application's media
 MEDIA_ROOT = BASE_DIR / 'media_pruebas'
 # Fictitious data only: its own encryption key when one is configured for the test environment

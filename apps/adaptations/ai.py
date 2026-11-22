@@ -337,6 +337,19 @@ def model_chain():
     return sorted(chain, key=lambda model: _paused_until.get(model, 0) > now)
 
 
+def timeout_for(parts, last_model=False):
+    """
+    Seconds one model may take for this call: the base limit plus a few seconds for every page image beyond the
+    first, up to the maximum. The last model of the chain always gets the maximum, so a call that really needs
+    long (many pages, a whole week) is never cut by every model in turn.
+    """
+    if last_model:
+        return settings.GEMINI_MAX_TIMEOUT_SECONDS
+    images = sum(1 for part in parts if 'inlineData' in part)
+    return min(settings.GEMINI_TIMEOUT_SECONDS + settings.GEMINI_TIMEOUT_PER_IMAGE_SECONDS * max(images - 1, 0),
+               settings.GEMINI_MAX_TIMEOUT_SECONDS)
+
+
 def generate_json(system, parts, schema):
     """
     Calls Gemini and returns (data, model_version). Each model of the chain gets two tries (the last one, one),
@@ -349,12 +362,13 @@ def generate_json(system, parts, schema):
     statuses = []
     chain = model_chain()
     for position, model in enumerate(chain):
-        attempts = 1 if position == len(chain) - 1 else 2
+        last = position == len(chain) - 1
+        attempts = 1 if last else 2
         for attempt in range(attempts):
             if attempt:
                 time.sleep(RETRY_WAIT_SECONDS)
             try:
-                answer = _call(model, system, parts, schema, settings.GEMINI_TIMEOUT_SECONDS)
+                answer = _call(model, system, parts, schema, timeout_for(parts, last_model=last))
                 candidate = answer['candidates'][0]
                 # The answer may come split in several parts (and "thought" parts carry no answer)
                 text = ''.join(p.get('text', '') for p in candidate.get('content', {}).get('parts', [])

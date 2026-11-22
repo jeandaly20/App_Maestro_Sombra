@@ -4,9 +4,11 @@ import re
 import threading
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 
-from django.db import close_old_connections, transaction
+from django.conf import settings
+from django.db import close_old_connections, connection, transaction
 from django.db.models import Max, Q
 from django.utils import timezone
 
@@ -78,6 +80,44 @@ def report(record, text):
     """
     record.progress = text[:120]
     type(record).objects.filter(pk=record.pk).update(progress=record.progress, updated_at=timezone.now())
+
+
+def for_each_student(items, work, say, what):
+    """
+    Runs work(item) for every student's item, up to AI_PARALLEL_STUDENTS at the same time: each student is its
+    own call to the AI, so three students take about as long as one (measured: a week for 3 students, 51 s one
+    after another and 19 s together). work saves its own result as soon as it is ready. Every student is tried
+    even if another one fails, and the first error is raised at the end: "Reintentar" then asks only for the
+    students that are missing. `what` names one item for the progress line ("ficha", "clase").
+    With one worker (the tests) it runs here, one after another, and stops at the first error as before.
+    """
+    workers = min(settings.AI_PARALLEL_STUDENTS, len(items))
+    if workers <= 1:
+        for number, item in enumerate(items, start=1):
+            say(f'Adaptando la {what} {number} de {len(items)}…' if len(items) > 1 else f'Adaptando la {what}…')
+            work(item)
+        return
+    lock = threading.Lock()
+    finished, errors = [], []
+    say(f'Adaptando {len(items)} {what}s a la vez…')
+
+    def guarded(item):
+        try:
+            work(item)
+            with lock:
+                finished.append(item)
+                say(f'Adaptando {len(items)} {what}s a la vez: {len(finished)} de {len(items)} lista'
+                    f'{"s" if len(finished) > 1 else ""}…')
+        except Exception as error:  # noqa: BLE001 - raised below, after the other students are done
+            errors.append(error)
+        finally:
+            connection.close()  # each worker thread opened its own database connection
+
+    with ThreadPoolExecutor(max_workers=workers, thread_name_prefix='ai-student') as pool:
+        list(pool.map(guarded, items))
+    if errors:
+        # The AI's own message (Google overloaded, quota...) is the one the teacher must see
+        raise next((error for error in errors if isinstance(error, ai.AIError)), errors[0])
 
 
 # A job with no news for this long was interrupted (the server stopped while its thread ran): it may be resumed.
@@ -188,11 +228,12 @@ def process_material(material_id, requests, adjustments, *, session_text='', bef
             before_adapting(analysis)
         students = {s.pk: s for s in Student.objects.filter(teacher=material.teacher, pk__in=[r[0] for r in requests])}
         done = set(material.adaptations.filter(record_status=RecordStatus.ACTIVE).values_list('student_id', flat=True))
-        for number, (student_id, conditions) in enumerate(requests, start=1):
-            if student_id in done:
-                continue
-            say(f'Adaptando la ficha {number} de {len(requests)}…' if len(requests) > 1 else 'Adaptando la ficha…')
-            _create_adaptation(material, students[student_id], conditions, rules.get(str(student_id), []))
+        material.teacher  # noqa: B018 - loaded once here, not by each worker thread
+        for_each_student(
+            [(student_id, conditions) for student_id, conditions in requests if student_id not in done],
+            lambda request: _create_adaptation(material, students[request[0]], request[1],
+                                               rules.get(str(request[0]), [])),
+            say, 'ficha')
         material.status = MaterialStatus.PROCESSED
         logger.info('Material %s processed: %s adaptation(s)', material.pk, len(requests))
     except ai.AIError as error:
@@ -362,12 +403,10 @@ def process_lesson(lesson_id, requests, adjustments, chosen_grade='', check_topi
         book_summary = (material.ai_analysis or {}).get('summary', '')
         analysis = lesson.analysis
         done = set(lesson.adaptations.values_list('student_id', flat=True)) if resume else set()
-        for number, (student_id, conditions) in enumerate(requests, start=1):
-            if student_id in done:
-                continue
+
+        def adapt_class(request):
+            student_id, conditions = request
             student = students[student_id]
-            report(lesson, f'Adaptando la clase {number} de {len(requests)}…' if len(requests) > 1
-                   else 'Adaptando la clase…')
             student_rules = rules.get(str(student_id), [])
             relevance = lesson_relevance(lesson, analysis, book_summary, student, conditions, student_rules)
             worksheet = (material.adaptations.filter(student=student, condition=conditions[0])
@@ -383,13 +422,16 @@ def process_lesson(lesson_id, requests, adjustments, chosen_grade='', check_topi
                 content, kind='lesson', conditions=conditions, student_name=student.name, original=analysis)
             content['learning_history'] = learning_progress.adaptation_context(  # local only, after the AI call
                 student, lesson.subject.code, skill=analysis.get('skill', ''), topic=lesson.title)
-            # Saved at once: if the next student fails, this one is kept for the retry
+            # Saved at once: if another student fails, this one is kept for the retry
             LessonAdaptation.objects.update_or_create(lesson=lesson, student=student, defaults={
                 'condition': conditions[0], 'conditions': list(conditions),
                 'grade': chosen_grade or content['suggested_grade'],
                 'suggested_grade': content['suggested_grade'], 'worksheet': worksheet,
                 'content': content, 'ai_model': model[:50],
             })
+
+        for_each_student([request for request in requests if request[0] not in done], adapt_class,
+                         lambda text: report(lesson, text), 'clase')
         lesson.status = MaterialStatus.PROCESSED
         # The teacher's file (with the school's and people's names) is no longer needed: only its
         # anonymized session text and the adaptation are kept

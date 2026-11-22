@@ -27,13 +27,25 @@ FIELD_ENCRYPTION_KEY = os.environ['FIELD_ENCRYPTION_KEY']
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
 # The proposal named gemini-1.5-flash, which Google retired. The Flash-Lite model is the main one: every
 # adaptation reviewed in the pilot came from it, and it answers in seconds. When Google overloads it (503),
-# the fallbacks are other models, each with its own capacity: an older Flash-Lite, then the full Flash.
+# the fallbacks are other models, each with its own capacity, chosen by speed (one worksheet, measured
+# 2026-11-20): the older Flash-Lite (6 s) and then Flash 3 (15 s). The newer full Flash models took 25 to 85 s,
+# so as a fallback they made the teacher wait more than a minute; gemini-2.5-flash-lite no longer answers (404).
 # Both can be changed in .env (GEMINI_FALLBACK_MODELS: names separated by commas).
 GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-flash-lite-latest')
 GEMINI_FALLBACK_MODELS = [name.strip() for name in os.getenv(
-    'GEMINI_FALLBACK_MODELS', 'gemini-3.1-flash-lite,gemini-3.5-flash').split(',') if name.strip()]
+    'GEMINI_FALLBACK_MODELS', 'gemini-3.1-flash-lite,gemini-3-flash-preview').split(',') if name.strip()]
 
-GEMINI_TIMEOUT_SECONDS = 60  # a whole week can take Flash about 30 s; more than 60 s means overloaded
+# How long one call may take before the next model is tried. Flash-Lite answers every call in 3 to 8 s, even a
+# whole week (measured 2026-11-20): 30 s means that model is stuck, plus a few seconds for each extra page it
+# reads. The last model of the chain always gets the maximum, so a call that really needs long still gets an
+# answer. With the full Flash as main model (which takes about 30 s), raise GEMINI_TIMEOUT_SECONDS in .env:
+# a 25 s limit once cut every model in turn.
+GEMINI_TIMEOUT_SECONDS = int(os.getenv('GEMINI_TIMEOUT_SECONDS', '30'))
+GEMINI_TIMEOUT_PER_IMAGE_SECONDS = 5
+GEMINI_MAX_TIMEOUT_SECONDS = 60
+# Students adapted at the same time (each one is its own call to the AI). Google's free plan limits the calls
+# per minute; 3 at once fits it.
+AI_PARALLEL_STUDENTS = int(os.getenv('AI_PARALLEL_STUDENTS', '3'))
 # Sending the pedagogical profile (fixed categories, never the teacher's text) to the AI. Off unless set
 # explicitly; even then it needs each student's own authorization covering it (StudentConsent, AI_PROFILE).
 AI_PROFILE_TRANSFER_ENABLED = os.getenv('AI_PROFILE_TRANSFER_ENABLED', 'False') == 'True'
