@@ -337,7 +337,7 @@ main [id] {
 }
 
 .sidebar__link[aria-current="page"] {
-    background: linear-gradient(90deg, #0f766e, #14917f);
+    background: linear-gradient(90deg, #0b5f58, #0f766e); /* white text: at least 5.4:1 (WCAG 1.4.3) */
     color: #fff;
     box-shadow: 0 8px 18px rgba(15, 118, 110, 0.28);
 }
