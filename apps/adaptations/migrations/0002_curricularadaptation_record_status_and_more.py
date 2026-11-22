@@ -19,7 +19,7 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='curricularadaptation',
-            constraint=models.CheckConstraint(check=models.Q(('record_status__in', ['ACTIVE', 'INACTIVE'])), name='adaptation_record_status_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('record_status__in', ['ACTIVE', 'INACTIVE'])), name='adaptation_record_status_valid'),
         ),
         migrations.AlterModelTable(
             name='curricularadaptation',

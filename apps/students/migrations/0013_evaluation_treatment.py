@@ -22,6 +22,6 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='studentconsent',
-            constraint=models.CheckConstraint(check=models.Q(('treatments__contained_by', ['INTERNAL', 'AI_ADAPTATION', 'AI_PROFILE', 'AI_EVALUATION'])), name='student_consent_treatments_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('treatments__contained_by', ['INTERNAL', 'AI_ADAPTATION', 'AI_PROFILE', 'AI_EVALUATION'])), name='student_consent_treatments_valid'),
         ),
     ]

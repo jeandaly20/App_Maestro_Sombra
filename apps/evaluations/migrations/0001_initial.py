@@ -40,30 +40,30 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='evaluation',
-            constraint=models.CheckConstraint(check=models.Q(('status__in', ['DRAFT', 'FINAL'])), name='evaluation_status_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('status__in', ['DRAFT', 'FINAL'])), name='evaluation_status_valid'),
         ),
         migrations.AddConstraint(
             model_name='evaluation',
-            constraint=models.CheckConstraint(check=models.Q(('autonomy_level', ''), ('autonomy_level__in', ['AUTONOMOUS', 'OCCASIONAL_SUPPORT', 'CONSTANT_SUPPORT']), _connector='OR'), name='evaluation_autonomy_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('autonomy_level', ''), ('autonomy_level__in', ['AUTONOMOUS', 'OCCASIONAL_SUPPORT', 'CONSTANT_SUPPORT']), _connector='OR'), name='evaluation_autonomy_valid'),
         ),
         migrations.AddConstraint(
             model_name='evaluation',
-            constraint=models.CheckConstraint(check=models.Q(('comprehension', ''), ('comprehension__in', ['YES', 'DIFFICULTY', 'NO']), _connector='OR'), name='evaluation_comprehension_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('comprehension', ''), ('comprehension__in', ['YES', 'DIFFICULTY', 'NO']), _connector='OR'), name='evaluation_comprehension_valid'),
         ),
         migrations.AddConstraint(
             model_name='evaluation',
-            constraint=models.CheckConstraint(check=models.Q(('overload', ''), ('overload__in', ['NONE', 'MILD', 'EVIDENT']), _connector='OR'), name='evaluation_overload_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('overload', ''), ('overload__in', ['NONE', 'MILD', 'EVIDENT']), _connector='OR'), name='evaluation_overload_valid'),
         ),
         migrations.AddConstraint(
             model_name='evaluation',
-            constraint=models.CheckConstraint(check=models.Q(('accuracy_range', ''), ('accuracy_range__in', ['BELOW_50', 'BETWEEN_50_75', 'ABOVE_75']), _connector='OR'), name='evaluation_accuracy_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('accuracy_range', ''), ('accuracy_range__in', ['BELOW_50', 'BETWEEN_50_75', 'ABOVE_75']), _connector='OR'), name='evaluation_accuracy_valid'),
         ),
         migrations.AddConstraint(
             model_name='evaluation',
-            constraint=models.CheckConstraint(check=models.Q(('status', 'DRAFT'), models.Q(models.Q(('autonomy_level', ''), _negated=True), models.Q(('comprehension', ''), _negated=True)), _connector='OR'), name='evaluation_final_is_complete'),
+            constraint=models.CheckConstraint(condition=models.Q(('status', 'DRAFT'), models.Q(models.Q(('autonomy_level', ''), _negated=True), models.Q(('comprehension', ''), _negated=True)), _connector='OR'), name='evaluation_final_is_complete'),
         ),
         migrations.AddConstraint(
             model_name='evaluation',
-            constraint=models.CheckConstraint(check=models.Q(('ai_recommendation', ''), ('recommended_at__isnull', False), _connector='OR'), name='evaluation_recommendation_has_date'),
+            constraint=models.CheckConstraint(condition=models.Q(('ai_recommendation', ''), ('recommended_at__isnull', False), _connector='OR'), name='evaluation_recommendation_has_date'),
         ),
     ]

@@ -37,18 +37,18 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='studentconsent',
-            constraint=models.CheckConstraint(check=models.Q(('treatments__contained_by', ['INTERNAL', 'AI_ADAPTATION', 'AI_PROFILE'])), name='student_consent_treatments_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('treatments__contained_by', ['INTERNAL', 'AI_ADAPTATION', 'AI_PROFILE'])), name='student_consent_treatments_valid'),
         ),
         migrations.AddConstraint(
             model_name='studentconsent',
-            constraint=models.CheckConstraint(check=models.Q(('treatments__len__gte', 1)), name='student_consent_has_treatment'),
+            constraint=models.CheckConstraint(condition=models.Q(('treatments__len__gte', 1)), name='student_consent_has_treatment'),
         ),
         migrations.AddConstraint(
             model_name='studentconsent',
-            constraint=models.CheckConstraint(check=models.Q(('status__in', ['ACTIVE', 'REVOKED', 'REPLACED'])), name='student_consent_status_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('status__in', ['ACTIVE', 'REVOKED', 'REPLACED'])), name='student_consent_status_valid'),
         ),
         migrations.AddConstraint(
             model_name='studentconsent',
-            constraint=models.CheckConstraint(check=models.Q(models.Q(('revoked_at__isnull', True), ('status', 'ACTIVE')), models.Q(models.Q(('status', 'ACTIVE'), _negated=True), ('revoked_at__isnull', False)), _connector='OR'), name='student_consent_revocation_dated'),
+            constraint=models.CheckConstraint(condition=models.Q(models.Q(('revoked_at__isnull', True), ('status', 'ACTIVE')), models.Q(models.Q(('status', 'ACTIVE'), _negated=True), ('revoked_at__isnull', False)), _connector='OR'), name='student_consent_revocation_dated'),
         ),
     ]

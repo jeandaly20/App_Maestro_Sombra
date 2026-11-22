@@ -139,7 +139,7 @@ def straightened(image):
     dark = dark_pixels(small)
 
     def sharpness(angle):
-        rows = dark.rotate(angle, fillcolor=0).resize((1, dark.height), Image.BOX).getdata()
+        rows = dark.rotate(angle, fillcolor=0).resize((1, dark.height), Image.BOX).get_flattened_data()
         return sum(value * value for value in rows)
 
     angle = max((step / 4 for step in range(-4 * MAX_TILT, 4 * MAX_TILT + 1)), key=sharpness)
@@ -178,7 +178,7 @@ def handwriting(image, label_box, row_height):
     box = tuple(round(value) for value in box)
     if box[2] - box[0] < 20 or box[3] - box[1] < 10:
         return 0
-    rows = list(dark_pixels(image.crop(box)).resize((1, box[3] - box[1]), Image.BOX).getdata())
+    rows = list(dark_pixels(image.crop(box)).resize((1, box[3] - box[1]), Image.BOX).get_flattened_data())
     margin = max(2, round(2 * scale))
     printed = {near for row, value in enumerate(rows) if value > 255 * LINE_ROW_SHARE
                for near in range(row - margin, row + margin + 1)}

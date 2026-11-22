@@ -10,7 +10,7 @@ cffi==2.1.1
 charset-normalizer==3.5.2
 cryptography==50.0.1
 cssselect2==0.10.1
-Django==5.0.14
+Django==5.2.19
 et_xmlfile==2.0.0
 frozenlist==1.8.0
 html5lib==1.1

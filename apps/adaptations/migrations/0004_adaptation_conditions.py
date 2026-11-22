@@ -41,10 +41,10 @@ class Migration(migrations.Migration):
         migrations.RunPython(fill_conditions, migrations.RunPython.noop),
         migrations.AddConstraint(
             model_name='curricularadaptation',
-            constraint=models.CheckConstraint(check=models.Q(('conditions__contained_by', ['DYSLEXIA', 'DYSCALCULIA', 'ADHD', 'ASD', 'ID_MILD', 'ID_MODERATE']), ('conditions__len__gte', 1)), name='adaptation_conditions_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('conditions__contained_by', ['DYSLEXIA', 'DYSCALCULIA', 'ADHD', 'ASD', 'ID_MILD', 'ID_MODERATE']), ('conditions__len__gte', 1)), name='adaptation_conditions_valid'),
         ),
         migrations.AddConstraint(
             model_name='lessonadaptation',
-            constraint=models.CheckConstraint(check=models.Q(('conditions__contained_by', ['DYSLEXIA', 'DYSCALCULIA', 'ADHD', 'ASD', 'ID_MILD', 'ID_MODERATE']), ('conditions__len__gte', 1)), name='lesson_adaptation_conditions_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('conditions__contained_by', ['DYSLEXIA', 'DYSCALCULIA', 'ADHD', 'ASD', 'ID_MILD', 'ID_MODERATE']), ('conditions__len__gte', 1)), name='lesson_adaptation_conditions_valid'),
         ),
     ]

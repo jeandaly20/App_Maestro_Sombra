@@ -132,47 +132,47 @@ class Evaluation(models.Model):
         verbose_name_plural = 'evaluaciones'
         constraints = [
             models.CheckConstraint(
-                check=models.Q(status__in=EvaluationStatus.values), name='evaluation_status_valid'
+                condition=models.Q(status__in=EvaluationStatus.values), name='evaluation_status_valid'
             ),
             models.CheckConstraint(
-                check=models.Q(autonomy_level='') | models.Q(autonomy_level__in=AutonomyLevel.values),
+                condition=models.Q(autonomy_level='') | models.Q(autonomy_level__in=AutonomyLevel.values),
                 name='evaluation_autonomy_valid',
             ),
             models.CheckConstraint(
-                check=models.Q(comprehension='') | models.Q(comprehension__in=Comprehension.values),
+                condition=models.Q(comprehension='') | models.Q(comprehension__in=Comprehension.values),
                 name='evaluation_comprehension_valid',
             ),
             models.CheckConstraint(
-                check=models.Q(overload='') | models.Q(overload__in=Overload.values),
+                condition=models.Q(overload='') | models.Q(overload__in=Overload.values),
                 name='evaluation_overload_valid',
             ),
             models.CheckConstraint(
-                check=models.Q(goal_attainment='') | models.Q(goal_attainment__in=GoalAttainment.values),
+                condition=models.Q(goal_attainment='') | models.Q(goal_attainment__in=GoalAttainment.values),
                 name='evaluation_goal_valid',
             ),
             models.CheckConstraint(
-                check=models.Q(achievement_level='') | models.Q(achievement_level__in=AchievementLevel.values),
+                condition=models.Q(achievement_level='') | models.Q(achievement_level__in=AchievementLevel.values),
                 name='evaluation_achievement_valid',
             ),
             # A draft may be incomplete; a final evaluation may not
             models.CheckConstraint(
-                check=models.Q(status=EvaluationStatus.DRAFT)
+                condition=models.Q(status=EvaluationStatus.DRAFT)
                 | (~models.Q(autonomy_level='') & ~models.Q(comprehension='')),
                 name='evaluation_final_is_complete',
             ),
             models.CheckConstraint(
-                check=models.Q(ai_recommendation='') | models.Q(recommended_at__isnull=False),
+                condition=models.Q(ai_recommendation='') | models.Q(recommended_at__isnull=False),
                 name='evaluation_recommendation_has_date',
             ),
             models.CheckConstraint(
-                check=models.Q(record_status__in=RecordStatus.values), name='evaluation_record_status_valid'
+                condition=models.Q(record_status__in=RecordStatus.values), name='evaluation_record_status_valid'
             ),
             models.CheckConstraint(
-                check=models.Q(supports_applied__contained_by=SUPPORT_KEYS), name='evaluation_supports_applied_valid'
+                condition=models.Q(supports_applied__contained_by=SUPPORT_KEYS), name='evaluation_supports_applied_valid'
             ),
             # A support can be judged useful only if it was applied
             models.CheckConstraint(
-                check=models.Q(supports_useful__contained_by=models.F('supports_applied')),
+                condition=models.Q(supports_useful__contained_by=models.F('supports_applied')),
                 name='evaluation_supports_useful_were_applied',
             ),
         ]
@@ -242,7 +242,7 @@ class RecommendationReview(models.Model):
         verbose_name_plural = 'revisiones de recomendaciones'
         constraints = [
             models.UniqueConstraint(fields=['student', 'key'], name='recommendation_review_unique'),
-            models.CheckConstraint(check=models.Q(decision__in=RecommendationDecision.values),
+            models.CheckConstraint(condition=models.Q(decision__in=RecommendationDecision.values),
                                    name='recommendation_review_decision_valid'),
         ]
 

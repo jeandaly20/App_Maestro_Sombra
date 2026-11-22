@@ -29,14 +29,14 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='student',
-            constraint=models.CheckConstraint(check=models.Q(('diagnosis_file', ''), ('diagnosis_consent_at__isnull', False), _connector='OR'), name='student_document_has_consent'),
+            constraint=models.CheckConstraint(condition=models.Q(('diagnosis_file', ''), ('diagnosis_consent_at__isnull', False), _connector='OR'), name='student_document_has_consent'),
         ),
         migrations.AddConstraint(
             model_name='student',
-            constraint=models.CheckConstraint(check=models.Q(('diagnosis_file', ''), models.Q(('diagnosis_source', 'IN_EVALUATION'), _negated=True), _connector='OR'), name='student_document_needs_source'),
+            constraint=models.CheckConstraint(condition=models.Q(('diagnosis_file', ''), models.Q(('diagnosis_source', 'IN_EVALUATION'), _negated=True), _connector='OR'), name='student_document_needs_source'),
         ),
         migrations.AddConstraint(
             model_name='student',
-            constraint=models.CheckConstraint(check=models.Q(('diagnosis_file_type', ''), ('diagnosis_file_type__in', ['application/pdf', 'image/jpeg', 'image/png']), _connector='OR'), name='student_document_type_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('diagnosis_file_type', ''), ('diagnosis_file_type__in', ['application/pdf', 'image/jpeg', 'image/png']), _connector='OR'), name='student_document_type_valid'),
         ),
     ]

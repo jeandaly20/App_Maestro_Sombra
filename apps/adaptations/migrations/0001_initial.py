@@ -47,27 +47,27 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='curricularadaptation',
-            constraint=models.CheckConstraint(check=models.Q(('condition__in', ['DYSLEXIA', 'DYSCALCULIA', 'ADHD', 'ASD', 'ID_MILD', 'ID_MODERATE'])), name='adaptation_condition_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('condition__in', ['DYSLEXIA', 'DYSCALCULIA', 'ADHD', 'ASD', 'ID_MILD', 'ID_MODERATE'])), name='adaptation_condition_valid'),
         ),
         migrations.AddConstraint(
             model_name='curricularadaptation',
-            constraint=models.CheckConstraint(check=models.Q(('status__in', ['IN_REVIEW', 'APPROVED', 'EXPORTED'])), name='adaptation_status_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('status__in', ['IN_REVIEW', 'APPROVED', 'EXPORTED'])), name='adaptation_status_valid'),
         ),
         migrations.AddConstraint(
             model_name='curricularadaptation',
-            constraint=models.CheckConstraint(check=models.Q(('applied_adjustments__contained_by', ['ACCESSIBLE_FONT', 'SEGMENTATION', 'VISUAL_SUPPORT', 'STEP_SEQUENCE', 'EASY_READ', 'FEWER_DISTRACTIONS', 'HIGH_CONTRAST'])), name='adaptation_adjustments_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('applied_adjustments__contained_by', ['ACCESSIBLE_FONT', 'SEGMENTATION', 'VISUAL_SUPPORT', 'STEP_SEQUENCE', 'EASY_READ', 'FEWER_DISTRACTIONS', 'HIGH_CONTRAST'])), name='adaptation_adjustments_valid'),
         ),
         migrations.AddConstraint(
             model_name='curricularadaptation',
-            constraint=models.CheckConstraint(check=models.Q(('color_filter__in', ['NONE', 'CREAM', 'BLUE', 'GREEN'])), name='adaptation_color_filter_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('color_filter__in', ['NONE', 'CREAM', 'BLUE', 'GREEN'])), name='adaptation_color_filter_valid'),
         ),
         migrations.AddConstraint(
             model_name='curricularadaptation',
-            constraint=models.CheckConstraint(check=models.Q(('version__gte', 1)), name='adaptation_version_positive'),
+            constraint=models.CheckConstraint(condition=models.Q(('version__gte', 1)), name='adaptation_version_positive'),
         ),
         migrations.AddConstraint(
             model_name='curricularadaptation',
-            constraint=models.CheckConstraint(check=models.Q(('source_adaptation', models.F('id')), _negated=True), name='adaptation_source_not_self'),
+            constraint=models.CheckConstraint(condition=models.Q(('source_adaptation', models.F('id')), _negated=True), name='adaptation_source_not_self'),
         ),
         migrations.AddConstraint(
             model_name='curricularadaptation',

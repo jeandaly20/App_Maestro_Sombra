@@ -77,7 +77,7 @@ def jpeg_bytes():
 
 
 def black_pixels(image):
-    return sum(1 for pixel in image.convert('L').getdata() if pixel < 20)
+    return sum(1 for pixel in image.convert('L').get_flattened_data() if pixel < 20)
 
 
 CLEAN_LESSON = ['1. Reparte 12 caramelos entre 3 ninos.', '2. Calcula 24 x 3.', '3. Compara 1/2 y 1/4.']

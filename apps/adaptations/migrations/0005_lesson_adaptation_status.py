@@ -18,6 +18,6 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='lessonadaptation',
-            constraint=models.CheckConstraint(check=models.Q(('status__in', ['IN_REVIEW', 'APPROVED', 'EXPORTED'])), name='lesson_adaptation_status_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('status__in', ['IN_REVIEW', 'APPROVED', 'EXPORTED'])), name='lesson_adaptation_status_valid'),
         ),
     ]

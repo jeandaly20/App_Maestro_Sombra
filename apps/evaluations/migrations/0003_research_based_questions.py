@@ -52,14 +52,14 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='evaluation',
-            constraint=models.CheckConstraint(check=models.Q(('autonomy_level', ''), ('autonomy_level__in', ['AUTONOMOUS', 'OCCASIONAL_SUPPORT', 'FREQUENT_SUPPORT', 'CONSTANT_SUPPORT']), _connector='OR'), name='evaluation_autonomy_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('autonomy_level', ''), ('autonomy_level__in', ['AUTONOMOUS', 'OCCASIONAL_SUPPORT', 'FREQUENT_SUPPORT', 'CONSTANT_SUPPORT']), _connector='OR'), name='evaluation_autonomy_valid'),
         ),
         migrations.AddConstraint(
             model_name='evaluation',
-            constraint=models.CheckConstraint(check=models.Q(('goal_attainment', ''), ('goal_attainment__in', ['MUCH_LESS', 'LESS', 'EXPECTED', 'MORE', 'MUCH_MORE']), _connector='OR'), name='evaluation_goal_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('goal_attainment', ''), ('goal_attainment__in', ['MUCH_LESS', 'LESS', 'EXPECTED', 'MORE', 'MUCH_MORE']), _connector='OR'), name='evaluation_goal_valid'),
         ),
         migrations.AddConstraint(
             model_name='evaluation',
-            constraint=models.CheckConstraint(check=models.Q(('achievement_level', ''), ('achievement_level__in', ['MASTERS', 'ACHIEVES', 'NEAR', 'NOT_YET']), _connector='OR'), name='evaluation_achievement_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('achievement_level', ''), ('achievement_level__in', ['MASTERS', 'ACHIEVES', 'NEAR', 'NOT_YET']), _connector='OR'), name='evaluation_achievement_valid'),
         ),
     ]

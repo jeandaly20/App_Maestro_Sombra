@@ -75,51 +75,51 @@ class Student(models.Model):
         constraints = [
             # The database rejects unknown conditions even if they bypass Django
             models.CheckConstraint(
-                check=models.Q(conditions__contained_by=Condition.values),
+                condition=models.Q(conditions__contained_by=Condition.values),
                 name='student_conditions_valid',
             ),
             models.CheckConstraint(
-                check=models.Q(conditions__len__gte=1), name='student_has_condition'
+                condition=models.Q(conditions__len__gte=1), name='student_has_condition'
             ),
-            models.CheckConstraint(check=models.Q(grade__in=Grade.values), name='student_grade_valid'),
+            models.CheckConstraint(condition=models.Q(grade__in=Grade.values), name='student_grade_valid'),
             models.CheckConstraint(
-                check=~(models.Q(conditions__overlap=LEARNING_DISORDERS)
+                condition=~(models.Q(conditions__overlap=LEARNING_DISORDERS)
                         & models.Q(conditions__overlap=INTELLECTUAL_DISABILITY)),
                 name='student_no_learning_disorder_with_id',
             ),
             models.CheckConstraint(
-                check=~models.Q(conditions__contains=INTELLECTUAL_DISABILITY), name='student_single_id_level'
+                condition=~models.Q(conditions__contains=INTELLECTUAL_DISABILITY), name='student_single_id_level'
             ),
             models.CheckConstraint(
-                check=models.Q(diagnosis_source__in=DiagnosisSource.values), name='student_diagnosis_source_valid'
+                condition=models.Q(diagnosis_source__in=DiagnosisSource.values), name='student_diagnosis_source_valid'
             ),
             # A declared document needs its date; an attached document already carries it
             models.CheckConstraint(
-                check=models.Q(diagnosis_source=DiagnosisSource.IN_EVALUATION) | models.Q(diagnosis_date__isnull=False)
+                condition=models.Q(diagnosis_source=DiagnosisSource.IN_EVALUATION) | models.Q(diagnosis_date__isnull=False)
                 | ~models.Q(diagnosis_file=''),
                 name='student_diagnosis_has_date',
             ),
             # A stored document needs the representative's authorization and a real document type
             models.CheckConstraint(
-                check=models.Q(diagnosis_file='') | models.Q(diagnosis_consent_at__isnull=False),
+                condition=models.Q(diagnosis_file='') | models.Q(diagnosis_consent_at__isnull=False),
                 name='student_document_has_consent',
             ),
             models.CheckConstraint(
-                check=models.Q(diagnosis_file='') | ~models.Q(diagnosis_source=DiagnosisSource.IN_EVALUATION),
+                condition=models.Q(diagnosis_file='') | ~models.Q(diagnosis_source=DiagnosisSource.IN_EVALUATION),
                 name='student_document_needs_source',
             ),
             models.CheckConstraint(
-                check=models.Q(diagnosis_file_type='') | models.Q(diagnosis_file_type__in=[t for t, _ in DOCUMENT_TYPES]),
+                condition=models.Q(diagnosis_file_type='') | models.Q(diagnosis_file_type__in=[t for t, _ in DOCUMENT_TYPES]),
                 name='student_document_type_valid',
             ),
             # A stored signed authorization has a real file type and its date
             models.CheckConstraint(
-                check=models.Q(consent_file='') | (models.Q(consent_file_type__in=[t for t, _ in DOCUMENT_TYPES])
+                condition=models.Q(consent_file='') | (models.Q(consent_file_type__in=[t for t, _ in DOCUMENT_TYPES])
                                                    & models.Q(diagnosis_consent_at__isnull=False)),
                 name='student_consent_file_valid',
             ),
             models.CheckConstraint(
-                check=models.Q(record_status__in=RecordStatus.values), name='student_record_status_valid'
+                condition=models.Q(record_status__in=RecordStatus.values), name='student_record_status_valid'
             ),
         ]
         # The 3-active-students-per-teacher limit is also enforced by a PostgreSQL trigger
@@ -320,13 +320,13 @@ class StudentConsent(models.Model):
         verbose_name = 'autorización del representante'
         verbose_name_plural = 'autorizaciones del representante'
         constraints = [
-            models.CheckConstraint(check=models.Q(treatments__contained_by=Treatment.values),
+            models.CheckConstraint(condition=models.Q(treatments__contained_by=Treatment.values),
                                    name='student_consent_treatments_valid'),
-            models.CheckConstraint(check=models.Q(treatments__len__gte=1), name='student_consent_has_treatment'),
-            models.CheckConstraint(check=models.Q(status__in=ConsentStatus.values), name='student_consent_status_valid'),
+            models.CheckConstraint(condition=models.Q(treatments__len__gte=1), name='student_consent_has_treatment'),
+            models.CheckConstraint(condition=models.Q(status__in=ConsentStatus.values), name='student_consent_status_valid'),
             # In force means not revoked; revoked or replaced always says when
             models.CheckConstraint(
-                check=(models.Q(status=ConsentStatus.ACTIVE, revoked_at__isnull=True)
+                condition=(models.Q(status=ConsentStatus.ACTIVE, revoked_at__isnull=True)
                        | (~models.Q(status=ConsentStatus.ACTIVE) & models.Q(revoked_at__isnull=False))),
                 name='student_consent_revocation_dated'),
         ]

@@ -75,18 +75,18 @@ class Teacher(AbstractUser):
         verbose_name_plural = 'docentes'
         constraints = [
             # Together with unique, blocks duplicates that only differ in case
-            models.CheckConstraint(check=models.Q(email=Lower('email')), name='teacher_email_lowercase'),
+            models.CheckConstraint(condition=models.Q(email=Lower('email')), name='teacher_email_lowercase'),
             models.CheckConstraint(
-                check=models.Q(specialty='') | models.Q(specialty__in=Specialty.values),
+                condition=models.Q(specialty='') | models.Q(specialty__in=Specialty.values),
                 name='teacher_specialty_valid',
             ),
             # Consent must record when it was given (LOPDP)
             models.CheckConstraint(
-                check=models.Q(accepted_terms=False) | models.Q(terms_accepted_at__isnull=False),
+                condition=models.Q(accepted_terms=False) | models.Q(terms_accepted_at__isnull=False),
                 name='teacher_terms_have_date',
             ),
             models.CheckConstraint(
-                check=models.Q(record_status__in=RecordStatus.values), name='teacher_record_status_valid'
+                condition=models.Q(record_status__in=RecordStatus.values), name='teacher_record_status_valid'
             ),
         ]
 

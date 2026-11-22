@@ -18,7 +18,7 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='teacher',
-            constraint=models.CheckConstraint(check=models.Q(('record_status__in', ['ACTIVE', 'INACTIVE'])), name='teacher_record_status_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('record_status__in', ['ACTIVE', 'INACTIVE'])), name='teacher_record_status_valid'),
         ),
         migrations.AlterModelTable(
             name='teacher',

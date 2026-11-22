@@ -48,11 +48,11 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='evaluation',
-            constraint=models.CheckConstraint(check=models.Q(('supports_applied__contained_by', ['instrucciones_breves', 'lectura_acompanada', 'apoyos_visuales', 'pausas', 'material_concreto', 'tiempo_extra', 'ubicacion', 'anticipacion', 'refuerzo', 'tecnologia'])), name='evaluation_supports_applied_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('supports_applied__contained_by', ['instrucciones_breves', 'lectura_acompanada', 'apoyos_visuales', 'pausas', 'material_concreto', 'tiempo_extra', 'ubicacion', 'anticipacion', 'refuerzo', 'tecnologia'])), name='evaluation_supports_applied_valid'),
         ),
         migrations.AddConstraint(
             model_name='evaluation',
-            constraint=models.CheckConstraint(check=models.Q(('supports_useful__contained_by', models.F('supports_applied'))), name='evaluation_supports_useful_were_applied'),
+            constraint=models.CheckConstraint(condition=models.Q(('supports_useful__contained_by', models.F('supports_applied'))), name='evaluation_supports_useful_were_applied'),
         ),
         migrations.AddField(
             model_name='recommendationreview',
@@ -65,6 +65,6 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='recommendationreview',
-            constraint=models.CheckConstraint(check=models.Q(('decision__in', ['CONSIDERED', 'DISMISSED'])), name='recommendation_review_decision_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('decision__in', ['CONSIDERED', 'DISMISSED'])), name='recommendation_review_decision_valid'),
         ),
     ]

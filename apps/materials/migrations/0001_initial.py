@@ -57,14 +57,14 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='originalmaterial',
-            constraint=models.CheckConstraint(check=models.Q(('status__in', ['PENDING', 'PROCESSING', 'PROCESSED', 'ERROR'])), name='material_status_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('status__in', ['PENDING', 'PROCESSING', 'PROCESSED', 'ERROR'])), name='material_status_valid'),
         ),
         migrations.AddConstraint(
             model_name='originalmaterial',
-            constraint=models.CheckConstraint(check=models.Q(('input_type__in', ['PHOTO', 'PDF', 'WORD', 'TEXT'])), name='material_input_type_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('input_type__in', ['PHOTO', 'PDF', 'WORD', 'TEXT'])), name='material_input_type_valid'),
         ),
         migrations.AddConstraint(
             model_name='originalmaterial',
-            constraint=models.CheckConstraint(check=models.Q(models.Q(('input_type', 'TEXT'), models.Q(('input_text', ''), _negated=True)), models.Q(models.Q(('input_type', 'TEXT'), _negated=True), models.Q(('file', ''), _negated=True)), _connector='OR'), name='material_content_matches_type'),
+            constraint=models.CheckConstraint(condition=models.Q(models.Q(('input_type', 'TEXT'), models.Q(('input_text', ''), _negated=True)), models.Q(models.Q(('input_type', 'TEXT'), _negated=True), models.Q(('file', ''), _negated=True)), _connector='OR'), name='material_content_matches_type'),
         ),
     ]

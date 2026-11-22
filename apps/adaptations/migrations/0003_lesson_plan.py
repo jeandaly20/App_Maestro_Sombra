@@ -71,11 +71,11 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='lessonplan',
-            constraint=models.CheckConstraint(check=models.Q(('status__in', ['PENDING', 'PROCESSING', 'PROCESSED', 'ERROR'])), name='lesson_status_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('status__in', ['PENDING', 'PROCESSING', 'PROCESSED', 'ERROR'])), name='lesson_status_valid'),
         ),
         migrations.AddConstraint(
             model_name='lessonplan',
-            constraint=models.CheckConstraint(check=models.Q(('record_status__in', ['ACTIVE', 'INACTIVE'])), name='lesson_record_status_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('record_status__in', ['ACTIVE', 'INACTIVE'])), name='lesson_record_status_valid'),
         ),
         migrations.AddConstraint(
             model_name='lessonadaptation',
@@ -83,14 +83,14 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='lessonadaptation',
-            constraint=models.CheckConstraint(check=models.Q(('condition__in', ['DYSLEXIA', 'DYSCALCULIA', 'ADHD', 'ASD', 'ID_MILD', 'ID_MODERATE'])), name='lesson_adaptation_condition_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('condition__in', ['DYSLEXIA', 'DYSCALCULIA', 'ADHD', 'ASD', 'ID_MILD', 'ID_MODERATE'])), name='lesson_adaptation_condition_valid'),
         ),
         migrations.AddConstraint(
             model_name='lessonadaptation',
-            constraint=models.CheckConstraint(check=models.Q(('grade__in', ['ACCESS', 'NON_SIGNIFICANT', 'SIGNIFICANT'])), name='lesson_adaptation_grade_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('grade__in', ['ACCESS', 'NON_SIGNIFICANT', 'SIGNIFICANT'])), name='lesson_adaptation_grade_valid'),
         ),
         migrations.AddConstraint(
             model_name='lessonadaptation',
-            constraint=models.CheckConstraint(check=models.Q(('record_status__in', ['ACTIVE', 'INACTIVE'])), name='lesson_adaptation_record_status_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('record_status__in', ['ACTIVE', 'INACTIVE'])), name='lesson_adaptation_record_status_valid'),
         ),
     ]

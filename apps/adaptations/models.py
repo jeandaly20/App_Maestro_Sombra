@@ -78,29 +78,29 @@ class CurricularAdaptation(models.Model):
         verbose_name_plural = 'adaptaciones curriculares'
         constraints = [
             models.CheckConstraint(
-                check=models.Q(condition__in=Condition.values), name='adaptation_condition_valid'
+                condition=models.Q(condition__in=Condition.values), name='adaptation_condition_valid'
             ),
             models.CheckConstraint(
-                check=models.Q(conditions__contained_by=Condition.values) & models.Q(conditions__len__gte=1),
+                condition=models.Q(conditions__contained_by=Condition.values) & models.Q(conditions__len__gte=1),
                 name='adaptation_conditions_valid',
             ),
             models.CheckConstraint(
-                check=models.Q(status__in=AdaptationStatus.values), name='adaptation_status_valid'
+                condition=models.Q(status__in=AdaptationStatus.values), name='adaptation_status_valid'
             ),
             models.CheckConstraint(
-                check=models.Q(applied_adjustments__contained_by=UdlAdjustment.values),
+                condition=models.Q(applied_adjustments__contained_by=UdlAdjustment.values),
                 name='adaptation_adjustments_valid',
             ),
             models.CheckConstraint(
-                check=models.Q(color_filter__in=ColorFilter.values), name='adaptation_color_filter_valid'
+                condition=models.Q(color_filter__in=ColorFilter.values), name='adaptation_color_filter_valid'
             ),
-            models.CheckConstraint(check=models.Q(version__gte=1), name='adaptation_version_positive'),
+            models.CheckConstraint(condition=models.Q(version__gte=1), name='adaptation_version_positive'),
             # A version cannot be regenerated from itself
             models.CheckConstraint(
-                check=~models.Q(source_adaptation=models.F('id')), name='adaptation_source_not_self'
+                condition=~models.Q(source_adaptation=models.F('id')), name='adaptation_source_not_self'
             ),
             models.CheckConstraint(
-                check=models.Q(record_status__in=RecordStatus.values), name='adaptation_record_status_valid'
+                condition=models.Q(record_status__in=RecordStatus.values), name='adaptation_record_status_valid'
             ),
             models.UniqueConstraint(
                 fields=['material', 'student', 'condition', 'version'],
@@ -185,8 +185,8 @@ class LessonPlan(models.Model):
         verbose_name = 'clase planificada'
         verbose_name_plural = 'clases planificadas'
         constraints = [
-            models.CheckConstraint(check=models.Q(status__in=MaterialStatus.values), name='lesson_status_valid'),
-            models.CheckConstraint(check=models.Q(record_status__in=RecordStatus.values),
+            models.CheckConstraint(condition=models.Q(status__in=MaterialStatus.values), name='lesson_status_valid'),
+            models.CheckConstraint(condition=models.Q(record_status__in=RecordStatus.values),
                                    name='lesson_record_status_valid'),
         ]
 
@@ -242,16 +242,16 @@ class LessonAdaptation(models.Model):
         verbose_name_plural = 'clases adaptadas'
         constraints = [
             models.UniqueConstraint(fields=['lesson', 'student'], name='lesson_adaptation_unique'),
-            models.CheckConstraint(check=models.Q(condition__in=Condition.values),
+            models.CheckConstraint(condition=models.Q(condition__in=Condition.values),
                                    name='lesson_adaptation_condition_valid'),
-            models.CheckConstraint(check=models.Q(conditions__contained_by=Condition.values)
+            models.CheckConstraint(condition=models.Q(conditions__contained_by=Condition.values)
                                    & models.Q(conditions__len__gte=1),
                                    name='lesson_adaptation_conditions_valid'),
-            models.CheckConstraint(check=models.Q(grade__in=AdaptationGrade.values),
+            models.CheckConstraint(condition=models.Q(grade__in=AdaptationGrade.values),
                                    name='lesson_adaptation_grade_valid'),
-            models.CheckConstraint(check=models.Q(status__in=AdaptationStatus.values),
+            models.CheckConstraint(condition=models.Q(status__in=AdaptationStatus.values),
                                    name='lesson_adaptation_status_valid'),
-            models.CheckConstraint(check=models.Q(record_status__in=RecordStatus.values),
+            models.CheckConstraint(condition=models.Q(record_status__in=RecordStatus.values),
                                    name='lesson_adaptation_record_status_valid'),
         ]
 

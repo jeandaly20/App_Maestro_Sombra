@@ -39,14 +39,14 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='student',
-            constraint=models.CheckConstraint(check=models.Q(('conditions__contained_by', ['DYSLEXIA', 'DYSCALCULIA', 'ADHD', 'ASD', 'ID_MILD', 'ID_MODERATE'])), name='student_conditions_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('conditions__contained_by', ['DYSLEXIA', 'DYSCALCULIA', 'ADHD', 'ASD', 'ID_MILD', 'ID_MODERATE'])), name='student_conditions_valid'),
         ),
         migrations.AddConstraint(
             model_name='student',
-            constraint=models.CheckConstraint(check=models.Q(('conditions__len__gte', 1)), name='student_has_condition'),
+            constraint=models.CheckConstraint(condition=models.Q(('conditions__len__gte', 1)), name='student_has_condition'),
         ),
         migrations.AddConstraint(
             model_name='student',
-            constraint=models.CheckConstraint(check=models.Q(('grade__in', ['EGB_1', 'EGB_2', 'EGB_3', 'EGB_4', 'EGB_5', 'EGB_6', 'EGB_7', 'EGB_8', 'EGB_9', 'EGB_10'])), name='student_grade_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('grade__in', ['EGB_1', 'EGB_2', 'EGB_3', 'EGB_4', 'EGB_5', 'EGB_6', 'EGB_7', 'EGB_8', 'EGB_9', 'EGB_10'])), name='student_grade_valid'),
         ),
     ]

@@ -24,6 +24,6 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='student',
-            constraint=models.CheckConstraint(check=models.Q(('consent_file', ''), models.Q(('consent_file_type__in', ['application/pdf', 'image/jpeg', 'image/png']), ('diagnosis_consent_at__isnull', False)), _connector='OR'), name='student_consent_file_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('consent_file', ''), models.Q(('consent_file_type__in', ['application/pdf', 'image/jpeg', 'image/png']), ('diagnosis_consent_at__isnull', False)), _connector='OR'), name='student_consent_file_valid'),
         ),
     ]

@@ -27,6 +27,6 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='student',
-            constraint=models.CheckConstraint(check=models.Q(('diagnosis_source', 'IN_EVALUATION'), ('diagnosis_date__isnull', False), models.Q(('diagnosis_file', ''), _negated=True), _connector='OR'), name='student_diagnosis_has_date'),
+            constraint=models.CheckConstraint(condition=models.Q(('diagnosis_source', 'IN_EVALUATION'), ('diagnosis_date__isnull', False), models.Q(('diagnosis_file', ''), _negated=True), _connector='OR'), name='student_diagnosis_has_date'),
         ),
     ]

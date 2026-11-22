@@ -45,14 +45,14 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='teacher',
-            constraint=models.CheckConstraint(check=models.Q(('email', django.db.models.functions.text.Lower('email'))), name='teacher_email_lowercase'),
+            constraint=models.CheckConstraint(condition=models.Q(('email', django.db.models.functions.text.Lower('email'))), name='teacher_email_lowercase'),
         ),
         migrations.AddConstraint(
             model_name='teacher',
-            constraint=models.CheckConstraint(check=models.Q(('specialty', ''), ('specialty__in', ['SPECIAL_EDUCATION', 'SHADOW_TEACHER', 'PSYCHOPEDAGOGY', 'EARLY_EDUCATION', 'BASIC_EDUCATION', 'HIGH_SCHOOL']), _connector='OR'), name='teacher_specialty_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('specialty', ''), ('specialty__in', ['SPECIAL_EDUCATION', 'SHADOW_TEACHER', 'PSYCHOPEDAGOGY', 'EARLY_EDUCATION', 'BASIC_EDUCATION', 'HIGH_SCHOOL']), _connector='OR'), name='teacher_specialty_valid'),
         ),
         migrations.AddConstraint(
             model_name='teacher',
-            constraint=models.CheckConstraint(check=models.Q(('accepted_terms', False), ('terms_accepted_at__isnull', False), _connector='OR'), name='teacher_terms_have_date'),
+            constraint=models.CheckConstraint(condition=models.Q(('accepted_terms', False), ('terms_accepted_at__isnull', False), _connector='OR'), name='teacher_terms_have_date'),
         ),
     ]

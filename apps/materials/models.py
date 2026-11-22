@@ -24,7 +24,7 @@ class Subject(models.Model):
         verbose_name_plural = 'materias'
         constraints = [
             models.CheckConstraint(
-                check=models.Q(record_status__in=RecordStatus.values), name='subject_record_status_valid'
+                condition=models.Q(record_status__in=RecordStatus.values), name='subject_record_status_valid'
             ),
         ]
 
@@ -110,15 +110,15 @@ class OriginalMaterial(models.Model):
         verbose_name_plural = 'materiales originales'
         constraints = [
             models.CheckConstraint(
-                check=models.Q(status__in=MaterialStatus.values), name='material_status_valid'
+                condition=models.Q(status__in=MaterialStatus.values), name='material_status_valid'
             ),
             models.CheckConstraint(
-                check=models.Q(input_type__in=InputType.values), name='material_input_type_valid'
+                condition=models.Q(input_type__in=InputType.values), name='material_input_type_valid'
             ),
             # Text: the text is required. Photo, PDF or Word: the file is required. A deleted (inactive)
             # material no longer keeps its file (data minimization), so the rule applies to active ones only.
             models.CheckConstraint(
-                check=(
+                condition=(
                     models.Q(input_type=InputType.TEXT) & ~models.Q(input_text='')
                 ) | (
                     ~models.Q(input_type=InputType.TEXT) & ~models.Q(file='')
@@ -126,7 +126,7 @@ class OriginalMaterial(models.Model):
                 name='material_content_matches_type',
             ),
             models.CheckConstraint(
-                check=models.Q(record_status__in=RecordStatus.values), name='material_record_status_valid'
+                condition=models.Q(record_status__in=RecordStatus.values), name='material_record_status_valid'
             ),
         ]
 

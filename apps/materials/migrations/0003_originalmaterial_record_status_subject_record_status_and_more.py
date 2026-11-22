@@ -24,11 +24,11 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='originalmaterial',
-            constraint=models.CheckConstraint(check=models.Q(('record_status__in', ['ACTIVE', 'INACTIVE'])), name='material_record_status_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('record_status__in', ['ACTIVE', 'INACTIVE'])), name='material_record_status_valid'),
         ),
         migrations.AddConstraint(
             model_name='subject',
-            constraint=models.CheckConstraint(check=models.Q(('record_status__in', ['ACTIVE', 'INACTIVE'])), name='subject_record_status_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('record_status__in', ['ACTIVE', 'INACTIVE'])), name='subject_record_status_valid'),
         ),
         migrations.AlterModelTable(
             name='originalmaterial',

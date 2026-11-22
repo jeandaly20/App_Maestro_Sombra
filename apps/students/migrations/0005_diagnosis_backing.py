@@ -30,18 +30,18 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='student',
-            constraint=models.CheckConstraint(check=models.Q(('conditions__overlap', ['DYSLEXIA', 'DYSCALCULIA']), ('conditions__overlap', ['ID_MILD', 'ID_MODERATE']), _negated=True), name='student_no_learning_disorder_with_id'),
+            constraint=models.CheckConstraint(condition=models.Q(('conditions__overlap', ['DYSLEXIA', 'DYSCALCULIA']), ('conditions__overlap', ['ID_MILD', 'ID_MODERATE']), _negated=True), name='student_no_learning_disorder_with_id'),
         ),
         migrations.AddConstraint(
             model_name='student',
-            constraint=models.CheckConstraint(check=models.Q(('conditions__contains', ['ID_MILD', 'ID_MODERATE']), _negated=True), name='student_single_id_level'),
+            constraint=models.CheckConstraint(condition=models.Q(('conditions__contains', ['ID_MILD', 'ID_MODERATE']), _negated=True), name='student_single_id_level'),
         ),
         migrations.AddConstraint(
             model_name='student',
-            constraint=models.CheckConstraint(check=models.Q(('diagnosis_source__in', ['UDAI_REPORT', 'MSP_CERTIFICATE', 'DECE_REPORT', 'CLINICAL_REPORT', 'IN_EVALUATION'])), name='student_diagnosis_source_valid'),
+            constraint=models.CheckConstraint(condition=models.Q(('diagnosis_source__in', ['UDAI_REPORT', 'MSP_CERTIFICATE', 'DECE_REPORT', 'CLINICAL_REPORT', 'IN_EVALUATION'])), name='student_diagnosis_source_valid'),
         ),
         migrations.AddConstraint(
             model_name='student',
-            constraint=models.CheckConstraint(check=models.Q(('diagnosis_source', 'IN_EVALUATION'), ('diagnosis_date__isnull', False), _connector='OR'), name='student_diagnosis_has_date'),
+            constraint=models.CheckConstraint(condition=models.Q(('diagnosis_source', 'IN_EVALUATION'), ('diagnosis_date__isnull', False), _connector='OR'), name='student_diagnosis_has_date'),
         ),
     ]

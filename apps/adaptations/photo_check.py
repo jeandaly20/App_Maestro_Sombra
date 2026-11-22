@@ -107,7 +107,7 @@ def _skew(gray):
 
     def sharpness(angle):
         rotated = binary.rotate(angle, fillcolor=255, resample=Image.BILINEAR)
-        rows = list(rotated.resize((1, rotated.height), Image.BOX).getdata())
+        rows = list(rotated.resize((1, rotated.height), Image.BOX).get_flattened_data())
         mean = sum(rows) / len(rows)
         return sum((r - mean) ** 2 for r in rows)
     return max((a / 2 for a in range(-16, 17)), key=sharpness)
