@@ -7,11 +7,21 @@ from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, TemplateView
 
+from apps.core import throttle
+
 from .forms import LoginForm, NewPasswordForm, PasswordResetRequestForm, RegisterForm
+from .signals import masked_email
 
 logger = logging.getLogger('maestro_sombra')
 
 REMEMBER_ME_DAYS = 14
+# Request limits per hour (apps.core.throttle): enough for a school sharing one connection, too few to create
+# accounts in bulk or to fill a teacher's mailbox with reset e-mails
+ACCOUNTS_PER_IP = 5
+RESETS_PER_IP = 10
+RESETS_PER_EMAIL = 3
+LIMIT_MINUTES = 60
+TOO_MANY = 'Se hicieron demasiadas solicitudes desde esta conexión. Espera una hora e inténtalo de nuevo.'
 
 
 class GuestOnlyMixin:
@@ -49,7 +59,13 @@ class RegisterView(GuestOnlyMixin, CreateView):
     form_class = RegisterForm
 
     def form_valid(self, form):
+        ip = throttle.client_ip(self.request)
+        if throttle.over_limit('register', ip, ACCOUNTS_PER_IP):
+            logger.warning('Account creation limit reached: ip=%s', ip)
+            form.add_error(None, TOO_MANY)
+            return self.form_invalid(form)
         teacher = form.save()
+        throttle.count('register', ip, LIMIT_MINUTES)
         logger.info('Teacher account created: %s', teacher.pk)
         login(self.request, teacher, backend='django.contrib.auth.backends.ModelBackend')
         self.request.session.set_expiry(0)
@@ -69,6 +85,17 @@ class PasswordResetView(GuestOnlyMixin, auth_views.PasswordResetView):
     success_url = reverse_lazy('password_reset_sent')
 
     def form_valid(self, form):
+        ip, email = throttle.client_ip(self.request), form.cleaned_data['email'].strip().lower()
+        if throttle.over_limit('reset-ip', ip, RESETS_PER_IP):
+            logger.warning('Password reset limit reached: ip=%s', ip)
+            form.add_error(None, TOO_MANY)
+            return self.form_invalid(form)
+        throttle.count('reset-ip', ip, LIMIT_MINUTES)
+        if throttle.over_limit('reset-email', email, RESETS_PER_EMAIL):
+            # Same page as always, so nobody learns whether the account exists; just no more e-mails this hour
+            logger.warning('Password reset e-mail not sent again: %s', masked_email(email))
+            return redirect(self.success_url)
+        throttle.count('reset-email', email, LIMIT_MINUTES)
         try:
             return super().form_valid(form)
         except (smtplib.SMTPException, OSError):

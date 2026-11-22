@@ -11,3 +11,4 @@ db.sqlite3
 .claude/
 *.zip
 media_pruebas/
+respaldos/

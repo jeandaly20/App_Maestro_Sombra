@@ -123,6 +123,16 @@ DATABASES = {
 }
 
 
+# Cache in PostgreSQL, shared by every server process: the failed sign-in counters and the request limits
+# (accounts) must be the same in all of them, or each process would allow its own attempts. "migrate" creates
+# its table (apps/core/migrations/0004_shared_cache_table.py).
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'cache_maestro_sombra',
+    }
+}
+
 # Authentication: teachers sign in with their email (accounts.Teacher)
 
 AUTH_USER_MODEL = 'accounts.Teacher'
@@ -215,6 +225,13 @@ MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Backups (python manage.py respaldar_base): where they go and how many are kept. The folder holds personal
+# data (encrypted), so it is never committed (.gitignore) and should be on a drive only the school controls.
+BACKUP_DIR = Path(os.getenv('BACKUP_DIR', BASE_DIR / 'respaldos'))
+BACKUP_KEEP = int(os.getenv('BACKUP_KEEP', '14'))
+# Folder of pg_dump and pg_restore when they are not in the PATH (empty: PATH or PostgreSQL's default folder)
+PG_BIN_DIR = os.getenv('PG_BIN_DIR', '')
 
 
 # Security event log (sign-ins, AI errors)
