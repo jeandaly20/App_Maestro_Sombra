@@ -9,10 +9,14 @@ from django.utils import timezone
 from apps.core.forms import AccessibleFormMixin
 
 from .models import Specialty, Teacher
+from .signals import masked_email
 
 logger = logging.getLogger('maestro_sombra')
 
 MAX_FAILED_ATTEMPTS = 5
+# Failed sign-ins from one address with ANY e-mail: stops trying one password on many accounts (password
+# spraying), which the per-account limit does not see. High enough for a school's shared connection.
+MAX_FAILED_PER_IP = 20
 LOCKOUT_MINUTES = 15
 
 
@@ -20,10 +24,14 @@ def _attempts_key(email, ip):
     return f'login-attempts:{(email or "").strip().lower()}:{ip}'
 
 
+def _ip_key(ip):
+    return f'login-attempts-ip:{ip}'
+
+
 class LoginForm(AccessibleFormMixin, AuthenticationForm):
     """
-    Email and password sign-in.
-    After 5 failed attempts that email is locked for 15 minutes (ISO/IEC 27001, control 8.5).
+    Email and password sign-in (ISO/IEC 27001, control 8.5). After 5 failed attempts that email is locked for
+    15 minutes from that address, and after 20 failed attempts with any email, the whole address is.
     """
     username = forms.EmailField(
         label='Correo electrónico',
@@ -53,9 +61,10 @@ class LoginForm(AccessibleFormMixin, AuthenticationForm):
 
     def clean(self):
         email = self.cleaned_data.get('username')
-        key = _attempts_key(email, self._client_ip())
-        if cache.get(key, 0) >= MAX_FAILED_ATTEMPTS:
-            logger.warning('Sign-in locked after failed attempts: %s', email)
+        ip = self._client_ip()
+        key, ip_key = _attempts_key(email, ip), _ip_key(ip)
+        if cache.get(key, 0) >= MAX_FAILED_ATTEMPTS or cache.get(ip_key, 0) >= MAX_FAILED_PER_IP:
+            logger.warning('Sign-in locked after failed attempts: %s ip=%s', masked_email(email), ip)
             raise forms.ValidationError(
                 f'Demasiados intentos fallidos. Espera {LOCKOUT_MINUTES} minutos e inténtalo de nuevo.',
                 code='locked',
@@ -63,8 +72,10 @@ class LoginForm(AccessibleFormMixin, AuthenticationForm):
         try:
             data = super().clean()
         except forms.ValidationError:
-            cache.set(key, cache.get(key, 0) + 1, LOCKOUT_MINUTES * 60)
+            for counter in (key, ip_key):
+                cache.set(counter, cache.get(counter, 0) + 1, LOCKOUT_MINUTES * 60)
             raise
+        # Only this account's counter: signing in to one's own account must not clear the address's failures
         cache.delete(key)
         return data
 

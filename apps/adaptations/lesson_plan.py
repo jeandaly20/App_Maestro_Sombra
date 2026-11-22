@@ -385,6 +385,18 @@ TITLE = 'PLAN DE CLASE ADAPTADO'
 NOTE = 'Generado con Maestro Sombra. Revise y ajuste la adaptación antes de entregarla.'
 
 
+def text_cell(sheet, row, column, value):
+    """
+    A cell that always holds text. openpyxl turns any text that starts with "=" into a formula: "= 20 caramelos"
+    (common in Mathematics) broke the file, and a text such as =HYPERLINK(...) written by the AI or pasted by the
+    teacher would run as a formula when the file is opened (formula injection).
+    """
+    cell = sheet.cell(row, column, value)
+    if isinstance(value, str) and value.startswith('='):
+        cell.data_type = 's'
+    return cell
+
+
 def write_class_sheet(sheet, **data):
     """The class adapted for one student, in its five sections, on an Excel sheet."""
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
@@ -415,7 +427,7 @@ def write_class_sheet(sheet, **data):
             row += 1
             for values in rows:
                 for column, value in enumerate(values, start=1):
-                    cell = sheet.cell(row, column, value)
+                    cell = text_cell(sheet, row, column, value)
                     cell.alignment = wrap
                     cell.border = border
                 sheet.row_dimensions[row].height = max(60, 15 * (max(len(str(v)) for v in values) // 30 + 1))
@@ -425,7 +437,7 @@ def write_class_sheet(sheet, **data):
                 sheet.cell(row, 1, label).font = Font(bold=True, color=TEAL)
                 sheet.cell(row, 1).fill = PatternFill('solid', fgColor=SOFT)
                 sheet.cell(row, 1).alignment = wrap
-                sheet.cell(row, 2, value).alignment = wrap
+                text_cell(sheet, row, 2, value).alignment = wrap
                 sheet.cell(row, 2).font = Font(bold=bold)
                 sheet.merge_cells(f'B{row}:{last}{row}')
                 for column in range(1, len(COLUMNS) + 1):
