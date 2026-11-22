@@ -10,6 +10,7 @@ urlpatterns = [
     path('<uuid:pk>/informe-avance.pdf', views.StudentProgressReportView.as_view(), name='student_progress_report'),
     path('<uuid:pk>/historial/revisar/', views.StudentRecommendationReviewView.as_view(), name='student_recommendation_review'),
     path('<uuid:pk>/baja/', views.StudentDeactivateView.as_view(), name='student_deactivate'),
+    path('<uuid:pk>/eliminar/', views.StudentDeleteView.as_view(), name='student_delete'),
     path('<uuid:pk>/respaldo/', views.StudentDocumentView.as_view(), name='student_document'),
     path('<uuid:pk>/autorizacion/', views.StudentConsentView.as_view(), name='student_consent'),
     path('<uuid:pk>/expediente.zip', views.StudentFileView.as_view(), name='student_file'),

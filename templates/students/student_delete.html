@@ -1,0 +1,41 @@
+{% extends "app_base.html" %}
+
+{% block title %}Eliminar definitivamente{% endblock %}
+{% block topbar_title %}Gestión de estudiantes{% endblock %}
+{% block styles %}{{ block.super }}<link rel="stylesheet" href="{% asset 'css/students.css' %}">{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <p class="badge-line"><span class="icon" aria-hidden="true">gavel</span>Derecho de eliminación · LOPDP, art. 15</p>
+        <h1>Eliminar definitivamente a {{ student.name }}</h1>
+        <p class="page-header__intro">{{ student.get_grade_display }} · {{ student.pseudonym }}{% if not is_active %} · dado de baja{% endif %}</p>
+    </div>
+</div>
+
+<section class="card student-delete" aria-labelledby="delete-title">
+    <h2 id="delete-title"><span class="icon" aria-hidden="true">delete_forever</span>Se borrará todo y no se puede deshacer</h2>
+    <ul class="student-delete__list">
+        <li>Sus datos: nombre, fecha de nacimiento, NEE, observaciones y perfil pedagógico.</li>
+        <li>{{ summary.worksheets }} ficha{{ summary.worksheets|pluralize }} adaptada{{ summary.worksheets|pluralize }}, con todas sus versiones y PDF.</li>
+        <li>{{ summary.classes }} clase{{ summary.classes|pluralize }} adaptada{{ summary.classes|pluralize }} y {{ summary.evaluations }} evaluaci{{ summary.evaluations|pluralize:"ón,ones" }} en el aula.</li>
+        <li>{% if summary.has_document %}El documento de diagnóstico y {% endif %}{{ summary.consents }} autorizaci{{ summary.consents|pluralize:"ón,ones" }} del representante con sus archivos firmados.</li>
+    </ul>
+    <p class="student-delete__note"><span class="icon" aria-hidden="true">info</span>Tus materiales y planificaciones se conservan: no contienen datos del estudiante. El expediente oficial (DIAC, DECE, calificaciones) es de la institución y no se guarda en esta aplicación.</p>
+    {% if is_active %}
+        <p class="student-delete__note"><span class="icon" aria-hidden="true">folder_zip</span>Si la institución necesita una copia, <a href="{% url 'student_file' student.pk %}">descarga primero su expediente</a>.</p>
+    {% endif %}
+
+    <form method="post" class="student-delete__form">
+        {% csrf_token %}
+        <label class="rule-option" for="confirm-delete">
+            <input type="checkbox" name="confirm" id="confirm-delete" required>
+            <span>Entiendo que se borran todos los datos de {{ student.name }} y que no se pueden recuperar.</span>
+        </label>
+        <div class="student-delete__actions">
+            <a class="button button--secondary" href="{% if is_active %}{% url 'student_edit' student.pk %}{% else %}{% url 'student_list' %}{% endif %}">Cancelar</a>
+            <button type="submit" class="button button--danger"><span class="icon" aria-hidden="true">delete_forever</span>Eliminar definitivamente</button>
+        </div>
+    </form>
+</section>
+{% endblock %}

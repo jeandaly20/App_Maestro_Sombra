@@ -812,3 +812,81 @@
 .learning-context { border: 1px dashed var(--color-primary-border); border-radius: var(--radius-sm); padding: var(--space-sm) var(--space-md); margin-top: var(--space-sm); background: var(--color-primary-soft); font-size: 0.9rem; }
 .learning-context ul { margin: var(--space-xs) 0; padding-left: 1.2rem; }
 @media (max-width: 600px) { .recommendation__facts div { grid-template-columns: 1fr; } }
+
+/* ---------- Permanent deletion (LOPDP) ---------- */
+
+.student-delete {
+    display: grid;
+    gap: var(--space-md);
+    max-width: 760px;
+    border: 1px solid var(--color-error-soft);
+}
+
+.student-delete h2 {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin: 0;
+    color: var(--color-error);
+}
+
+.student-delete__list {
+    display: grid;
+    gap: var(--space-xs);
+    margin: 0;
+    padding-left: 1.25rem;
+}
+
+.student-delete__note {
+    display: flex;
+    gap: var(--space-sm);
+    margin: 0;
+    color: var(--color-text-soft);
+    font-size: 0.9375rem;
+}
+
+.student-delete__form {
+    display: grid;
+    gap: var(--space-md);
+}
+
+.student-delete__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--space-sm);
+}
+
+.former-students {
+    margin-top: var(--space-lg);
+}
+
+.former-students summary {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.former-students__intro {
+    color: var(--color-text-soft);
+}
+
+.former-students__list {
+    display: grid;
+    gap: var(--space-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.former-students__list li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    padding: var(--space-sm) 0;
+    border-top: 1px solid var(--color-border, #e6edf3);
+}

@@ -120,4 +120,17 @@
     </div>
     <p class="directory__no-results" data-no-results hidden>Ningún estudiante coincide con el filtro.</p>
 </section>
+
+{% if former_students %}
+<details class="card former-students">
+    <summary><span class="icon" aria-hidden="true">person_off</span>Estudiantes dados de baja ({{ former_students|length }})</summary>
+    <p class="former-students__intro">Su historial se conserva hasta que lo elimines. Si el representante lo pide, o ya no lo necesitas, elimínalo definitivamente.</p>
+    <ul class="former-students__list">
+        {% for student in former_students %}
+            <li><span><strong>{{ student.name }}</strong> · {{ student.get_grade_display }} · {{ student.pseudonym }} · baja hace {{ student.updated_at|timesince }}</span>
+                <a class="button button--danger" href="{% url 'student_delete' student.pk %}"><span class="icon" aria-hidden="true">delete_forever</span>Eliminar definitivamente</a></li>
+        {% endfor %}
+    </ul>
+</details>
+{% endif %}
 {% endblock %}

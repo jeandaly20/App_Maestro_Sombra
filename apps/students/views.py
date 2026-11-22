@@ -18,7 +18,7 @@ from django.views.generic import CreateView, TemplateView, UpdateView
 
 from apps.core.choices import CONDITION_DESCRIPTIONS, CONDITION_GROUPS, CONDITION_SHORT_NAMES, Grade, RecordStatus
 
-from . import documents
+from . import deletion, documents
 from .consent import consent_form_pdf
 from .forms import StudentConsentForm, StudentForm
 from .models import (
@@ -43,7 +43,11 @@ class StudentListView(LoginRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         students = students_of(self.request.user)
         context.update({'students': students, 'max_students': MAX_STUDENTS_PER_TEACHER,
-                        'is_full': len(students) >= MAX_STUDENTS_PER_TEACHER})
+                        'is_full': len(students) >= MAX_STUDENTS_PER_TEACHER,
+                        # Given leave: their history is kept until the teacher deletes it for good
+                        'former_students': Student.objects.filter(teacher=self.request.user,
+                                                                  record_status=RecordStatus.INACTIVE)
+                                                          .order_by('-updated_at')})
         return context
 
 
@@ -174,6 +178,35 @@ class StudentDeactivateView(LoginRequiredMixin, View):
         student.save(update_fields=['record_status', 'updated_at'] + documents.DOCUMENT_FIELDS)
         logger.info('Student deactivated: %s by teacher=%s', student.pseudonym, request.user.pk)
         messages.success(request, f'{student.name} fue dado de baja. Su historial se conserva y se liberó un cupo.')
+        return redirect('student_list')
+
+
+class StudentDeleteView(LoginRequiredMixin, TemplateView):
+    """
+    Permanent deletion (LOPDP, right to deletion): a confirmation page with everything that will go, then the
+    deletion. Also for a student already given leave, whose data were kept for the history.
+    """
+    template_name = 'students/student_delete.html'
+
+    def student(self):
+        return get_object_or_404(Student, pk=self.kwargs['pk'], teacher=self.request.user)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        student = self.student()
+        context.update({'student': student, 'summary': deletion.summary(student),
+                        'is_active': student.record_status == RecordStatus.ACTIVE})
+        return context
+
+    def post(self, request, pk):
+        student = self.student()
+        if request.POST.get('confirm') != 'on':
+            messages.error(request, 'Marca la casilla para confirmar que entiendes que no se puede deshacer.')
+            return redirect('student_delete', pk=student.pk)
+        name = student.name
+        deletion.delete_permanently(student)
+        logger.info('Permanent deletion requested by teacher=%s', request.user.pk)
+        messages.success(request, f'Se eliminaron definitivamente los datos de {name}.')
         return redirect('student_list')
 
 

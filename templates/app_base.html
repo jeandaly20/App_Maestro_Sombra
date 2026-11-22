@@ -19,7 +19,7 @@
             <ul>
                 <li><a class="sidebar__link" href="{% url 'home' %}" {% if current == 'home' %}aria-current="page"{% endif %}>
                     <span class="icon" aria-hidden="true">dashboard</span>Inicio</a></li>
-                <li><a class="sidebar__link" href="{% url 'student_list' %}" {% if current == 'student_list' or current == 'student_create' or current == 'student_edit' %}aria-current="page"{% endif %}>
+                <li><a class="sidebar__link" href="{% url 'student_list' %}" {% if current == 'student_list' or current == 'student_create' or current == 'student_edit' or current == 'student_delete' %}aria-current="page"{% endif %}>
                     <span class="icon" aria-hidden="true">groups</span>Gestión de estudiantes</a></li>
                 <li><a class="sidebar__link" href="{% url 'adapt' %}" {% if current == 'adapt' or current == 'material_detail' or current == 'adaptation_edit' %}aria-current="page"{% endif %}>
                     <span class="icon" aria-hidden="true">auto_fix_high</span>Adaptar material</a></li>

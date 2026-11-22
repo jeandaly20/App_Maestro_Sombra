@@ -194,6 +194,10 @@
             <p><span class="icon" aria-hidden="true">person_off</span>¿El estudiante ya no está a tu cargo? Al darlo de baja se libera un cupo; su historial no se borra.</p>
             <button type="submit" class="button button--danger"><span class="icon" aria-hidden="true">person_remove</span>Dar de baja</button>
         </form>
+        <div class="student-deactivate">
+            <p><span class="icon" aria-hidden="true">delete_forever</span>¿El representante pidió borrar sus datos? La eliminación definitiva borra al estudiante y todo su historial.</p>
+            <a class="button button--danger" href="{% url 'student_delete' object.pk %}"><span class="icon" aria-hidden="true">delete_forever</span>Eliminar definitivamente</a>
+        </div>
         {% endif %}
     </section>
 </div>
