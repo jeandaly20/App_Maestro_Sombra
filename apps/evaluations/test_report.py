@@ -87,7 +87,7 @@ class EvaluationReportTests(TestCase):
         titles = [title for title, _kind, _rows in sections]
         for expected in (NAME, 'Docente Informe', 'Semana 24 · Calculamos áreas', 'M.3.2.1. Calcular áreas',
                          'Calcular áreas con cuadrícula.', 'Grado 2', 'Hace 2 de los 4 rectángulos.',
-                         'Menos de lo esperado (−1)', 'Está próximo a alcanzar (4 a 6)', 'Apoyo frecuente',
+                         'Menos de lo esperado (−1)', 'Está próximo a alcanzar (4,01 a 6,99)', 'Apoyo frecuente',
                          'Material concreto', OBSERVATION):
             self.assertIn(expected, everything)
         self.assertIn('Adaptaciones por Ejercicio', titles)

@@ -33,8 +33,8 @@ TREND = {'up': 'Mejora observada', 'down': 'Retroceso observado', 'stable': 'Se 
          'variable': 'Variable, sin dirección constante'}
 GOAL_LEVELS = ['Mucho menos (−2)', 'Menos (−1)', 'Lo esperado (0)', 'Más (+1)', 'Mucho más (+2)']
 SCALE_NOTE = ('Logro: −2 mucho menos, −1 menos, 0 lo esperado, +1 más y +2 mucho más de lo esperado. Escala del '
-              'Ministerio de Educación: domina (9 a 10), alcanza (7 a 8), próximo a alcanzar (4 a 6) y no alcanza '
-              '(4 o menos). Apoyo: el que necesitó el estudiante durante la clase.')
+              'Reglamento General a la LOEI (art. 26): domina (9,00 a 10,00), alcanza (7,00 a 8,99), próximo a '
+              'alcanzar (4,01 a 6,99) y no alcanza (4,00 o menos). Apoyo: el que necesitó el estudiante durante la clase.')
 DATE = '%d/%m/%Y'
 
 

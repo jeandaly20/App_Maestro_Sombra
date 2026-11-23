@@ -50,11 +50,11 @@ class Overload(models.TextChoices):
 
 
 class AchievementLevel(models.TextChoices):
-    """Ecuador's qualitative scale of learning achievement."""
-    MASTERS = 'MASTERS', 'Domina los aprendizajes (9 a 10)'
-    ACHIEVES = 'ACHIEVES', 'Alcanza los aprendizajes (7 a 8)'
-    NEAR = 'NEAR', 'Está próximo a alcanzar (4 a 6)'
-    NOT_YET = 'NOT_YET', 'No alcanza los aprendizajes (4 o menos)'
+    """Ecuador's qualitative scale of learning achievement, with its ranges (Reglamento General a la LOEI, art. 26)."""
+    MASTERS = 'MASTERS', 'Domina los aprendizajes (9,00 a 10,00)'
+    ACHIEVES = 'ACHIEVES', 'Alcanza los aprendizajes (7,00 a 8,99)'
+    NEAR = 'NEAR', 'Está próximo a alcanzar (4,01 a 6,99)'
+    NOT_YET = 'NOT_YET', 'No alcanza los aprendizajes (4,00 o menos)'
 
 
 # Comprehension as a percentage, to average it on the dashboard
