@@ -12,3 +12,5 @@ db.sqlite3
 *.zip
 media_pruebas/
 respaldos/
+.coverage
+htmlcov/

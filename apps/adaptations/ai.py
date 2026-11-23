@@ -19,6 +19,7 @@ import logging
 import re
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 from django.conf import settings
@@ -303,12 +304,17 @@ def _call(model, system, parts, schema, timeout):
             'temperature': 0.3,
         },
     }
+    # The model name comes from .env: quoted, so it can only be a model of Google's API over HTTPS (never another
+    # path, host or scheme such as file://)
+    url = API_URL.format(model=urllib.parse.quote(model, safe='.-_'))
+    if not url.startswith('https://generativelanguage.googleapis.com/'):
+        raise AIError('La dirección de la IA no es válida. Revisa GEMINI_MODEL en el archivo .env.')
     request = urllib.request.Request(
-        API_URL.format(model=model),
+        url,
         data=json.dumps(body).encode('utf-8'),
         headers={'Content-Type': 'application/json', 'x-goog-api-key': settings.GEMINI_API_KEY},
     )
-    with urllib.request.urlopen(request, timeout=timeout) as response:
+    with urllib.request.urlopen(request, timeout=timeout) as response:  # nosec B310 - fixed https host, checked above
         return json.load(response)
 
 

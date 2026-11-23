@@ -23,8 +23,8 @@ from reportlab.pdfgen import canvas
 
 from apps.accounts.models import Teacher
 from apps.adaptations import ai, pedagogical_relevance
-from apps.adaptations.models import AdaptationStatus, CurricularAdaptation, LessonAdaptation, LessonPlan
-from apps.adaptations.tests import FakeGemini, SUPPORTED, lesson_answer, worksheet_answer
+from apps.adaptations.models import CurricularAdaptation, LessonPlan
+from apps.adaptations.tests import FakeGemini, SUPPORTED
 from apps.core.choices import Condition
 from apps.evaluations.models import Evaluation, EvaluationStatus
 from apps.materials.models import MaterialStatus, OriginalMaterial, Subject

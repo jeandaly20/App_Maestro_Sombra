@@ -10,7 +10,7 @@ name written in. Software cannot prove a signature is genuine: the teacher still
 import io
 import logging
 import re
-from xml.sax.saxutils import escape
+from xml.sax.saxutils import escape  # nosec B406 - only escapes text for the PDF markup; no XML is parsed
 
 from django.utils import timezone
 from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY

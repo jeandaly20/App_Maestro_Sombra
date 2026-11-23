@@ -15,7 +15,7 @@ import logging
 import os
 import re
 import shutil
-import subprocess
+import subprocess  # nosec B404 - only fixed local tools (Tesseract, pg_dump), never a shell
 import unicodedata
 import uuid
 from collections import namedtuple
@@ -123,7 +123,8 @@ def tesseract():
         str(USER_TESSDATA) if (USER_TESSDATA / 'spa.traineddata').exists() else '')
     base = [command] + (['--tessdata-dir', data_dir] if data_dir else [])
     try:
-        listed = subprocess.run(base + ['--list-langs'], capture_output=True, text=True, timeout=10).stdout
+        listed = subprocess.run(base + ['--list-langs'], capture_output=True, text=True,  # nosec B603 - fixed args
+                                timeout=10).stdout
     except (OSError, subprocess.SubprocessError):
         return None
     languages = set(listed.split())
@@ -149,7 +150,7 @@ def run_ocr(image, *options):
     base, language = found
     try:
         # stdin/stdout: the image never touches a temporary file on disk
-        result = subprocess.run(base + ['stdin', 'stdout', '-l', language, *options], input=buffer.getvalue(),
+        result = subprocess.run(base + ['stdin', 'stdout', '-l', language, *options], input=buffer.getvalue(),  # nosec B603 - argument list, no shell; the executable is Tesseract and the input an image
                                 capture_output=True, timeout=OCR_TIMEOUT_SECONDS)
     except (OSError, subprocess.SubprocessError):
         logger.warning('OCR failed or timed out')

@@ -12,7 +12,7 @@ import glob
 import os
 import re
 import shutil
-import subprocess
+import subprocess  # nosec B404 - only fixed local tools (Tesseract, pg_dump), never a shell
 import zipfile
 from datetime import datetime
 from pathlib import Path
@@ -54,7 +54,8 @@ def _database(alias='default'):
 
 
 def _run(command, env):
-    result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=TIMEOUT_SECONDS)
+    # Argument list, no shell: pg_dump or pg_restore with the database settings, never user input
+    result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=TIMEOUT_SECONDS)  # nosec B603
     if result.returncode != 0:
         # pg_dump's own message (it never contains the password); trimmed so the log stays readable
         raise BackupError(f'{Path(command[0]).stem} terminó con error: {result.stderr.strip()[-400:]}')

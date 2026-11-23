@@ -80,6 +80,21 @@ class BackupTests(SimpleTestCase):
             call_command('restaurar_respaldo', str(folder), '--confirmar', stdout=StringIO())
             restore.assert_called_once()
 
+    def test_the_backup_command_reports_the_new_folder(self):
+        with mock.patch.object(backup, '_run', fake_pg_dump), mock.patch.object(backup, 'pg_tool', lambda n: n):
+            output = StringIO()
+            call_command('respaldar_base', stdout=output)
+        self.assertIn('Respaldo creado', output.getvalue())
+        self.assertIn('FIELD_ENCRYPTION_KEY', output.getvalue())
+        self.assertEqual(len(backup.backups()), 1)
+
+    def test_a_failed_backup_command_says_why(self):
+        def failing(command, env):
+            raise backup.BackupError('pg_dump terminó con error: sin conexión')
+        with mock.patch.object(backup, '_run', failing), mock.patch.object(backup, 'pg_tool', lambda n: n):
+            with self.assertRaisesMessage(CommandError, 'sin conexión'):
+                call_command('respaldar_base', stdout=StringIO())
+
     def test_the_password_goes_only_in_the_environment(self):
         name, args, env = backup._database()
         self.assertNotIn('PGPASSWORD', ' '.join(args))

@@ -1,0 +1,10 @@
+# Herramientas de desarrollo (no las usa la aplicacion): venv\Scripts\pip.exe install -r requirements-dev.txt
+# Cobertura:   venv\Scripts\python.exe -m coverage run manage.py test apps --settings=config.settings_test --keepdb
+#              venv\Scripts\python.exe -m coverage report
+# Codigo:      venv\Scripts\ruff.exe check apps config
+# Seguridad:   venv\Scripts\bandit.exe -r apps config -x "*/migrations/*,*/test*.py,*/tests.py"
+# Librerias:   venv\Scripts\pip-audit.exe -r requirements.txt
+coverage==7.17.4
+ruff==0.17.6
+bandit==1.9.4
+pip-audit==2.10.1

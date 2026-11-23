@@ -15,7 +15,7 @@ import base64
 import io
 import logging
 import re
-import subprocess
+import subprocess  # nosec B404 - only fixed local tools (Tesseract, pg_dump), never a shell
 import unicodedata
 from dataclasses import dataclass, field
 
@@ -130,7 +130,7 @@ def _ocr(image):
     base, language = found
     buffer = io.BytesIO()
     image.save(buffer, 'PNG')
-    result = subprocess.run(base + ['stdin', 'stdout', '-l', language, '--psm', '3', '-c', 'tessedit_create_tsv=1'],
+    result = subprocess.run(base + ['stdin', 'stdout', '-l', language, '--psm', '3', '-c', 'tessedit_create_tsv=1'],  # nosec B603 - argument list, no shell; the executable is Tesseract and the input an image
                             input=buffer.getvalue(), capture_output=True, timeout=OCR_TIMEOUT)
     words = []
     for line in result.stdout.decode('utf-8', errors='ignore').splitlines()[1:]:

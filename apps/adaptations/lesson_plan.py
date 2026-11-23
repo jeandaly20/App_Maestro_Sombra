@@ -457,7 +457,7 @@ def write_class_sheet(sheet, **data):
 
 def adapted_pdf(classes):
     """The adapted class as a landscape PDF, [(student name, data)]: one student after another."""
-    from xml.sax.saxutils import escape
+    from xml.sax.saxutils import escape  # nosec B406 - only escapes text for the PDF markup; no XML is parsed
 
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4, landscape

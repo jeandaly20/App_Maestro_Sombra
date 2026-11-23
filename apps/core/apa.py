@@ -9,7 +9,7 @@ The materials for the student (the adapted worksheet) do not use it: they keep t
 import functools
 import io
 from pathlib import Path
-from xml.sax.saxutils import escape
+from xml.sax.saxutils import escape  # nosec B406 - only escapes text for the PDF markup; no XML is parsed
 
 from reportlab.graphics.shapes import Circle, Drawing, Line, PolyLine, String
 from reportlab.lib import colors

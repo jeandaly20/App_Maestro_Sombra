@@ -1,0 +1,10 @@
+# Code checks: venv\Scripts\ruff.exe check apps config
+# Real errors (E9: syntax; F: undefined names, unused imports...) and likely bugs (B: flake8-bugbear).
+line-length = 120
+extend-exclude = ["*/migrations/*"]
+
+[lint]
+select = ["E9", "F", "B"]
+# zip() without strict=: every zip in the app pairs lists that are equal by construction, or on purpose of
+# different length (a point with the next one, labels cut to the items); strict=True would only add crashes.
+ignore = ["B905"]

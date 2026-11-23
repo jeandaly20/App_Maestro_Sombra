@@ -22,7 +22,7 @@ from apps.accounts.models import Teacher
 from apps.core.choices import INTELLECTUAL_DISABILITY, LEARNING_DISORDERS, Condition
 from apps.materials.models import MaterialStatus, OriginalMaterial, Subject
 from apps.students import documents
-from apps.students.models import Student, StudentConsent, Treatment, ai_profile_allowed
+from apps.students.models import Student
 
 from . import ai, document_privacy as privacy, pedagogical_relevance as engine, services
 from .forms import AdaptMaterialForm
