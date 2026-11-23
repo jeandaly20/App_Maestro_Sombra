@@ -36,39 +36,56 @@ def _font(size, bold=False):
     return ImageFont.truetype(path, size) if path else ImageFont.load_default()
 
 
-def _int(value, low, high, default=0):
+INVALID = object()
+
+
+def _int(value, low, high, missing=INVALID):
+    """
+    The whole number as given when it is within [low, high]; `missing` when it was not given; otherwise INVALID.
+    Never moved into the range: a drawing must show the worksheet's own numbers, so 5 × 14 is never drawn as
+    10 × 14, nor a fraction of 40 parts with 12. A number that cannot be drawn leaves the step without drawing.
+    """
+    if value is None or value == '':
+        return missing
     try:
-        return max(low, min(high, int(value)))
+        number = int(value)
     except (TypeError, ValueError):
-        return default
+        return INVALID
+    return number if low <= number <= high and number == float(value) else INVALID
 
 
 def clean_visual(spec):
-    """Validates the AI's choice. Returns a safe spec, or None if there is nothing to draw."""
+    """Validates the AI's choice. Returns a safe spec, or None if it cannot be drawn exactly as asked."""
     if not isinstance(spec, dict) or spec.get('type') not in TYPES or spec.get('type') == 'NONE':
         return None
     kind = spec['type']
     if kind in ('FRACTION_CIRCLE', 'FRACTION_BAR'):
-        parts = _int(spec.get('parts'), 2, 12, 0)
-        if not parts:
+        parts = _int(spec.get('parts'), 2, 12)
+        shaded = _int(spec.get('shaded'), 0, parts, 0) if parts is not INVALID else INVALID
+        crossed = _int(spec.get('crossed'), 0, shaded, 0) if shaded is not INVALID else INVALID
+        if INVALID in (parts, shaded, crossed):
             return None
-        shaded = _int(spec.get('shaded'), 0, parts)
-        crossed = _int(spec.get('crossed'), 0, shaded)
         return {'type': kind, 'parts': parts, 'shaded': shaded, 'crossed': crossed}
     if kind == 'NUMBER_LINE':
         start = _int(spec.get('start'), -50, 100, 0)
-        end = _int(spec.get('end'), start + 1, start + 20, start + 10)
-        marks = [m for m in (spec.get('marks') or []) if isinstance(m, int) and start <= m <= end][:5]
+        end = _int(spec.get('end'), start + 1, start + 20, start + 10) if start is not INVALID else INVALID
+        marks = spec.get('marks') or []
+        if INVALID in (start, end) or not isinstance(marks, list) or len(marks) > 5:
+            return None
+        marks = [_int(mark, start, end) for mark in marks]
+        if INVALID in marks:  # a mark off the line would simply vanish from the drawing
+            return None
         return {'type': kind, 'start': start, 'end': end, 'marks': marks}
     if kind == 'COUNT':
-        count = _int(spec.get('count'), 1, 20, 0)
-        if not count:
+        count = _int(spec.get('count'), 1, 20)
+        crossed = _int(spec.get('crossed'), 0, count, 0) if count is not INVALID else INVALID
+        if INVALID in (count, crossed):
             return None
-        return {'type': kind, 'count': count, 'crossed': _int(spec.get('crossed'), 0, count)}
+        return {'type': kind, 'count': count, 'crossed': crossed}
     if kind == 'MULTIPLICATION_GRID':
         # Factors of 2 digits, as in the worksheets that multiply by decomposing into tens and units
-        a, b = _int(spec.get('a'), 10, 99, 0), _int(spec.get('b'), 10, 99, 0)
-        if not (a and b):
+        a, b = _int(spec.get('a'), 10, 99), _int(spec.get('b'), 10, 99)
+        if INVALID in (a, b):
             return None
         return {'type': kind, 'a': a, 'b': b, 'show_products': bool(spec.get('show_products'))}
     items = [str(item).strip()[:40] for item in (spec.get('items') or []) if str(item).strip()][:5]
