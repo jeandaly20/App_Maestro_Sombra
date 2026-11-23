@@ -1,6 +1,8 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 
+from apps.core.admin_tools import NoDeleteAdmin
+
 from .models import Teacher
 
 
@@ -21,10 +23,11 @@ class RoleFilter(admin.SimpleListFilter):
 
 
 @admin.register(Teacher)
-class TeacherAdmin(UserAdmin):
+class TeacherAdmin(UserAdmin, NoDeleteAdmin):
     """
     Administrator panel: account management (approved proposal, 2.4). Teachers and administrators share this
     table; the role column tells them apart, and an administrator never works as a teacher (core.middleware).
+    An account is deactivated with record_status, never deleted (core.admin_tools).
     """
     ordering = ['full_name']
     list_display = ['full_name', 'email', 'role', 'specialty', 'record_status']
