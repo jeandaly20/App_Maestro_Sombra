@@ -1174,6 +1174,13 @@
     list-style: none;
 }
 
+.lesson-done__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-sm);
+}
+
 .lesson-done__list li {
     display: flex;
     align-items: center;

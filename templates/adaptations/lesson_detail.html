@@ -192,7 +192,10 @@
     <ul class="lesson-done__list">
         {% for item in adaptations %}<li><span class="icon" aria-hidden="true">folder</span>{{ item.student.name }}: Clase adaptada ({{ lesson.plan_format_label }}) y Ficha (PDF){% if not item.active_worksheet %}, sin ficha{% endif %}</li>{% endfor %}
     </ul>
-    <a class="button button--primary button--large" href="{% url 'lesson_zip' lesson.pk %}"><span class="icon" aria-hidden="true">folder_zip</span>Descargar clase completa (ZIP)</a>
+    <div class="lesson-done__actions">
+        <a class="button button--primary button--large" href="{% url 'lesson_zip' lesson.pk %}"><span class="icon" aria-hidden="true">folder_zip</span>Descargar clase completa (ZIP)</a>
+        <a class="button button--secondary button--large" href="{% url 'bank' %}"><span class="icon" aria-hidden="true">collections_bookmark</span>Volver al banco de adaptaciones</a>
+    </div>
     <p class="field__help">¿Quieres cambiar algo? Elige el estudiante y el paso arriba.</p>
 </section>
 {% endif %}
