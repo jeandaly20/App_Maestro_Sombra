@@ -6,6 +6,9 @@
 {% block body %}
 <div class="app">
     <aside class="sidebar" id="sidebar" aria-label="Menú principal">
+        <button type="button" class="sidebar__close" data-close-menu aria-label="Cerrar el menú">
+            <span class="icon" aria-hidden="true">close</span>
+        </button>
         <a class="brand" href="{% url 'home' %}">
             <img class="brand__mark" src="{% static 'img/logo.webp' %}" alt="" width="360" height="258">
             <span>
@@ -41,6 +44,8 @@
             </form>
         </div>
     </aside>
+    {# On a phone the open menu covers the "Menú" button: tapping outside it (or Esc, or the X) closes it #}
+    <div class="sidebar-backdrop" data-close-menu hidden></div>
 
     <div>
         <header class="topbar">

@@ -54,6 +54,8 @@
 <form class="bank-filters" method="get" role="search" aria-label="Filtrar adaptaciones">
     <input type="hidden" name="vista" value="{{ tab }}">
     {% if selected_student %}<input type="hidden" name="alumno" value="{{ selected_student }}">{% endif %}
+    {# The chosen subject goes BEFORE its buttons: a clicked subject is sent after it, and the server keeps the last #}
+    {% if selected_subject %}<input type="hidden" name="materia" value="{{ selected_subject }}">{% endif %}
     <div class="filter-chips" role="group" aria-label="Materia">
         <span class="bank-filters__label">Materia:</span>
         <button type="submit" name="materia" value="" class="filter-chip" aria-pressed="{% if not selected_subject %}true{% else %}false{% endif %}">Todas</button>
@@ -72,7 +74,6 @@
             {% endfor %}
         </select>
         {% endif %}
-        {% if selected_subject %}<input type="hidden" name="materia" value="{{ selected_subject }}">{% endif %}
         <label class="sr-only" for="bank-search">Buscar por título, tema o código</label>
         <div class="field__wrapper bank-filters__search">
             <span class="icon field__icon" aria-hidden="true">search</span>

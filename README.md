@@ -25,8 +25,8 @@ El código y la base de datos están en inglés; todo lo que ve el usuario está
   cifrado, expediente en ZIP y eliminación definitiva.
 - **Adaptar material:** guía en fotos del cuaderno, PDF o Word para uno o más estudiantes a la vez; comparativa con el
   original, ajuste manual, regeneración y descarga en PDF.
-- **Adaptar clase completa:** planificación semanal en Excel, Word o PDF con las páginas del libro; la clase vuelve en
-  Excel, Word y PDF.
+- **Adaptar clase completa:** planificación semanal en Excel, Word o PDF con las páginas del libro; la clase adaptada
+  vuelve en el mismo formato de la planificación.
 - **Verificación de pautas:** cada adaptación se revisa con las reglas de cada condición (`nee_modules.py`) y el docente
   la aprueba antes de descargarla.
 - **Evaluación y seguimiento:** cinco preguntas con la escala del Reglamento General a la LOEI (art. 26), informe de
@@ -95,8 +95,22 @@ Se guardan en `respaldos/` (o en `BACKUP_DIR`) y se conservan los últimos 14 (`
 venv\Scripts\python.exe manage.py test apps --settings=config.settings_test
 ```
 
-263 pruebas (unitarias, de integración y de escenario) con una cobertura del 88 % del código. Las herramientas de
-cobertura, estilo (ruff), seguridad (bandit) y revisión de librerías (pip-audit) están en `requirements-dev.txt`.
+263 pruebas (unitarias, de integración y de escenario) con una cobertura del 88 % del código. Las pruebas usan una
+base de datos aislada que Django crea y borra en cada ejecución, así que no tocan los datos reales.
+
+Con las herramientas de desarrollo (`venv\Scripts\pip.exe install -r requirements-dev.txt`):
+
+```bash
+venv\Scripts\python.exe -m coverage run manage.py test apps --settings=config.settings_test
+venv\Scripts\python.exe -m coverage report
+venv\Scripts\ruff.exe check apps config
+venv\Scripts\bandit.exe -r apps config -x "*/migrations/*,*/test*.py,*/tests.py"
+venv\Scripts\pip-audit.exe -r requirements.txt
+```
+
+El primero ejecuta las pruebas midiendo la cobertura y el segundo muestra el reporte por archivo; ruff revisa el estilo
+del código, bandit busca fallas de seguridad y pip-audit comprueba que las librerías no tengan vulnerabilidades
+conocidas.
 
 ## Direcciones
 

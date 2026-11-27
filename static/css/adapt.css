@@ -300,14 +300,6 @@
     color: var(--color-text-soft);
 }
 
-.scale-control {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-sm);
-    font-size: 0.875rem;
-}
-
 .comparison {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
@@ -393,7 +385,6 @@
 }
 
 .adapted {
-    --scale: 1;
     border: 2px solid var(--color-primary);
 }
 
@@ -429,7 +420,7 @@
 
 .worksheet {
     font-family: var(--font-heading);
-    font-size: calc(1.0625rem * var(--scale));
+    font-size: 1.0625rem;
     line-height: 1.8;
     letter-spacing: 0.01em;
 }

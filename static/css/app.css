@@ -79,6 +79,12 @@
     margin-right: auto;
 }
 
+/* Only on a phone or tablet, where the menu slides over the page */
+.sidebar__close,
+.sidebar-backdrop {
+    display: none;
+}
+
 .user {
     display: flex;
     align-items: center;
@@ -259,6 +265,35 @@
     .sidebar[data-open="true"] {
         transform: translateX(0);
         box-shadow: var(--shadow-modal);
+    }
+
+    .sidebar__close {
+        position: absolute;
+        top: 0.75rem;
+        right: 0.75rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.75rem;
+        height: 2.75rem;
+        border: 1px solid var(--color-border);
+        border-radius: 999px;
+        background: #fff;
+        color: var(--color-text);
+        cursor: pointer;
+    }
+
+    .sidebar__close:focus-visible {
+        outline: 3px solid var(--color-primary);
+        outline-offset: 2px;
+    }
+
+    .sidebar-backdrop:not([hidden]) {
+        position: fixed;
+        inset: 0;
+        z-index: 40;
+        display: block;
+        background: rgba(15, 23, 42, 0.45);
     }
 
     .topbar {

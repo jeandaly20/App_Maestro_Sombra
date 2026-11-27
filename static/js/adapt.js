@@ -1,4 +1,4 @@
-// Adapt material: input type tabs, recommended rules, status polling, scale, color filter and guided reading.
+// Adapt material: input type tabs, recommended rules, status polling, color filter and guided reading.
 'use strict';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -94,15 +94,6 @@ function setUpPolling() {
 function setUpComparisonTools() {
     const adapted = document.querySelector('[data-adapted]');
     if (!adapted) return;
-
-    // Text scale 100 / 125 / 150 %
-    const scaleButtons = [...document.querySelectorAll('[data-scale]')];
-    scaleButtons.forEach((button) => {
-        button.addEventListener('click', () => {
-            adapted.style.setProperty('--scale', button.dataset.scale);
-            scaleButtons.forEach((other) => other.setAttribute('aria-pressed', String(other === button)));
-        });
-    });
 
     // Color filter: preview at once and save it for the PDF
     const filterForm = document.querySelector('[data-color-filter-form]');

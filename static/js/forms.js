@@ -92,14 +92,24 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Sidebar on mobile
+    // Sidebar on mobile. Open, it covers the "Menú" button, so it closes with its X, a tap outside it or Esc
     const menuButton = document.querySelector('[data-open-menu]');
     const sidebar = document.getElementById('sidebar');
     if (menuButton && sidebar) {
-        menuButton.addEventListener('click', () => {
-            const open = sidebar.dataset.open === 'true';
-            sidebar.dataset.open = String(!open);
-            menuButton.setAttribute('aria-expanded', String(!open));
+        const backdrop = document.querySelector('.sidebar-backdrop');
+        const closeButton = sidebar.querySelector('.sidebar__close');
+        const setMenu = (open) => {
+            sidebar.dataset.open = String(open);
+            menuButton.setAttribute('aria-expanded', String(open));
+            if (backdrop) backdrop.hidden = !open;
+            (open ? closeButton : menuButton)?.focus();
+        };
+        menuButton.addEventListener('click', () => setMenu(sidebar.dataset.open !== 'true'));
+        document.querySelectorAll('[data-close-menu]').forEach((element) => {
+            element.addEventListener('click', () => setMenu(false));
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && sidebar.dataset.open === 'true') setMenu(false);
         });
     }
 });

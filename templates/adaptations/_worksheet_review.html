@@ -1,7 +1,7 @@
 {% comment %}The adapted worksheet with its review actions. "worksheet" is a CurricularAdaptation; with next_url the
 actions return to that page (the class in "Adaptar clase") instead of the material page.{% endcomment %}
     {% with content=worksheet.content %}
-    <section class="card adapted adapted--{{ worksheet.color_filter|lower }}" aria-labelledby="adapted-title" data-adapted data-scale-target>
+    <section class="card adapted adapted--{{ worksheet.color_filter|lower }}" aria-labelledby="adapted-title" data-adapted>
         <header class="adapted__header">
             <span class="icon" aria-hidden="true">auto_fix_high</span>
             <div>
